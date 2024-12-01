@@ -14,21 +14,34 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ai_generator')
 
 class AIGenerator:
+    # Discord style as a class attribute
+    discord_style = """
+    Style Instructions for Discord:
+    1. NEVER use emojis or emoticons of any kind
+    2. Keep responses very short (1-2 sentences maximum)
+    3. Use text-speak and casual language
+    4. Replace 'r' with 'fw' and 'l' with 'w' in words
+    5. Keep responses friendly but concise
+    """
+
     def __init__(self, mode='twitter'):
         self.mode = mode
         # Mode-specific settings
         if mode == 'twitter':
-            self.max_tokens = 280
+            self.max_tokens = 70
             self.temperature = 0.7
+            self.length_formats = self.load_length_formats()
+            self.emotion_formats = self.load_emotion_formats()
         elif mode == 'discord':
-            self.max_tokens = 200  # Shorter responses for Discord
-            self.temperature = 0.5  # Lower temperature for more consistent responses
+            self.max_tokens = 40
+            self.temperature = 0.7
+            self.emotion_formats = self.load_emotion_formats()
         else:  # telegram or other
-            self.max_tokens = 150
-            self.temperature = 0.6
+            self.max_tokens = 40
+            self.temperature = 0.7
+            self.emotion_formats = self.load_emotion_formats()
             
         self.system_prompt = SYSTEM_PROMPTS.get('style1', '')
-        self.length_formats = self.load_length_formats()
         
         # Initialize OpenAI client
         self.client = OpenAI(
@@ -36,84 +49,88 @@ class AIGenerator:
             base_url=Config.OPENAI_BASE_URL
         )
         
-        self.model = Config.AI_MODEL2
+        # Always use Gemma for direct user interactions
+        self.model = Config.AI_MODEL2  # This is gemma-2-9b-it
 
     def load_length_formats(self):
+        """Load Twitter-specific length formats"""
         data_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'length_formats.json')
         with open(data_file, 'r', encoding='utf8') as f:
             data = json.load(f)
-            return data.get('formats', [{"format": "default response"}])
+            return data.get('formats', [{"format": "one short sentence", "description": "Single concise sentence"}])
 
-    def clean_response(self, content):
-        """Remove emojis and emoticons from response"""
-        # Remove unicode emojis
-        content = re.sub(r'[\U0001F300-\U0001F9FF]', '', content)
-        # Remove :emoji: style
-        content = re.sub(r':[a-zA-Z_]+:', '', content)
-        # Remove ASCII emoticons
-        content = re.sub(r'[\:;][\'"]?[-~]?[\)\(\]\[\{\}DPp]', '', content)
-        return content.strip()
+    def load_emotion_formats(self):
+        """Load emotion formats for response generation"""
+        data_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'emotion_formats.json')
+        with open(data_file, 'r', encoding='utf8') as f:
+            data = json.load(f)
+            return data.get('formats', [{"format": "default response", "description": "Standard emotional response"}])
 
-    def generate_content(self, user_message='', topic='', user_id=None, username=None, conversation_context='', memories=None, narrative_context=None):
+    def _prepare_messages(self, **kwargs):
+        """Prepare messages for API call - exposed for testing"""
+        # Select appropriate formats based on mode
+        if self.mode == 'twitter':
+            emotion_format = random.choice(self.emotion_formats)['format']
+            length_format = random.choice(self.length_formats)['format']
+            memory_context = kwargs.get('memories') if kwargs.get('memories') else "no relevant memories for this conversation"
+            
+            # Extract tweet content for replies
+            if not kwargs.get('topic'):
+                # Extract content between quotes from "Generate a friendly reply to this tweet: "actual content""
+                tweet_match = re.search(r'"([^"]*)"', kwargs.get('user_message'))
+                tweet_content = tweet_match.group(1) if tweet_match else kwargs.get('user_message')
+            else:
+                tweet_content = kwargs.get('topic')
+
+            # Build Twitter-specific prompt with exact format
+            content_prompt = (
+                f"Talk about {tweet_content}. Format the response as: {length_format}; let this emotion shape your response: {emotion_format}. "
+                f"Remember to respond like a text message (max. 280 characters) "
+                f"using text-speak and replacing 'r' with 'fw' and 'l' with 'w', "
+                f"adhering to the format and format-length. "
+                f"And do not use emojis nor quotes or any other characters, just plain text.\n\n"
+                f"memories: {memory_context}\n"
+                f"previous conversations: {kwargs.get('conversation_context', '')}\n"
+                f"current event: {kwargs.get('narrative_context', {}).get('current_event', '') if kwargs.get('narrative_context') else ''}\n"
+                f"inner dialogue: {kwargs.get('narrative_context', {}).get('current_inner_dialogue', '') if kwargs.get('narrative_context') else ''}"
+            )
+        else:
+            # Discord and Telegram format
+            emotion_format = random.choice(self.emotion_formats)['format']
+            memory_context = kwargs.get('memories') if kwargs.get('memories') else "no relevant memories for this conversation"
+            
+            content_prompt = (
+                f"Previous conversation:\n"
+                f"{kwargs.get('conversation_context', '')}\n\n"
+                f"New message from {kwargs.get('username') or kwargs.get('user_id')}: \"{kwargs.get('user_message')}\"\n\n"
+                f"Let this emotion shape your response: {emotion_format}. "
+                f"Remember to respond like a text message using text-speak and replacing 'r' with 'fw' and 'l' with 'w'. "
+                f"And do not use emojis. Keep the conversation context in mind when responding; "
+                f"keep your memories in mind when responding: {memory_context}. "
+                f"Your character has an arc, if it seems relevant to your response, mention it, "
+                f"where the current event is: {kwargs.get('narrative_context', {}).get('current_event', '') if kwargs.get('narrative_context') else ''} "
+                f"and the inner dialogue to such an event is: {kwargs.get('narrative_context', {}).get('current_inner_dialogue', '') if kwargs.get('narrative_context') else ''}.\n\n"
+                f"memories: {memory_context}"
+            )
+
+        messages = [
+            {
+                "role": "system",
+                "content": f"{self.system_prompt}\n{self.discord_style if self.mode == 'discord' else ''}"
+            },
+            {
+                "role": "user",
+                "content": content_prompt
+            }
+        ]
+
+        return messages
+
+    def generate_content(self, **kwargs):
         """Generate content synchronously"""
         try:
-            random_format = random.choice(self.length_formats)['format']
+            messages = self._prepare_messages(**kwargs)
             
-            # Add stronger emoji restriction to system prompt
-            discord_style = """
-            Style Instructions for Discord:
-            1. NEVER use emojis or emoticons of any kind
-            2. Keep responses very short (1-2 sentences maximum)
-            3. Use text-speak and casual language
-            4. Replace 'r' with 'fw' and 'l' with 'w' in words
-            5. Keep responses friendly but concise
-            """
-            
-            # Determine the appropriate prompt based on mode and input
-            if self.mode == 'twitter':
-                if topic:
-                    content_prompt = f"Generate a tweet about: {topic}"
-                else:
-                    content_prompt = f"Generate a friendly reply to this tweet: \"{user_message}\""
-            else:
-                content_prompt = user_message
-
-            # Format memories and narrative context
-            memory_context = ""
-            if memories:
-                if isinstance(memories, list):
-                    memory_text = "\n- ".join(memories)
-                    memory_context = f"\nRelevant memories:\n- {memory_text}"
-                else:
-                    memory_context = f"\nMemories:\n{memories}"
-
-            narrative_info = ""
-            if narrative_context:
-                narrative_info = f"\nCurrent event: {narrative_context.get('current_event', '')}\nInner dialogue: {narrative_context.get('current_inner_dialogue', '')}"
-
-            messages = [
-                {
-                    "role": "system",
-                    "content": f"{self.system_prompt}\n{discord_style if self.mode == 'discord' else ''}"
-                },
-                {
-                    "role": "user",
-                    "content": f"""Previous conversation:
-{conversation_context}
-
-{memory_context}
-{narrative_info}
-
-New message from {username or user_id}: "{content_prompt}"
-
-IMPORTANT RULES:
-1. NEVER use emojis or emoticons
-2. Keep your response very short
-3. Let this emotion shape your response: {random_format}
-4. Replace 'r' with 'fw' and 'l' with 'w'"""
-                }
-            ]
-
             logger.info(f"Generating response with mode: {self.mode}")
             logger.debug(f"System prompt: {messages[0]['content']}")
             logger.debug(f"User message: {messages[1]['content']}")
@@ -127,15 +144,10 @@ IMPORTANT RULES:
                 frequency_penalty=0.6
             )
 
-            content = response.choices[0].message.content
-            
-            # Clean the response
-            cleaned_content = self.clean_response(content)
-            
-            return cleaned_content
+            return response.choices[0].message.content
 
         except Exception as e:
             logger.error(f"Error generating content: {e}")
-            logger.error(f"Context: memories={memories}, narrative={narrative_context}")
+            logger.error(f"Context: memories={kwargs.get('memories')}, narrative={kwargs.get('narrative_context')}")
             raise
 

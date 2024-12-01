@@ -5,6 +5,7 @@ import logging
 from src.config import Config
 from src.creativity_manager import CreativityManager
 from openai import OpenAI
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -387,9 +388,16 @@ class StoryCircleManager:
             raise
 
     def get_current_context(self):
-        """Get the current event and inner dialogue for the bot"""
+        """Get the current story circle context"""
         try:
-            with open(STORY_CIRCLE_PATH, 'r') as f:
+            # Update path to use data directory
+            story_circle_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'story_circle.json')
+            
+            if not os.path.exists(story_circle_file):
+                logger.warning(f"No story circle file found at {story_circle_file}")
+                return {}
+            
+            with open(story_circle_file, 'r', encoding='utf-8') as f:
                 story_circle = json.load(f)
                 
             return {

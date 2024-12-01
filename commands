@@ -1,2 +1,11 @@
 mkdir -p data
+touch data/memories.json
+touch data/story_circle.json
+
+# Initialize memories.json with empty array
+echo '[]' > data/memories.json
+
+# Initialize story_circle.json with empty object
+echo '{}' > data/story_circle.json
+
 touch data/processed_tweets.txt 

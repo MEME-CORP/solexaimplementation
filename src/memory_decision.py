@@ -2,6 +2,7 @@ from openai import OpenAI
 import json
 import logging
 from src.config import Config
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,33 +30,38 @@ Selection criteria:
 2. Memory should help maintain character consistency
 3. Memory should enrich the response without overwhelming it
 4. Prioritize recent and emotionally significant memories
-5. Consider the user's history and relationship context"""
+5. Consider the user's history and relationship context
+6. if no relevant memories are found, return an empty string"""
 
 class MemoryDecision:
     def __init__(self):
-        # Initialize OpenAI client
         self.client = OpenAI(
             api_key=Config.GLHF_API_KEY,
             base_url=Config.OPENAI_BASE_URL
         )
 
     async def select_relevant_memories(self, user_identifier: str, user_message: str) -> str:
-        """
-        Select relevant memories based on the current conversation context.
-        Returns a comma-separated string of relevant memories.
-        """
+        """Select relevant memories from existing ones."""
         try:
-            # Read all available memories
-            with open('memories.json', 'r') as f:
-                all_memories = json.load(f)['memories']
+            memories_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'memories.json')
             
-            # Get memory selection from AI
+            if not os.path.exists(memories_file):
+                logger.warning(f"No memories file found at {memories_file}")
+                return "no relevant memories for this conversation"
+            
+            with open(memories_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                all_memories = data.get('memories', [])
+
+            if not all_memories:
+                return "no relevant memories for this conversation"
+
             response = self.client.chat.completions.create(
-                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",  # Updated model name
+                model=Config.AI_MODEL2,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a precise memory selection tool. You MUST respond with ONLY a valid JSON object, with no additional text, comments, or formatting."
+                        "content": "You are a memory selection tool. Return only valid JSON with selected memories."
                     },
                     {
                         "role": "user", 
@@ -70,40 +76,37 @@ class MemoryDecision:
                 max_tokens=100
             )
             
-            # Parse response with extra safety checks
             response_text = response.choices[0].message.content.strip()
-            
-            # Debug logging
             logger.debug(f"Raw AI response: {response_text}")
             
             try:
-                # Try to clean the response if it contains any markdown formatting
-                if response_text.startswith('```json'):
-                    response_text = response_text.replace('```json', '').replace('```', '').strip()
-                elif response_text.startswith('```'):
-                    response_text = response_text.replace('```', '').strip()
+                # Clean any markdown formatting
+                if response_text.startswith('```'):
+                    response_text = response_text.split('```')[1]
+                    if response_text.startswith('json'):
+                        response_text = response_text[4:]
+                response_text = response_text.strip()
                 
-                # Parse the cleaned JSON
                 selection = json.loads(response_text)
                 
-                # Validate the expected structure
                 if not isinstance(selection, dict) or "selected_memories" not in selection:
                     logger.error("Invalid response structure")
-                    return ""
+                    return "no relevant memories for this conversation"
                 
-                if not isinstance(selection["selected_memories"], list):
-                    logger.error("selected_memories is not a list")
-                    return ""
+                valid_memories = [mem for mem in selection["selected_memories"] if mem in all_memories]
                 
-                return "\n".join(selection["selected_memories"])
+                if not valid_memories:
+                    return "no relevant memories for this conversation"
+                    
+                return "\n".join(valid_memories)
                 
             except json.JSONDecodeError as e:
                 logger.error(f"JSON parsing error: {e}\nRaw response: {response_text}")
-                return ""
+                return "no relevant memories for this conversation"
             
         except Exception as e:
             logger.error(f"Error selecting memories: {e}")
-            return ""
+            return "no relevant memories for this conversation"
 
 # Create singleton instance
 _memory_decision = MemoryDecision()

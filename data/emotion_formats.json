@@ -1,0 +1,160 @@
+{
+    "formats": [
+        {
+            "format": "one word",
+            "description": "Single word response"
+        },
+        {
+            "format": "sleepy mumble",
+            "description": "Drowsy, soft response"
+        },
+        {
+            "format": "curious tilt",
+            "description": "Inquisitive, head-tilting response"
+        },
+        {
+            "format": "gentle ribbit",
+            "description": "Soft, friendly acknowledgment"
+        },
+        {
+            "format": "confused blink",
+            "description": "Puzzled, slightly lost response"
+        },
+        {
+            "format": "happy hop",
+            "description": "Joyful, bouncy reply"
+        },
+        {
+            "format": "thoughtful pause",
+            "description": "Contemplative, measured response"
+        },
+        {
+            "format": "silly giggle",
+            "description": "Playful, amused reply"
+        },
+        {
+            "format": "surprised gasp",
+            "description": "Startled, wide-eyed response"
+        },
+        {
+            "format": "cozy whisper",
+            "description": "Comfortable, intimate reply"
+        },
+        {
+            "format": "mischievous croak",
+            "description": "Playfully sneaky response"
+        },
+        {
+            "format": "worried fidget",
+            "description": "Anxious, concerned reply"
+        },
+        {
+            "format": "determined nod",
+            "description": "Confident, focused response"
+        },
+        {
+            "format": "shy peep",
+            "description": "Timid, quiet reply"
+        },
+        {
+            "format": "grumpy mumble",
+            "description": "Slightly annoyed response"
+        },
+        {
+            "format": "eager bounce",
+            "description": "Enthusiastic, quick reply"
+        },
+        {
+            "format": "dreamy sigh",
+            "description": "Wistful, distant response"
+        },
+        {
+            "format": "proud puff",
+            "description": "Self-satisfied, happy reply"
+        },
+        {
+            "format": "nervous shuffle",
+            "description": "Uncertain, hesitant response"
+        },
+        {
+            "format": "friendly wave",
+            "description": "Welcoming, warm reply"
+        },
+        {
+            "format": "puzzled tilt",
+            "description": "Confused but interested response"
+        },
+        {
+            "format": "content hum",
+            "description": "Satisfied, peaceful reply"
+        },
+        {
+            "format": "excited squeak",
+            "description": "Very happy, surprised response"
+        },
+        {
+            "format": "gentle boop",
+            "description": "Playful, affectionate reply"
+        },
+        {
+            "format": "tired yawn",
+            "description": "Sleepy but attentive response"
+        },
+        {
+            "format": "hopeful peek",
+            "description": "Optimistic, anticipating reply"
+        },
+        {
+            "format": "silly splash",
+            "description": "Playful, energetic response"
+        },
+        {
+            "format": "quiet wonder",
+            "description": "Amazed, soft reply"
+        },
+        {
+            "format": "happy wiggle",
+            "description": "Joyful, moving response"
+        },
+        {
+            "format": "thoughtful hmm",
+            "description": "Considering, processing reply"
+        },
+        {
+            "format": "startled jump",
+            "description": "Surprised, reactive response"
+        },
+        {
+            "format": "loving pat",
+            "description": "Affectionate, caring reply"
+        },
+        {
+            "format": "curious poke",
+            "description": "Investigative, interested response"
+        },
+        {
+            "format": "sleepy nuzzle",
+            "description": "Comfortable, drowsy reply"
+        },
+        {
+            "format": "bouncy dance",
+            "description": "Very excited, moving response"
+        },
+        {
+            "format": "gentle comfort",
+            "description": "Soothing, supportive reply"
+        },
+        {
+            "format": "playful splash",
+            "description": "Fun, water-related response"
+        },
+        {
+            "format": "worried peek",
+            "description": "Concerned but caring reply"
+        },
+        {
+            "format": "happy snuggle",
+            "description": "Cozy, content response"
+        }
+    ]
+}

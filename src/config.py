@@ -38,4 +38,4 @@ class Config:
 
 
     # Conversation Settings
-    MAX_MEMORY = int(os.getenv('MAX_MEMORY', '2'))
+    MAX_MEMORY = int(os.getenv('MAX_MEMORY', '1'))

@@ -39,10 +39,11 @@ env/
 
 # Project specific
 *.yaml
-*.json
 twitter_session.json
 data/processed_tweets.txt
 
 # Logs
 *.log
 logs/ 
+
+tests/
