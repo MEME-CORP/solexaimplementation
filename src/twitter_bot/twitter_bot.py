@@ -179,6 +179,9 @@ class TwitterBot:
                 logger.error("No valid content generated")
                 return
 
+            # Sanitize content before sending
+            content = self.tweet_manager.sanitize_text(content)
+
             self.tweet_manager.send_tweet(content)
             logger.info("Tweet posted successfully")
 
