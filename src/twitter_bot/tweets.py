@@ -350,16 +350,21 @@ class TweetManager:
                 self.logger.info(f"Processing {len(notifications)} mentions...")
                 for notification in notifications:
                     try:
-                        # Use generate_content synchronously
+                        # Use the working message format
                         reply_content = generator.generate_content(
-                            topic='',
-                            conversation_context=notification['text'],
-                            username=''
+                            user_message=f"reply to: {notification['text']}", 
+                            topic='',  # Empty for replies
+                            conversation_context='',  # Could add previous context if needed
+                            username=''  # Could add username if needed
                         )
                         
                         if reply_content and isinstance(reply_content, str):
                             self.logger.info(f"Generated reply: {reply_content[:50]}...")
                             self.reply_to_tweet(notification, reply_content)
+                            # Explicitly save processed tweets after each reply
+                            self.processed_tweets.add(notification['tweet_id'])
+                            self.save_processed_tweets()
+                            self.logger.info(f"Replied to tweet ID: {notification['tweet_id']}")
                             time.sleep(2)
                     except Exception as e:
                         self.logger.error(f"Error processing notification: {e}")
