@@ -73,13 +73,13 @@ python main.py
 ### Running Individual Bots
 ```bash
 # Twitter Bot only
-python main.py --twitter
+python main.py -- bots twitter
 
 # Discord Bot only
-python main.py --discord
+python main.py --bots discord
 
 # Telegram Bot only
-python main.py --telegram
+python main.py --bots telegram
 ```
 
 ### Development Mode
