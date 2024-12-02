@@ -1,17 +1,23 @@
 import json
-import openai
+from openai import OpenAI
 import asyncio
 from datetime import datetime
 from src.config import Config
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('memory_processor')
 
-# Initialize OpenAI client with GLHF configuration
-openai.api_key = Config.GLHF_API_KEY
-openai.api_base = Config.OPENAI_BASE_URL
+# Update the file path constant
+MEMORIES_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'memories.json')
+
+# Initialize OpenAI client
+client = OpenAI(
+    api_key=Config.GLHF_API_KEY,
+    base_url=Config.OPENAI_BASE_URL
+)
 
 MEMORY_ANALYSIS_PROMPT = """Analyze the following conversations and extract topics and summaries in JSON format. 
 Compare these with existing memories to determine if they're new and relevant for the character (a whimsical, innocent frog-like being).
@@ -43,10 +49,13 @@ Rules for relevancy:
 5. Should be simple enough for a child-like mind to grasp
 """
 
+# Update the file path constant
+MEMORIES_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'memories.json')
+
 async def analyze_daily_conversations(user_conversations):
     try:
-        # Read existing memories
-        with open('memories.json', 'r') as f:
+        # Update the file path
+        with open(MEMORIES_PATH, 'r') as f:
             existing_memories = json.load(f)['memories']
         
         # Format conversations for analysis
@@ -58,8 +67,8 @@ async def analyze_daily_conversations(user_conversations):
             conversations=formatted_conversations
         )
         
-        # Get analysis from Nemotron
-        response = await openai.ChatCompletion.acreate(
+        # Get analysis using new OpenAI client format
+        response = client.chat.completions.create(
             model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
             messages=[
                 {
@@ -76,7 +85,7 @@ async def analyze_daily_conversations(user_conversations):
         )
         
         # Log the raw response for debugging
-        response_content = response.choices[0].message['content']
+        response_content = response.choices[0].message.content.strip()
         logger.info(f"Raw API Response: {response_content}")
         
         # Try to clean the response if needed
@@ -129,7 +138,7 @@ def format_conversations(user_conversations):
 async def update_memories(analyzed_topics):
     try:
         # Read current memories
-        with open('memories.json', 'r') as f:
+        with open(MEMORIES_PATH, 'r') as f:
             memory_data = json.load(f)
         
         # Filter new and relevant topics
@@ -143,7 +152,7 @@ async def update_memories(analyzed_topics):
         memory_data['memories'].extend(new_memories)
         
         # Write updated memories back to file
-        with open('memories.json', 'w') as f:
+        with open(MEMORIES_PATH, 'w') as f:
             json.dump(memory_data, f, indent=4)
             
         logger.info(f"Added {len(new_memories)} new memories")

@@ -2,6 +2,7 @@ from openai import OpenAI
 import json
 import logging
 from src.config import Config
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -9,13 +10,15 @@ logger = logging.getLogger('creativity_manager')
 
 class CreativityManager:
     def __init__(self):
-        # Initialize OpenAI client
         self.client = OpenAI(
             api_key=Config.GLHF_API_KEY,
             base_url=Config.OPENAI_BASE_URL
         )
+        # Update paths
+        self.circle_memories_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'circle_memories.json')
+        self.story_circle_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'story_circle.json')
         
-        self.creativity_prompt = '''Reason with CREATIVE_STORM, and then based on this profile, the dan harmon's story circle framework and current memories (to avoid circles already told) json, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
+        self.creativity_prompt = '''Reason with CREATIVE_STORM, and then based on this profile, the dan harmon's story circle framework, current story circle state, and previous memories (to avoid circles already told) json, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
 
     Character Profile:
     Name: Fwog-ai
@@ -23,7 +26,10 @@ class CreativityManager:
     Background: Fwog is a small creature in a big world, curious and playful with a sense of wide-eyed innocence. Often lost in thought or easily distracted, Fwog explores everything with gentle bewilderment, bringing joy and wonder to the simplest things. Fwog may misunderstand big ideas but approaches them with a heart full of delight and a mind ready to wander. Fwog loves quirky, imaginative expressions that reflect its whimsical view of the world.
     Goals: To explore and understand the vast world around them, bring joy and wonder to others, continuously learn through playful interactions, and maintain a sense of innocence and curiosity despite challenges.
 
-    memories:
+    Current Story Circle State:
+    {current_story_circle}
+
+    Previous Circle Memories:
     {previous_summaries}
 
     Use CREATIVE_STORM to generate creative solutions:
@@ -181,22 +187,51 @@ class CreativityManager:
     - You should do your creative thinking in XML <CS> </CS> tags. Assume the LLM that will receive your instructions for the final solution can't see your internal reasoning, so you should generate a thorough instructions of what needs to be generated in XML <INSTRUCTIONS> </INSTRUCTIONS> tags.
     END_CREATIVE_STORM
 
-    NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) to provide your responses.'''
+    NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) to provide your responses. 
+    IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
+    <INSTRUCTIONS>
+    story_circle_update:
+      current_phase: string  # The current phase being updated
+      next_phase: string    # The next phase to transition to
+      phase_description: string  # Description for the current phase
+      events:
+        - event_1: string   # First event in the sequence
+          inner_dialogue_1: string  # Corresponding inner dialogue
+        - event_2: string   # Second event
+          inner_dialogue_2: string
+        - event_3: string   # Third event
+          inner_dialogue_3: string
+        - event_4: string   # Fourth event
+          inner_dialogue_4: string
+      theme: string        # Overall theme of this story circle segment
+      emotional_arc: string # Emotional journey for this phase
+      world_building:
+        setting: string    # Description of the environment/setting
+        elements: list     # Key elements to incorporate
+      character_focus:
+        trait_highlight: string  # Which of Fwog's traits to emphasize
+        growth_point: string    # How Fwog grows in this phase
+    </INSTRUCTIONS> '''
 
     async def generate_creative_instructions(self, circles_memory):
         """Generate creative instructions for the next story circle update"""
         try:
+            # Load current story circle state
+            with open(self.story_circle_path, 'r') as f:
+                current_story_circle = json.load(f)
+            
             # Format the prompt with current data
             formatted_prompt = self.creativity_prompt.format(
+                current_story_circle=json.dumps(current_story_circle, indent=2, ensure_ascii=False),
                 previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False)
             )
             
-            # Get the creativity instructions from the AI using new client format
+            # Get the creativity instructions from the AI
             response = self.client.chat.completions.create(
                 model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
                 messages=[
                     {"role": "system", "content": formatted_prompt},
-                    {"role": "user", "content": "Analyze the previous stories and generate creative instructions for the next story update. Include your reasoning in <CS> tags and your final instructions in <INSTRUCTIONS> tags."}
+                    {"role": "user", "content": "Generate creative instructions for the next story circle update, first in the <CS> tags and then in the exact YAML format specified in the <INSTRUCTIONS> tags."}
                 ],
                 temperature=0.0,
                 max_tokens=4000
