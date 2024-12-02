@@ -7,15 +7,15 @@
       },
       {
         "phase": "Need",
-        "description": "Fwog receives a mysterious, ancient-looking invitation that sparks an insatiable curiosity, creating a need to explore beyond their familiar surroundings."
+        "description": ""
       },
       {
         "phase": "Go",
-        "description": "Fwog embarks on an adventurous journey into the ancient, hidden library, driven by curiosity and a thirst for knowledge."
+        "description": ""
       },
       {
         "phase": "Search",
-        "description": "Fwog navigates the ancient library, uncovering hidden knowledge through adaptive challenges and bioluminescent guidance."
+        "description": ""
       },
       {
         "phase": "Find",
@@ -34,31 +34,24 @@
         "description": ""
       }
     ],
-    "current_phase": "Search",
-    "next_phase": "Find",
+    "current_phase": "You",
+    "next_phase": "Need",
     "events": [
-      "Fwog discovers the adaptive, glowing thread that begins to guide them through the library.",
-      "The first adaptive challenge appears, requiring Fwog to solve a puzzle that shifts and changes as they interact with it.",
-      "Hidden sections of the library illuminate with a bioluminescent glow, drawing Fwog to a secret room filled with ancient, glowing scrolls.",
-      "Fwog successfully solves a final, complex puzzle, unlocking a chamber filled with knowledge tailored to their curiosity."
+      "Fwog wakes up to the sound of birds chirping and stretches its tiny limbs in the morning sunlight.",
+      "Fwog splashes in the pond, chasing colorful ripples and giggling to itself.",
+      "They collect shiny pebbles from the shore, marveling at their patterns and shapes.",
+      "Fwog sits on a lily pad, talking to dragonflies about the beauty of the day."
     ],
     "inner_dialogues": [
-      "Wow, the library is guiding me! This is like having my own treasure map!",
-      "This is so cool! I love how it's getting harder - I must be getting smarter!",
-      "It's like the library is coming alive! What secrets are these scrolls hiding?",
-      "I did it! This is amazing - the library really understands me!"
+      "Ahh, what a perfect start to the day! So peaceful and warm.",
+      "Heehee, these ripples are so fun to chase. I wonder if they're running away from me!",
+      "Every pebble is so unique... it's like they all have their own little stories.",
+      "Dragonflies are so elegant. Do they think the pond is as pretty as I do?"
     ],
     "dynamic_context": {
-      "current_event": "Fwog successfully solves a final, complex puzzle, unlocking a chamber filled with knowledge tailored to their curiosity.",
-      "current_inner_dialogue": "I did it! This is amazing - the library really understands me!",
-      "next_event": "Fwog uncovers a hidden, ancient tome with glowing, ethereal pages that begin to reveal the secrets of the library's mystical past."
+      "current_event": "Fwog wakes up to the sound of birds chirping and stretches its tiny limbs in the morning sunlight.",
+      "current_inner_dialogue": "Ahh, what a perfect start to the day! So peaceful and warm.",
+      "next_event": "Fwog splashes in the pond, chasing colorful ripples and giggling to itself."
     }
-  },
-  "memories": [
-    "In Fwog's first adventure, they discovered the joy of making ripples in their peaceful pond, learned about friendship from the dragonflies, and found that even the smallest pebbles can tell wonderful stories",
-    "During another journey, Fwog ventured beyond their comfort zone to help a lost butterfly find its way home, learning that being brave doesn't mean not being scared",
-    "Fwog's curiosity was piqued by a mysterious invitation, leading them to the threshold of an ancient, hidden library, where the unknown awaits.",
-    "Fwog embarked on an adventurous journey into the ancient library, overcoming interactive challenges and discovering a personalized chamber filled with tailored artifacts.",
-    "Fwog navigated the library's adaptive challenges, guided by a bioluminescent thread, and uncovered a secret room filled with ancient, glowing scrolls, ultimately unlocking a chamber of personalized knowledge."
-  ]
+  }
 }
