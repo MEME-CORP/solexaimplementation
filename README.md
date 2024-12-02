@@ -72,7 +72,7 @@ python main.py
 
 ### Running Individual Bots
 ```bash
-# Twitter Bot only
+# Twitter Bot only..
 python main.py -- bots twitter
 
 # Discord Bot only
