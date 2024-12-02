@@ -6,7 +6,16 @@ import json
 import os
 from pathlib import Path
 from typing import Optional
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters, Application
+from telegram.ext import (
+    ApplicationBuilder, 
+    CommandHandler, 
+    MessageHandler, 
+    ContextTypes, 
+    filters, 
+    Application,
+    JobQueue,
+    Defaults
+)
 from telegram import Update
 from dotenv import load_dotenv
 from src.ai_generator import AIGenerator
@@ -36,26 +45,45 @@ class TelegramBot:
 
     def setup(self) -> Application:
         """Setup the application and handlers."""
-        # Build application
-        self.application = ApplicationBuilder().token(self.token).build()
-        
-        # Add handlers
-        self.application.add_handler(CommandHandler("start", self.start_command))
-        self.application.add_handler(CommandHandler("chatid", self.chatid_command))
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
-        
-        # Add background tasks
-        self.application.job_queue.run_daily(
-            self.process_memories_job,
-            time=time(hour=23, minute=55)
-        )
-        self.application.job_queue.run_repeating(
-            self.update_narrative_job,
-            interval=21600,  # 6 hours in seconds
-            first=10  # Start first run after 10 seconds
-        )
-        
-        return self.application
+        try:
+            # Build application with job queue enabled
+            defaults = Defaults(block=False)
+            self.application = (
+                ApplicationBuilder()
+                .token(self.token)
+                .defaults(defaults)
+                .build()
+            )
+            
+            # Add handlers
+            self.application.add_handler(CommandHandler("start", self.start_command))
+            self.application.add_handler(CommandHandler("chatid", self.chatid_command))
+            self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+            
+            # Only add background tasks if job queue is available
+            if self.application.job_queue:
+                logger.info("Setting up job queue tasks...")
+                try:
+                    self.application.job_queue.run_daily(
+                        self.process_memories_job,
+                        time=time(hour=23, minute=55)
+                    )
+                    self.application.job_queue.run_repeating(
+                        self.update_narrative_job,
+                        interval=21600,  # 6 hours in seconds
+                        first=10  # Start first run after 10 seconds
+                    )
+                    logger.info("Job queue tasks set up successfully")
+                except Exception as e:
+                    logger.error(f"Error setting up job queue tasks: {e}")
+            else:
+                logger.warning("Job queue not available. Background tasks will not run.")
+            
+            return self.application
+
+        except Exception as e:
+            logger.error(f"Error in setup: {e}")
+            raise
 
     async def process_memories_job(self, context: ContextTypes.DEFAULT_TYPE):
         """Job to process memories daily."""
@@ -101,23 +129,28 @@ class TelegramBot:
         # Add to conversation history
         self.add_to_conversation_history(user_id, user_message, is_bot=False)
 
-        # Generate response
-        response = await self.generate_response(user_message, user_id, username)
+        try:
+            # Generate response
+            response = await self.generate_response(user_message, user_id, username)
 
-        # Trim content if needed
-        if len(response) > 200:
-            truncated = response[:200]
-            last_sentence = re.search(r'^.*[.!?]', truncated)
-            if last_sentence:
-                response = last_sentence.group(0)
-            else:
-                response = truncated[:truncated.rfind(' ')] + '...'
+            # Trim content if needed
+            if len(response) > 200:
+                truncated = response[:200]
+                last_sentence = re.search(r'^.*[.!?]', truncated)
+                if last_sentence:
+                    response = last_sentence.group(0)
+                else:
+                    response = truncated[:truncated.rfind(' ')] + '...'
 
-        # Send response
-        await update.message.reply_text(response)
+            # Send response
+            await update.message.reply_text(response)
 
-        # Add bot response to conversation history
-        self.add_to_conversation_history(user_id, response, is_bot=True)
+            # Add bot response to conversation history
+            self.add_to_conversation_history(user_id, response, is_bot=True)
+            
+        except Exception as e:
+            logger.error(f"Error in handle_message: {e}")
+            await update.message.reply_text("Sorry, I encountered an error while processing your message.")
 
     def add_to_conversation_history(self, user_id, message, is_bot):
         """Add message to conversation history."""
@@ -145,12 +178,15 @@ class TelegramBot:
         try:
             # Get conversation context
             conversation_context = self.get_conversation_context(user_id)
-            # Get relevant memories
+            
+            # Get relevant memories - this is already async
             memories = await select_relevant_memories(username, user_message)
+            
             # Get current story circle context
             narrative_context = get_current_context()
-            # Generate response
-            response = await self.generator.generate_content(
+            
+            # Generate response - don't await since it's synchronous
+            response = self.generator.generate_content(
                 user_message=user_message,
                 user_id=user_id,
                 username=username,
@@ -158,7 +194,10 @@ class TelegramBot:
                 memories=memories,
                 narrative_context=narrative_context
             )
+            
+            logger.info(f"Generated response: {response[:50]}...")
             return response
+            
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             return "Sorry, I couldn't process your request at the moment."

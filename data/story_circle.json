@@ -7,11 +7,11 @@
       },
       {
         "phase": "Need",
-        "description": ""
+        "description": "Fwog receives a mysterious, ancient-looking invitation that sparks an insatiable curiosity, creating a need to explore beyond their familiar surroundings."
       },
       {
         "phase": "Go",
-        "description": ""
+        "description": "Fwog embarks on an adventurous journey into the ancient, hidden library, driven by curiosity and a thirst for knowledge."
       },
       {
         "phase": "Search",
@@ -34,24 +34,30 @@
         "description": ""
       }
     ],
-    "current_phase": "You",
-    "next_phase": "Need",
+    "current_phase": "Go",
+    "next_phase": "Search",
     "events": [
-      "Fwog wakes up to the sound of birds chirping and stretches its tiny limbs in the morning sunlight.",
-      "Fwog splashes in the pond, chasing colorful ripples and giggling to itself.",
-      "They collect shiny pebbles from the shore, marveling at their patterns and shapes.",
-      "Fwog sits on a lily pad, talking to dragonflies about the beauty of the day."
+      "Fwog pushes through the dense foliage, uncovering a hidden pathway leading to the ancient library's entrance.",
+      "Upon entering, Fwog discovers a glowing, adaptive map that begins to illuminate pathways.",
+      "Fwog encounters the first challenge: a holographic, touchless exhibit requiring problem-solving to unlock the next area.",
+      "After solving the challenge, Fwog stumbles upon a hidden, personalized chamber filled with artifacts tailored to their curiosity."
     ],
     "inner_dialogues": [
-      "Ahh, what a perfect start to the day! So peaceful and warm.",
-      "Heehee, these ripples are so fun to chase. I wonder if they're running away from me!",
-      "Every pebble is so unique... it's like they all have their own little stories.",
-      "Dragonflies are so elegant. Do they think the pond is as pretty as I do?"
+      "This must be it! The entrance to a whole new world of wonder!",
+      "Wow, the library is guiding me! Where will it lead?",
+      "This is so cool! I love figuring out puzzles!",
+      "This is amazing! The library knows exactly what I'm interested in!"
     ],
     "dynamic_context": {
-      "current_event": "They collect shiny pebbles from the shore, marveling at their patterns and shapes.",
-      "current_inner_dialogue": "Every pebble is so unique... it's like they all have their own little stories.",
-      "next_event": "Fwog sits on a lily pad, talking to dragonflies about the beauty of the day."
+      "current_event": "After solving the challenge, Fwog stumbles upon a hidden, personalized chamber filled with artifacts tailored to their curiosity.",
+      "current_inner_dialogue": "This is amazing! The library knows exactly what I'm interested in!",
+      "next_event": "Fwog begins to explore the personalized chamber, uncovering an ancient, leather-bound book with their name etched in shimmering, silver letters."
     }
-  }
+  },
+  "memories": [
+    "In Fwog's first adventure, they discovered the joy of making ripples in their peaceful pond, learned about friendship from the dragonflies, and found that even the smallest pebbles can tell wonderful stories",
+    "During another journey, Fwog ventured beyond their comfort zone to help a lost butterfly find its way home, learning that being brave doesn't mean not being scared",
+    "Fwog's curiosity was piqued by a mysterious invitation, leading them to the threshold of an ancient, hidden library, where the unknown awaits.",
+    "Fwog embarked on an adventurous journey into the ancient library, overcoming interactive challenges and discovering a personalized chamber filled with tailored artifacts."
+  ]
 }
