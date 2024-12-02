@@ -128,10 +128,11 @@ class AIGenerator:
         current_event = narrative_context.get('current_event', '') if narrative_context else ''
         inner_dialogue = narrative_context.get('current_inner_dialogue', '') if narrative_context else ''
         
-        # Simplify tweet content handling
+        # Simplify tweet content handling with better None handling
+        user_message = kwargs.get('user_message') or ''  # Convert None to empty string
         tweet_content = (
             kwargs.get('topic')
-            or (kwargs.get('user_message', '')[9:].strip() if kwargs.get('user_message', '').startswith('reply to:') else kwargs.get('user_message', ''))
+            or (user_message[9:].strip() if user_message.startswith('reply to:') else user_message)
             or "your current event and inner dialogue"
         )
         
@@ -189,7 +190,7 @@ class AIGenerator:
             logger.info("Starting content generation")
             
             # Simplified memory handling for random tweets
-            memories = kwargs.get('memories', self.memories)
+            memories = kwargs.pop('memories', self.memories)
             if self.mode == 'twitter' and not kwargs.get('user_message'):
                 narrative_context = kwargs.get('narrative_context', {})
                 current_event = narrative_context.get('current_event', '')
