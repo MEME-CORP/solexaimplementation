@@ -145,8 +145,9 @@ class AIGenerator:
                         tweet_content = user_message
                     logger.debug(f"Processing tweet content: {tweet_content}")
                 else:
-                    tweet_content = "general conversation"
-                    logger.info("No topic or user message provided, using default content")
+                    # New simplified tweet content for posting
+                    tweet_content = "your current event and inner dialogue"
+                    logger.info("Using narrative-based tweet content")
 
             # Build Twitter-specific prompt with exact format
             content_prompt = (
@@ -154,7 +155,7 @@ class AIGenerator:
                 f"Remember to respond like a text message (max. 280 characters) "
                 f"using text-speak and replacing 'r' with 'fw' and 'l' with 'w', "
                 f"adhering to the format and format-length. "
-                f"And do not use emojis nor quotes or any other characters, just plain text.\n\n"
+                f"And do not use emojis/visual-emojis nor quotes or any other characters, just plain text and ascii-emoticons if appropiate.\n\n"
                 f"memories: {memory_context}\n"
                 f"previous conversations: {kwargs.get('conversation_context', '')}\n"
                 f"current event: {narrative_context.get('current_event', '') if narrative_context else ''}\n"
@@ -198,7 +199,23 @@ class AIGenerator:
             logger.info(f"Current memories: {self.memories}")
             logger.info(f"Current narrative: {self.narrative}")
             
-            messages = self._prepare_messages(**kwargs)
+            # For random tweet posts, use current event for memory selection
+            if self.mode == 'twitter' and kwargs.get('user_message') is None:
+                narrative_context = kwargs.get('narrative_context', {})
+                current_event = narrative_context.get('current_event', '')
+                
+                # Use current event for memory selection instead of user message
+                memories = kwargs.get('memories', self.memories)
+                if not memories or memories == "no relevant memories for this conversation":
+                    logger.info("No specific memories for random tweet, using current event context")
+                    memories = f"Current event context: {current_event}"
+            else:
+                memories = kwargs.get('memories', self.memories)
+            
+            messages = self._prepare_messages(
+                memories=memories,
+                **kwargs
+            )
             
             logger.info(f"Generating response with mode: {self.mode}")
             logger.debug(f"System prompt: {messages[0]['content']}")
