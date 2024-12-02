@@ -16,16 +16,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ai_generator')
 
 class AIGenerator:
-    # Discord style as a class attribute
-    discord_style = """
-    Style Instructions for Discord:
-    1. NEVER use emojis or emoticons of any kind
-    2. Keep responses very short (1-2 sentences maximum)
-    3. Use text-speak and casual language
-    4. Replace 'r' with 'fw' and 'l' with 'w' in words
-    5. Keep responses friendly but concise
-    """
-
     def __init__(self, mode='twitter'):
         self.mode = mode
         
@@ -128,11 +118,19 @@ class AIGenerator:
         memories = kwargs.get('memories', self.memories)
         narrative_context = kwargs.get('narrative_context', self.narrative.get('dynamic_context', {}))
         
+        # Process memories to ensure proper format
+        if isinstance(memories, str):
+            if memories.strip() == "" or memories == "no relevant memories for this conversation":
+                memory_context = "no relevant memories for this conversation"
+            else:
+                memory_context = memories
+        else:
+            memory_context = "no relevant memories for this conversation"
+        
         # Select appropriate formats based on mode
         if self.mode == 'twitter':
             emotion_format = random.choice(self.emotion_formats)['format']
             length_format = random.choice(self.length_formats)['format']
-            memory_context = memories if memories else "no relevant memories for this conversation"
             
             # Extract tweet content with simpler handling
             if kwargs.get('topic'):
@@ -165,7 +163,6 @@ class AIGenerator:
         else:
             # Discord and Telegram format
             emotion_format = random.choice(self.emotion_formats)['format']
-            memory_context = memories if memories else "no relevant memories for this conversation"
             
             content_prompt = (
                 f"Previous conversation:\n"
@@ -178,13 +175,13 @@ class AIGenerator:
                 f"Your character has an arc, if it seems relevant to your response, mention it, "
                 f"where the current event is: {narrative_context.get('current_event', '') if narrative_context else ''} "
                 f"and the inner dialogue to such an event is: {narrative_context.get('current_inner_dialogue', '') if narrative_context else ''}.\n\n"
-                f"memories: {memory_context}"
+                f"NOTE //do not use emojis/visual-emojis nor quotes or any other characters, just plain text and ascii-emoticons if appropiate."
             )
 
         messages = [
             {
                 "role": "system",
-                "content": f"{self.system_prompt}\n{self.discord_style if self.mode == 'discord' else ''}"
+                "content": f"{self.system_prompt}"
             },
             {
                 "role": "user",
