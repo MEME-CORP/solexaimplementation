@@ -155,7 +155,7 @@ class AIGenerator:
                 f"Remember to respond like a text message (max. 280 characters) "
                 f"using text-speak and replacing 'r' with 'fw' and 'l' with 'w', "
                 f"adhering to the format and format-length. "
-                f"And do not use emojis nor quotes or any other characters, just plain text.\n\n"
+                f"And do not use emojis/visual-emojis nor quotes or any other characters, just plain text and ascii-emoticons if appropiate.\n\n"
                 f"memories: {memory_context}\n"
                 f"previous conversations: {kwargs.get('conversation_context', '')}\n"
                 f"current event: {narrative_context.get('current_event', '') if narrative_context else ''}\n"
