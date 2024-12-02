@@ -49,11 +49,15 @@ class DiscordBot(commands.Bot):
 
             # Get all necessary context
             conversation_context = self.get_conversation_context(user_id)
+            
+            # Get relevant memories - this is async
             memories = await select_relevant_memories(username, user_message)
+            
+            # Get current story circle context - this is sync
             narrative_context = get_current_context()
 
-            # Generate response with full context
-            response = await self.generator.generate_content(
+            # Generate response - don't await since it's synchronous
+            response = self.generator.generate_content(
                 user_message=user_message,
                 user_id=user_id,
                 username=username,
@@ -62,7 +66,9 @@ class DiscordBot(commands.Bot):
                 narrative_context=narrative_context
             )
 
-            # Send the response
+            logger.info(f'Generated response: {response[:50]}...')
+
+            # Send the response - this is async
             await message.channel.send(response)
             logger.info('Response sent.')
 
@@ -89,13 +95,11 @@ class DiscordBot(commands.Bot):
     def get_conversation_context(self, user_id):
         """Returns conversation history in a structured format"""
         history = self.user_conversations.get(user_id, [])
-        return [
-            {
-                "role": "assistant" if msg['is_bot'] else "user",
-                "content": msg['content']
-            }
+        # Change to match the format expected by AIGenerator
+        return '\n'.join([
+            f"{'Assistant' if msg['is_bot'] else 'User'}: {msg['content']}"
             for msg in history
-        ]
+        ])
 
     @commands.command(name='chatid')
     async def chatid(self, ctx):
@@ -103,12 +107,11 @@ class DiscordBot(commands.Bot):
         chat_id = ctx.guild.id if ctx.guild else ctx.author.id
         await ctx.send(f'Chat ID: {chat_id}')
 
-    @tasks.loop(time=time(hour=23, minute=55))  # Run at 23:55 every day
+    @tasks.loop(time=time(hour=23, minute=55))
     async def process_memories(self):
         try:
             logger.info("Starting nightly memory processing...")
             await process_daily_memories(self.user_conversations)
-            # Clear the day's conversations after processing
             self.user_conversations.clear()
             logger.info("Nightly memory processing completed")
         except Exception as e:
@@ -118,7 +121,8 @@ class DiscordBot(commands.Bot):
     async def update_narrative(self):
         try:
             logger.info("Progressing story circle narrative...")
-            await progress_narrative()  # This will either move to next event or generate new content
+            # This is async
+            await progress_narrative()
             logger.info("Story circle progression completed")
         except Exception as e:
             logger.error(f"Error in story circle progression: {e}")
