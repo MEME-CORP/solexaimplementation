@@ -114,41 +114,32 @@ class AIGenerator:
 
     def _prepare_messages(self, **kwargs):
         """Prepare messages for API call - exposed for testing"""
-        # Get memories and narrative from kwargs or fall back to class properties
+        # Simplify memory handling with more familiar pattern
         memories = kwargs.get('memories', self.memories)
-        narrative_context = kwargs.get('narrative_context', self.narrative.get('dynamic_context', {}))
+        memory_context = (
+            "no relevant memories for this conversation" 
+            if not memories or (isinstance(memories, str) and memories.strip() in ["", "no relevant memories for this conversation"])
+            else memories if isinstance(memories, str)
+            else "no relevant memories for this conversation"
+        )
         
-        # Process memories to ensure proper format
-        if isinstance(memories, str):
-            if memories.strip() == "" or memories == "no relevant memories for this conversation":
-                memory_context = "no relevant memories for this conversation"
-            else:
-                memory_context = memories
-        else:
-            memory_context = "no relevant memories for this conversation"
+        # Simplify narrative context extraction
+        narrative_context = kwargs.get('narrative_context', self.narrative.get('dynamic_context', {}))
+        current_event = narrative_context.get('current_event', '') if narrative_context else ''
+        inner_dialogue = narrative_context.get('current_inner_dialogue', '') if narrative_context else ''
+        
+        # Simplify tweet content handling
+        tweet_content = (
+            kwargs.get('topic')
+            or (kwargs.get('user_message', '')[9:].strip() if kwargs.get('user_message', '').startswith('reply to:') else kwargs.get('user_message', ''))
+            or "your current event and inner dialogue"
+        )
         
         # Select appropriate formats based on mode
         if self.mode == 'twitter':
             emotion_format = random.choice(self.emotion_formats)['format']
             length_format = random.choice(self.length_formats)['format']
             
-            # Extract tweet content with simpler handling
-            if kwargs.get('topic'):
-                tweet_content = kwargs.get('topic')
-            else:
-                user_message = kwargs.get('user_message', '')
-                if user_message:
-                    # Handle "reply to:" format
-                    if user_message.startswith('reply to:'):
-                        tweet_content = user_message[9:].strip()  # Remove "reply to: " prefix
-                    else:
-                        tweet_content = user_message
-                    logger.debug(f"Processing tweet content: {tweet_content}")
-                else:
-                    # New simplified tweet content for posting
-                    tweet_content = "your current event and inner dialogue"
-                    logger.info("Using narrative-based tweet content")
-
             # Build Twitter-specific prompt with exact format
             content_prompt = (
                 f"Talk about {tweet_content}. Format the response as: {length_format}; let this emotion shape your response: {emotion_format}. "
@@ -158,8 +149,8 @@ class AIGenerator:
                 f"And do not use emojis/visual-emojis nor quotes or any other characters, just plain text and ascii-emoticons if appropiate.\n\n"
                 f"memories: {memory_context}\n"
                 f"previous conversations: {kwargs.get('conversation_context', '')}\n"
-                f"current event: {narrative_context.get('current_event', '') if narrative_context else ''}\n"
-                f"inner dialogue: {narrative_context.get('current_inner_dialogue', '') if narrative_context else ''}"
+                f"current event: {current_event}\n"
+                f"inner dialogue: {inner_dialogue}"
             )
         else:
             # Discord and Telegram format
@@ -174,8 +165,8 @@ class AIGenerator:
                 f"And do not use emojis. Keep the conversation context in mind when responding; "
                 f"keep your memories in mind when responding: {memory_context}. "
                 f"Your character has an arc, if it seems relevant to your response, mention it, "
-                f"where the current event is: {narrative_context.get('current_event', '') if narrative_context else ''} "
-                f"and the inner dialogue to such an event is: {narrative_context.get('current_inner_dialogue', '') if narrative_context else ''}.\n\n"
+                f"where the current event is: {current_event} "
+                f"and the inner dialogue to such an event is: {inner_dialogue}.\n\n"
                 f"NOTE //do not use emojis/visual-emojis nor quotes or any other characters, just plain text and ascii-emoticons if appropiate."
             )
 
@@ -196,31 +187,20 @@ class AIGenerator:
         """Generate content synchronously"""
         try:
             logger.info("Starting content generation")
-            logger.info(f"Current memories: {self.memories}")
-            logger.info(f"Current narrative: {self.narrative}")
             
-            # For random tweet posts, use current event for memory selection
-            if self.mode == 'twitter' and kwargs.get('user_message') is None:
+            # Simplified memory handling for random tweets
+            memories = kwargs.get('memories', self.memories)
+            if self.mode == 'twitter' and not kwargs.get('user_message'):
                 narrative_context = kwargs.get('narrative_context', {})
                 current_event = narrative_context.get('current_event', '')
-                
-                # Use current event for memory selection instead of user message
-                memories = kwargs.get('memories', self.memories)
                 if not memories or memories == "no relevant memories for this conversation":
-                    logger.info("No specific memories for random tweet, using current event context")
+                    logger.info("Using current event context for random tweet")
                     memories = f"Current event context: {current_event}"
-            else:
-                memories = kwargs.get('memories', self.memories)
             
-            messages = self._prepare_messages(
-                memories=memories,
-                **kwargs
-            )
+            messages = self._prepare_messages(memories=memories, **kwargs)
             
-            logger.info(f"Generating response with mode: {self.mode}")
-            logger.debug(f"System prompt: {messages[0]['content']}")
-            logger.debug(f"User message: {messages[1]['content']}")
-
+            logger.debug(f"Generating with config: mode={self.mode}, model={self.model}, temp={self.temperature}")
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -229,8 +209,19 @@ class AIGenerator:
                 presence_penalty=0.6,
                 frequency_penalty=0.6
             )
-
-            return response.choices[0].message.content
+            
+            generated_content = response.choices[0].message.content
+            
+            # Validate response
+            if not generated_content or not isinstance(generated_content, str):
+                logger.error("Invalid response generated")
+                raise ValueError("Generated content is invalid")
+            
+            if self.mode == 'twitter' and len(generated_content) > 280:
+                logger.warning("Generated content exceeds Twitter limit, truncating")
+                generated_content = generated_content[:277] + "..."
+            
+            return generated_content
 
         except Exception as e:
             logger.error(f"Error generating content: {str(e)}")
