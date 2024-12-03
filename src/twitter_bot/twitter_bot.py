@@ -151,26 +151,8 @@ class TwitterBot:
             return
 
         try:
-            # Load topics from data directory
-            topics_path = Path(__file__).parent.parent.parent / 'data' / 'topics.json'
-            
-            if not topics_path.exists():
-                logger.error(f"Topics file not found at {topics_path}")
-                return
-            
-            with open(topics_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                topics = data.get('topics', [])
-                if not topics:
-                    logger.error("No topics found in topics.json")
-                    return
-
-            topic = random.choice(topics)['topic']
-            logger.info(f"Selected topic: {topic}")
-
-            # Generate content using AIGenerator
+            # Generate content using AIGenerator - no topic needed
             content = self.generator.generate_content(
-                topic=topic,
                 conversation_context='',
                 username=''
             )

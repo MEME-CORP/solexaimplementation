@@ -3,6 +3,7 @@
 import discord
 import asyncio
 import logging
+import random
 from discord.ext import commands, tasks
 from src.config import Config
 from src.ai_generator import AIGenerator
@@ -51,11 +52,14 @@ class DiscordBot(commands.Bot):
             # Get all necessary context
             conversation_context = self.get_conversation_context(user_id)
             
-            # Get relevant memories - now synchronous
+            # Get relevant memories - this is sync now
             memories = select_relevant_memories(username, user_message)
             
             # Get current story circle context - this is sync
             narrative_context = get_current_context()
+
+            # Get random emotion format from generator's loaded formats
+            emotion_format = random.choice(self.generator.emotion_formats)['format']
 
             # Generate response - don't await since it's synchronous
             response = self.generator.generate_content(
@@ -64,7 +68,8 @@ class DiscordBot(commands.Bot):
                 username=username,
                 conversation_context=conversation_context,
                 memories=memories,
-                narrative_context=narrative_context
+                narrative_context=narrative_context,
+                emotion_format=emotion_format
             )
 
             logger.info(f'Generated response: {response[:50]}...')
