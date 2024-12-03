@@ -115,12 +115,11 @@ class AIGenerator:
         current_event = narrative_context.get('current_event', '') if narrative_context else ''
         inner_dialogue = narrative_context.get('current_inner_dialogue', '') if narrative_context else ''
         
-        # Simplify tweet content handling with better None handling
+        # Simplify tweet content handling - remove topic logic
         user_message = kwargs.get('user_message') or ''  # Convert None to empty string
         tweet_content = (
-            kwargs.get('topic')
-            or (user_message[9:].strip() if user_message.startswith('reply to:') else user_message)
-            or "your current event and inner dialogue"
+            user_message[9:].strip() if user_message.startswith('reply to:') 
+            else "your current event and inner dialogue"
         )
         
         # Select appropriate formats based on mode

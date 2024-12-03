@@ -25,6 +25,7 @@ from src.memory_processor import MemoryProcessor
 from src.memory_decision import select_relevant_memories
 from src.story_circle_manager import get_current_context, update_story_circle, progress_narrative
 from datetime import datetime, time
+import random
 
 # Load environment variables and configure logging
 load_dotenv()
@@ -187,11 +188,14 @@ class TelegramBot:
             # Get conversation context
             conversation_context = self.get_conversation_context(user_id)
             
-            # Get relevant memories - this is already async
-            memories = await select_relevant_memories(username, user_message)
+            # Get relevant memories - this is sync now
+            memories = select_relevant_memories(username, user_message)
             
             # Get current story circle context - this is synchronous
             narrative_context = get_current_context()
+
+            # Get random emotion format from generator's loaded formats
+            emotion_format = random.choice(self.generator.emotion_formats)['format']
             
             # Generate response - don't await since it's synchronous
             response = self.generator.generate_content(
@@ -200,7 +204,8 @@ class TelegramBot:
                 username=username,
                 conversation_context=conversation_context,
                 memories=memories,
-                narrative_context=narrative_context
+                narrative_context=narrative_context,
+                emotion_format=emotion_format
             )
             
             logger.info(f"Generated response: {response[:50]}...")
