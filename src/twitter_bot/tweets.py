@@ -8,6 +8,7 @@ import os
 import logging
 from pathlib import Path
 from src.database.supabase_client import DatabaseService
+from src.challenge_manager import ChallengeManager
 
 class TweetManager:
     def __init__(self, driver: WebDriver):
@@ -368,3 +369,18 @@ class TweetManager:
             self.processed_tweets.add(tweet_id)
         except Exception as e:
             self.logger.error(f"Error marking tweet as processed: {e}")
+
+    def process_challenge_reply(self, notification: dict, challenge_manager) -> None:
+        """Process a reply to the challenge tweet"""
+        try:
+            message = notification['text']
+            # Extract username from notification
+            username = notification.get('username', 'fwiend')  # Default to 'fwiend' if username not found
+            
+            is_winner, response, wallet_address = challenge_manager.check_guess(message, username)
+            
+            # Reply to the tweet
+            self.reply_to_tweet(notification, response)
+            
+        except Exception as e:
+            logger.error(f"Error processing challenge reply: {e}")

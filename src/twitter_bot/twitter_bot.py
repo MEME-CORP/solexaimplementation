@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from src.ai_generator import AIGenerator
 from .scraper import Scraper
 from .tweets import TweetManager
+from src.challenge_manager import ChallengeManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +36,7 @@ class TwitterBot:
         self.tweet_manager = None
         self.running = False
         self.is_cleaning_up = False
+        self.challenge_manager = ChallengeManager()
         
         logger.info("Twitter bot initialization complete!")
 
@@ -83,7 +85,7 @@ class TwitterBot:
             # Execute initial tasks
             logger.info("=== Initial Tasks ===")
             if self.tweet_manager and self.generator:
-                self.tweet_manager.check_and_process_mentions(self.generator)
+                self.tweet_manager.check_and_process_mentions(self.generator, self.challenge_manager)
                 self.generate_and_send_tweet()
             
             # Set timers
@@ -114,7 +116,7 @@ class TwitterBot:
                         logger.info("=== Checking Notifications ===")
                         if self.tweet_manager and self.generator:
                             try:
-                                self.tweet_manager.check_and_process_mentions(self.generator)
+                                self.tweet_manager.check_and_process_mentions(self.generator, self.challenge_manager)
                             except Exception as e:
                                 logger.error(f"Error checking notifications: {e}")
                         last_notification_check = current_time
