@@ -41,10 +41,10 @@ class MemoryDecision:
         )
         self.db = DatabaseService()
 
-    async def select_relevant_memories(self, user_identifier: str, user_message: str, return_details=False) -> Union[str, Tuple[str, dict]]:
+    def select_relevant_memories(self, user_identifier: str, user_message: str, return_details=False) -> Union[str, Tuple[str, dict]]:
         """Select relevant memories from existing ones."""
         try:
-            all_memories = await self.db.get_memories()
+            all_memories = self.db.get_memories()
             
             if not all_memories:
                 return ("no relevant memories for this conversation", {}) if return_details else "no relevant memories for this conversation"
@@ -123,6 +123,6 @@ class MemoryDecision:
 _memory_decision = MemoryDecision()
 
 # Module-level function
-async def select_relevant_memories(user_identifier: str, user_message: str, return_details=False) -> Union[str, Tuple[str, dict]]:
+def select_relevant_memories(user_identifier: str, user_message: str, return_details=False) -> Union[str, Tuple[str, dict]]:
     """Module-level function to select memories using singleton instance"""
-    return await _memory_decision.select_relevant_memories(user_identifier, user_message, return_details)
+    return _memory_decision.select_relevant_memories(user_identifier, user_message, return_details)

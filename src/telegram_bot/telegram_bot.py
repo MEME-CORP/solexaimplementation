@@ -187,8 +187,8 @@ class TelegramBot:
             # Get conversation context
             conversation_context = self.get_conversation_context(user_id)
             
-            # Get relevant memories - this is already async
-            memories = await select_relevant_memories(username, user_message)
+            # Get relevant memories - now synchronous
+            memories = select_relevant_memories(username, user_message)
             
             # Get current story circle context - this is synchronous
             narrative_context = get_current_context()
