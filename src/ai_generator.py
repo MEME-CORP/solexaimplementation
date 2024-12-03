@@ -88,16 +88,21 @@ class AIGenerator:
             return []
 
     def load_narrative(self):
-        """Load narrative context from database"""
+        """Load narrative context"""
         try:
-            narrative = self.db.get_story_circle()
-            if narrative and 'narrative' in narrative:
-                logger.info(f"Successfully loaded narrative with keys: {list(narrative['narrative'].keys())}")
-                return narrative['narrative']
-            return {}
+            story_circle = self.db.get_story_circle_sync()
+            if story_circle:
+                logger.info("Narrative content:")
+                logger.info(f"Current Phase: {story_circle['narrative']['current_phase']}")
+                logger.info(f"Current Event: {story_circle['narrative']['dynamic_context']['current_event']}")
+                logger.info(f"Current Inner Dialogue: {story_circle['narrative']['dynamic_context']['current_inner_dialogue']}")
+                return story_circle['narrative']
+            else:
+                logger.warning("No story circle found in database")
+                return None
         except Exception as e:
-            logger.error(f"Error loading narrative: {str(e)}")
-            return {}
+            logger.error(f"Error loading narrative: {e}")
+            return None
 
     def _prepare_messages(self, **kwargs):
         """Prepare messages for API call - exposed for testing"""

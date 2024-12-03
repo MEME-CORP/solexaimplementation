@@ -41,6 +41,9 @@ class DatabaseService:
             logger.error(f"Error fetching story circle: {e}")
             return None
 
+    # Alias for backward compatibility
+    get_story_circle_sync = get_story_circle
+
     def get_circle_memories_sync(self):
         """Get circle memories synchronously"""
         try:

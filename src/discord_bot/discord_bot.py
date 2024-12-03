@@ -7,7 +7,7 @@ import random
 from discord.ext import commands, tasks
 from src.config import Config
 from src.ai_generator import AIGenerator
-from src.memory_processor import process_daily_memories
+from src.memory_processor import MemoryProcessor
 from src.memory_decision import select_relevant_memories
 from src.story_circle_manager import get_current_context, update_story_circle, progress_narrative
 from datetime import time
@@ -22,6 +22,7 @@ class DiscordBot(commands.Bot):
         intents.message_content = True  # Enable message content intent
         super().__init__(command_prefix='!', intents=intents)
         self.generator = AIGenerator(mode='discord')
+        self.memory_processor = MemoryProcessor()
         self.user_conversations = {}
         self.MAX_MEMORY = Config.MAX_MEMORY
         self.remove_command('help')  # Remove default help command if desired
@@ -116,9 +117,15 @@ class DiscordBot(commands.Bot):
     async def process_memories(self):
         try:
             logger.info("Starting nightly memory processing...")
-            await process_daily_memories(self.user_conversations)
-            self.user_conversations.clear()
-            logger.info("Nightly memory processing completed")
+            if self.user_conversations:  # Only process if there are conversations
+                result = self.memory_processor.process_daily_memories(self.user_conversations)
+                if result:
+                    self.user_conversations.clear()
+                    logger.info("Nightly memory processing completed")
+                else:
+                    logger.warning("Memory processing failed or returned no results")
+            else:
+                logger.info("No conversations to process")
         except Exception as e:
             logger.error(f"Error in nightly memory processing: {e}")
 
@@ -126,9 +133,12 @@ class DiscordBot(commands.Bot):
     async def update_narrative(self):
         try:
             logger.info("Progressing story circle narrative...")
-            # This is async
-            await progress_narrative()
-            logger.info("Story circle progression completed")
+            # Call the synchronous function
+            result = progress_narrative()
+            if result:
+                logger.info("Story circle progression completed")
+            else:
+                logger.warning("No story circle progression needed or possible")
         except Exception as e:
             logger.error(f"Error in story circle progression: {e}")
 
