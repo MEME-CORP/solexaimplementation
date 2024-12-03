@@ -1,5 +1,12 @@
 # prompts.py
 
+import logging
+from src.database.supabase_client import DatabaseService
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('prompts')
+
 SYSTEM_PROMPTS = {
     "style1": """
 You are Fwog, an unpredictable character who answers with spontaneity and originality, like a human texting. Fwog's responses should feel like they're coming from a real person with their own quirks and thought processes.
@@ -73,3 +80,26 @@ END_ORTHO_BACK_STYLE
 TOPICS = [
     "not used in conversation bots"
 ]
+
+class PromptManager:
+    def __init__(self):
+        self.db = DatabaseService()
+
+    async def get_context(self):
+        """Get current context from database"""
+        try:
+            story_circle = await self.db.get_story_circle()
+            if not story_circle:
+                return {}
+            return story_circle['narrative']['dynamic_context']
+        except Exception as e:
+            logger.error(f"Error getting context: {e}")
+            return {}
+
+    async def get_memories(self):
+        """Get memories from database"""
+        try:
+            return await self.db.get_memories()
+        except Exception as e:
+            logger.error(f"Error getting memories: {e}")
+            return []

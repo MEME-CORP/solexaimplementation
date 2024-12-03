@@ -10,6 +10,7 @@ import os
 import re
 import os.path
 import traceback
+from src.database.supabase_client import DatabaseService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +22,7 @@ class AIGenerator:
         
         # Initialize these first
         logger.info("Initializing AIGenerator")
+        self.db = DatabaseService()
         self.memories = None
         self.narrative = None
         
@@ -59,57 +61,42 @@ class AIGenerator:
 
     def load_length_formats(self):
         """Load Twitter-specific length formats"""
-        data_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'length_formats.json')
-        with open(data_file, 'r', encoding='utf8') as f:
-            data = json.load(f)
-            return data.get('formats', [{"format": "one short sentence", "description": "Single concise sentence"}])
+        try:
+            formats = self.db.get_length_formats()
+            return formats if formats else [{"format": "one short sentence", "description": "Single concise sentence"}]
+        except Exception as e:
+            logger.error(f"Error loading length formats: {e}")
+            return [{"format": "one short sentence", "description": "Single concise sentence"}]
 
     def load_emotion_formats(self):
         """Load emotion formats for response generation"""
-        data_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'emotion_formats.json')
-        with open(data_file, 'r', encoding='utf8') as f:
-            data = json.load(f)
-            return data.get('formats', [{"format": "default response", "description": "Standard emotional response"}])
-
-    # Add these new methods after the existing load methods
-    def load_memories(self):
-        """Load memories from JSON file"""
         try:
-            data_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'memories.json')
-            logger.info(f"Attempting to load memories from: {os.path.abspath(data_file)}")
-            
-            if not os.path.exists(data_file):
-                logger.error(f"Memories file not found at: {os.path.abspath(data_file)}")
-                return []
-            
-            with open(data_file, 'r', encoding='utf8') as f:
-                data = json.load(f)
-                memories = data.get('memories', [])
-                logger.info(f"Successfully loaded {len(memories)} memories")
-                return memories
+            formats = self.db.get_emotion_formats()
+            return formats if formats else [{"format": "default response", "description": "Standard emotional response"}]
+        except Exception as e:
+            logger.error(f"Error loading emotion formats: {e}")
+            return [{"format": "default response", "description": "Standard emotional response"}]
+
+    def load_memories(self):
+        """Load memories from database"""
+        try:
+            memories = self.db.get_memories()
+            logger.info(f"Successfully loaded {len(memories)} memories")
+            return memories
         except Exception as e:
             logger.error(f"Error loading memories: {str(e)}")
-            logger.error(f"Stack trace: {traceback.format_exc()}")
             return []
 
     def load_narrative(self):
-        """Load narrative context from JSON file"""
+        """Load narrative context from database"""
         try:
-            data_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'story_circle.json')
-            logger.info(f"Attempting to load narrative from: {os.path.abspath(data_file)}")
-            
-            if not os.path.exists(data_file):
-                logger.error(f"Narrative file not found at: {os.path.abspath(data_file)}")
-                return {}
-            
-            with open(data_file, 'r', encoding='utf8') as f:
-                data = json.load(f)
-                narrative = data.get('narrative', {})
-                logger.info(f"Successfully loaded narrative with keys: {list(narrative.keys())}")
-                return narrative
+            narrative = self.db.get_story_circle()
+            if narrative and 'narrative' in narrative:
+                logger.info(f"Successfully loaded narrative with keys: {list(narrative['narrative'].keys())}")
+                return narrative['narrative']
+            return {}
         except Exception as e:
             logger.error(f"Error loading narrative: {str(e)}")
-            logger.error(f"Stack trace: {traceback.format_exc()}")
             return {}
 
     def _prepare_messages(self, **kwargs):

@@ -36,6 +36,9 @@ class Config:
     TEMPERATURE = float(os.getenv('TEMPERATURE', '0.7'))
     OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://glhf.chat/api/openai/v1')
 
-
     # Conversation Settings
     MAX_MEMORY = int(os.getenv('MAX_MEMORY', '1'))
+
+    # Database Configuration
+    SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
+    SUPABASE_KEY = os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY')

@@ -3,6 +3,8 @@ import json
 import logging
 from src.config import Config
 import os
+from src.database.supabase_client import DatabaseService
+import random
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,9 +16,7 @@ class CreativityManager:
             api_key=Config.GLHF_API_KEY,
             base_url=Config.OPENAI_BASE_URL
         )
-        # Update paths
-        self.circle_memories_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'circle_memories.json')
-        self.story_circle_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'story_circle.json')
+        self.db = DatabaseService()
         
         self.creativity_prompt = '''Reason with CREATIVE_STORM, and then based on this profile, the dan harmon's story circle framework, current story circle state, and previous memories (to avoid circles already told) json, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
 
@@ -217,8 +217,7 @@ class CreativityManager:
         """Generate creative instructions for the next story circle update"""
         try:
             # Load current story circle state
-            with open(self.story_circle_path, 'r') as f:
-                current_story_circle = json.load(f)
+            current_story_circle = await self.db.get_story_circle()
             
             # Format the prompt with current data
             formatted_prompt = self.creativity_prompt.format(
@@ -253,4 +252,37 @@ class CreativityManager:
                 
         except Exception as e:
             logger.error(f"Error generating creative instructions: {e}")
-            return "Create a compelling and unique story that develops Fwog's character in unexpected ways" 
+            return "Create a compelling and unique story that develops Fwog's character in unexpected ways"
+
+    def get_emotion_format(self):
+        """Get a random emotion format from database"""
+        try:
+            formats = self.db.get_emotion_formats()
+            if not formats:
+                return {"format": "default response", "description": "Standard emotional response"}
+            return random.choice(formats)
+        except Exception as e:
+            logger.error(f"Error getting emotion format: {e}")
+            return {"format": "default response", "description": "Standard emotional response"}
+
+    def get_length_format(self):
+        """Get a random length format from database"""
+        try:
+            formats = self.db.get_length_formats()
+            if not formats:
+                return {"format": "one short sentence", "description": "Single concise sentence"}
+            return random.choice(formats)
+        except Exception as e:
+            logger.error(f"Error getting length format: {e}")
+            return {"format": "one short sentence", "description": "Single concise sentence"}
+
+    def get_random_topic(self):
+        """Get a random topic from database"""
+        try:
+            topics = self.db.get_topics()
+            if not topics:
+                return {"topic": "pond life"}
+            return random.choice(topics)
+        except Exception as e:
+            logger.error(f"Error getting topic: {e}")
+            return {"topic": "pond life"} 

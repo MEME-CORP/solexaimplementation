@@ -7,46 +7,29 @@ from typing import List
 import os
 import logging
 from pathlib import Path
+from src.database.supabase_client import DatabaseService
 
 class TweetManager:
     def __init__(self, driver: WebDriver):
         self.driver = driver
         self.logger = logging.getLogger('TweetManager')
         self.processed_tweets = set()
+        self.db = DatabaseService()
         self.load_processed_tweets()
 
     def load_processed_tweets(self):
-        """Load processed tweet IDs from file"""
+        """Load processed tweet IDs from database"""
         try:
-            # Create data directory if it doesn't exist
-            data_dir = Path(__file__).parent.parent.parent / 'data'
-            data_dir.mkdir(exist_ok=True)
-            
-            processed_tweets_path = data_dir / 'processed_tweets.txt'
-            # Create file if it doesn't exist
-            if not processed_tweets_path.exists():
-                processed_tweets_path.touch()
-                self.logger.info("Created new processed_tweets.txt file")
-            
-            with open(processed_tweets_path, 'r') as f:
-                self.processed_tweets = set(f.read().splitlines())
+            tweet_ids = self.db.get_processed_tweets()
+            self.processed_tweets = set(tweet_ids)
             self.logger.info(f"Loaded {len(self.processed_tweets)} processed tweet IDs")
         except Exception as e:
             self.logger.error(f"Error loading processed tweets: {e}")
             self.processed_tweets = set()
 
     def save_processed_tweets(self):
-        """Save processed tweet IDs to file"""
-        try:
-            data_dir = Path(__file__).parent.parent.parent / 'data'
-            data_dir.mkdir(exist_ok=True)
-            
-            processed_tweets_path = data_dir / 'processed_tweets.txt'
-            with open(processed_tweets_path, 'w') as f:
-                f.write('\n'.join(self.processed_tweets))
-            self.logger.info(f"Saved {len(self.processed_tweets)} processed tweet IDs")
-        except Exception as e:
-            self.logger.error(f"Error saving processed tweets: {e}")
+        """Save processed tweet IDs to database"""
+        pass
 
     def extract_tweet_id(self, article) -> str:
         """Extract tweet ID from article element"""
@@ -380,6 +363,8 @@ class TweetManager:
         return tweet_id in self.processed_tweets
 
     def mark_tweet_processed(self, tweet_id: str) -> None:
-        """Mark a tweet as processed and save to file"""
-        self.processed_tweets.add(tweet_id)
-        self.save_processed_tweets()
+        """Mark a tweet as processed in database"""
+        try:
+            self.processed_tweets.add(tweet_id)
+        except Exception as e:
+            self.logger.error(f"Error marking tweet as processed: {e}")

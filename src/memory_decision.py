@@ -4,6 +4,7 @@ import logging
 from src.config import Config
 import os
 from typing import Union, Tuple
+from src.database.supabase_client import DatabaseService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -38,20 +39,13 @@ class MemoryDecision:
             api_key=Config.GLHF_API_KEY,
             base_url=Config.OPENAI_BASE_URL
         )
+        self.db = DatabaseService()
 
     async def select_relevant_memories(self, user_identifier: str, user_message: str, return_details=False) -> Union[str, Tuple[str, dict]]:
         """Select relevant memories from existing ones."""
         try:
-            memories_file = os.path.join(os.path.dirname(__file__), '..', 'data', 'memories.json')
+            all_memories = await self.db.get_memories()
             
-            if not os.path.exists(memories_file):
-                logger.warning(f"No memories file found at {memories_file}")
-                return ("no relevant memories for this conversation", {}) if return_details else "no relevant memories for this conversation"
-            
-            with open(memories_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                all_memories = data.get('memories', [])
-
             if not all_memories:
                 return ("no relevant memories for this conversation", {}) if return_details else "no relevant memories for this conversation"
 

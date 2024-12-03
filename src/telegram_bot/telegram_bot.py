@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from src.ai_generator import AIGenerator
 from src.config import Config
 import asyncio
-from src.memory_processor import process_daily_memories
+from src.memory_processor import MemoryProcessor
 from src.memory_decision import select_relevant_memories
 from src.story_circle_manager import get_current_context, update_story_circle, progress_narrative
 from datetime import datetime, time
@@ -39,6 +39,7 @@ class TelegramBot:
         """Initialize bot with basic configuration."""
         self.token = Config.TELEGRAM_BOT_TOKEN
         self.generator = AIGenerator(mode='telegram')
+        self.memory_processor = MemoryProcessor()
         self.user_conversations = {}
         self.MAX_MEMORY = Config.MAX_MEMORY
         self._running = True
@@ -89,9 +90,12 @@ class TelegramBot:
         """Job to process memories daily."""
         try:
             logger.info("Starting nightly memory processing...")
-            await process_daily_memories(self.user_conversations)
-            self.user_conversations.clear()
-            logger.info("Nightly memory processing completed")
+            if self.user_conversations:  # Only process if there are conversations
+                await self.memory_processor.process_daily_memories(self.user_conversations)
+                self.user_conversations.clear()
+                logger.info("Nightly memory processing completed")
+            else:
+                logger.info("No conversations to process")
         except Exception as e:
             logger.error(f"Error in nightly memory processing: {e}")
 
@@ -99,8 +103,12 @@ class TelegramBot:
         """Job to update narrative every 6 hours."""
         try:
             logger.info("Progressing story circle narrative...")
-            await progress_narrative()
-            logger.info("Story circle progression completed")
+            # Call the synchronous function
+            result = progress_narrative()
+            if result:
+                logger.info("Story circle progression completed")
+            else:
+                logger.warning("No story circle progression needed or possible")
         except Exception as e:
             logger.error(f"Error in story circle progression: {e}")
 
@@ -182,7 +190,7 @@ class TelegramBot:
             # Get relevant memories - this is already async
             memories = await select_relevant_memories(username, user_message)
             
-            # Get current story circle context
+            # Get current story circle context - this is synchronous
             narrative_context = get_current_context()
             
             # Generate response - don't await since it's synchronous
