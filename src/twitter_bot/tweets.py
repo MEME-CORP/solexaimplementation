@@ -374,12 +374,21 @@ class TweetManager:
         """Process a reply to the challenge tweet"""
         try:
             message = notification['text']
-            # Extract username from notification
             username = notification.get('username', 'fwiend')  # Default to 'fwiend' if username not found
             
-            is_winner, response, wallet_address = challenge_manager.check_guess(message, username)
+            is_valid, response, wallet_address = challenge_manager.check_guess(message, username)
             
-            # Reply to the tweet
+            # If response is None, this is not a challenge attempt - handle with regular AI
+            if response is None:
+                reply_content = self.generator.generate_content(
+                    user_message=f"reply to: {message}", 
+                    conversation_context='',
+                    username=username
+                )
+                self.reply_to_tweet(notification, reply_content)
+                return
+            
+            # Otherwise, send challenge response
             self.reply_to_tweet(notification, response)
             
         except Exception as e:
