@@ -31,18 +31,114 @@ class DatabaseService:
             return []
 
     def get_story_circle(self):
-        """Get current story circle data - unified method for all components"""
+        """Get current story circle data with its phases"""
         try:
-            response = self.client.table('story_circle').select('narrative').execute()
-            if response.data:
-                return response.data[0]
-            return None
+            # Get the latest story circle
+            story = self.client.table('story_circle')\
+                .select('*')\
+                .order('created_at', desc=True)\
+                .limit(1)\
+                .execute()
+
+            if not story.data:
+                # Return default structure if no data exists
+                return {
+                    "narrative": {
+                        "events": [],
+                        "next_phase": "Need",
+                        "current_phase": "You",
+                        "dynamic_context": {
+                            "next_event": "",
+                            "current_event": "",
+                            "current_inner_dialogue": ""
+                        },
+                        "inner_dialogues": [],
+                        "current_story_circle": [
+                            {"phase": phase, "description": ""} 
+                            for phase in ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
+                        ]
+                    }
+                }
+
+            story_data = story.data[0]
+
+            # Get associated phases
+            phases = self.client.table('story_phases')\
+                .select('*')\
+                .eq('story_circle_id', story_data['id'])\
+                .execute()
+
+            # Reconstruct the full story circle structure
+            narrative = story_data['narrative']
+            
+            # If no phases exist, create default phase structure
+            if not phases.data:
+                narrative['current_story_circle'] = [
+                    {"phase": phase, "description": ""} 
+                    for phase in ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
+                ]
+            else:
+                # Sort phases in correct order
+                phase_order = ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
+                phase_dict = {phase['phase']: phase['description'] for phase in phases.data}
+                narrative['current_story_circle'] = [
+                    {"phase": phase, "description": phase_dict.get(phase, "")}
+                    for phase in phase_order
+                ]
+
+            return {'narrative': narrative}
+
         except Exception as e:
             logger.error(f"Error fetching story circle: {e}")
             return None
 
-    # Alias for backward compatibility
-    get_story_circle_sync = get_story_circle
+    def update_story_circle(self, story_circle):
+        """Update story circle and its phases"""
+        try:
+            if 'narrative' not in story_circle:
+                story_circle = {'narrative': story_circle}
+
+            narrative = story_circle['narrative']
+            
+            # Validate required fields
+            required_fields = ['events', 'next_phase', 'current_phase', 'dynamic_context', 
+                             'inner_dialogues', 'current_story_circle']
+            
+            for field in required_fields:
+                if field not in narrative:
+                    logger.error(f"Missing required field in story circle: {field}")
+                    return False
+
+            # Save main story circle data
+            result = self.client.table('story_circle').insert({
+                'narrative': {
+                    'events': narrative['events'],
+                    'next_phase': narrative['next_phase'],
+                    'current_phase': narrative['current_phase'],
+                    'dynamic_context': narrative['dynamic_context'],
+                    'inner_dialogues': narrative['inner_dialogues']
+                }
+            }).execute()
+
+            if not result.data:
+                logger.error("Failed to save story circle")
+                return False
+
+            story_circle_id = result.data[0]['id']
+
+            # Save phases
+            for phase in narrative['current_story_circle']:
+                self.client.table('story_phases').insert({
+                    'story_circle_id': story_circle_id,
+                    'phase': phase['phase'],
+                    'description': phase['description']
+                }).execute()
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error updating story circle: {e}")
+            return False
 
     def get_circle_memories_sync(self):
         """Get circle memories synchronously"""
@@ -54,16 +150,6 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error fetching circle memories synchronously: {e}")
             return {"memories": []}
-
-    def update_story_circle(self, story_circle):
-        """Update story circle in database - unified method for all components"""
-        try:
-            self.client.table('story_circle').upsert({
-                'narrative': story_circle['narrative']
-            }).execute()
-        except Exception as e:
-            logger.error(f"Error updating story circle: {e}")
-            raise
 
     def update_circle_memories(self, circles_memory):
         """Update circle memories in database - unified method"""

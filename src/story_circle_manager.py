@@ -270,25 +270,47 @@ class StoryCircleManager:
     def progress_to_next_event(self, story_circle):
         """Progress to the next event in the current phase synchronously"""
         try:
-            narrative = story_circle["narrative"]
-            current_events = narrative["events"]
-            current_dialogues = narrative["inner_dialogues"]
+            if not story_circle or 'narrative' not in story_circle:
+                logger.error("Invalid story circle structure")
+                return None
+
+            narrative = story_circle['narrative']
+            current_events = narrative['events']
+            current_dialogues = narrative['inner_dialogues']
             
             # Find current event index
-            current_event = narrative["dynamic_context"]["current_event"]
-            current_index = current_events.index(current_event)
+            current_event = narrative['dynamic_context']['current_event']
+            if not current_event and current_events:
+                # If no current event but events exist, start with the first one
+                narrative['dynamic_context']['current_event'] = current_events[0]
+                narrative['dynamic_context']['current_inner_dialogue'] = current_dialogues[0]
+                narrative['dynamic_context']['next_event'] = current_events[1] if len(current_events) > 1 else ""
+                return story_circle
+
+            try:
+                current_index = current_events.index(current_event)
+            except ValueError:
+                logger.error("Current event not found in events list")
+                return None
             
             # If we have more events in the current list
             if current_index + 2 < len(current_events):
                 # Move to next event
-                narrative["dynamic_context"]["current_event"] = current_events[current_index + 1]
-                narrative["dynamic_context"]["current_inner_dialogue"] = current_dialogues[current_index + 1]
-                narrative["dynamic_context"]["next_event"] = current_events[current_index + 2]
+                narrative['dynamic_context']['current_event'] = current_events[current_index + 1]
+                narrative['dynamic_context']['current_inner_dialogue'] = current_dialogues[current_index + 1]
+                narrative['dynamic_context']['next_event'] = current_events[current_index + 2]
+                
+                # Update the current phase description
+                for phase in narrative['current_story_circle']:
+                    if phase['phase'] == narrative['current_phase']:
+                        if not phase['description']:
+                            phase['description'] = f"{current_event} - {narrative['dynamic_context']['current_inner_dialogue']}"
                 
                 # Save the updated story circle
-                self.save_story_circle(story_circle)
-                logger.info("Progressed to next event in current phase")
-                return story_circle
+                if self.save_story_circle(story_circle):
+                    logger.info("Progressed to next event in current phase")
+                    return story_circle
+                return None
                 
             else:
                 # If we're at the last or second-to-last event, we need new events
@@ -297,13 +319,17 @@ class StoryCircleManager:
                 
         except Exception as e:
             logger.error(f"Error progressing to next event: {e}")
-            raise
+            return None
 
     def update_story_circle(self):
         """Update the story circle synchronously"""
         try:
             # Load current story circle and circles memory
             story_circle = self.load_story_circle()
+            if not story_circle:
+                logger.error("Failed to load story circle")
+                return None
+
             circles_memory = self.load_circles_memory()
             
             # Generate creative instructions
@@ -315,7 +341,7 @@ class StoryCircleManager:
                 circle_memories=json.dumps(circles_memory, indent=2, ensure_ascii=False)
             )
             
-            # Get the updated narrative from the AI using new client format
+            # Get the updated narrative from the AI
             completion = self.client.chat.completions.create(
                 model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
                 messages=[
@@ -331,26 +357,26 @@ class StoryCircleManager:
                 new_story_circle = json.loads(completion.choices[0].message.content)
                 
                 # Check if we've completed a circle
-                current_phase = new_story_circle["narrative"]["current_phase"]
-                previous_phase = story_circle["narrative"]["current_phase"]
+                current_phase = new_story_circle['narrative']['current_phase']
+                previous_phase = story_circle['narrative']['current_phase']
                 
                 # Only archive when moving TO "Change" phase
                 if current_phase == "Change" and previous_phase != "Change":
                     self.archive_completed_circle(story_circle)
                 
                 # Save the updated story circle
-                self.save_story_circle(new_story_circle)
-                
-                logger.info(f"Story circle updated successfully. Current phase: {current_phase}")
-                return new_story_circle
+                if self.save_story_circle(new_story_circle):
+                    logger.info(f"Story circle updated successfully. Current phase: {current_phase}")
+                    return new_story_circle
+                return None
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse AI response: {e}")
-                raise
+                return None
                 
         except Exception as e:
             logger.error(f"Error updating story circle: {e}")
-            raise
+            return None
 
     def get_current_context(self):
         """Get the current story circle context synchronously"""
