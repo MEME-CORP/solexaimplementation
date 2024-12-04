@@ -265,7 +265,7 @@ class DatabaseService:
                 .eq('id', story_circle_id)\
                 .execute()
             
-            # Update phases
+            # Update phases without is_current flag
             for phase in story_circle['phases']:
                 self.client.table('story_phases').update({
                     'phase_name': phase['phase'],
@@ -298,20 +298,6 @@ class DatabaseService:
             
             for event_data in events_dialogues:
                 self.client.table('events_dialogues').insert(event_data).execute()
-            
-            # Update current phase in phases table
-            self.client.table('story_phases').update({
-                'is_current': True
-            }).eq('story_circle_id', story_circle_id)\
-              .eq('phase_number', current_phase_number)\
-              .execute()
-            
-            # Set other phases as not current
-            self.client.table('story_phases').update({
-                'is_current': False
-            }).eq('story_circle_id', story_circle_id)\
-              .neq('phase_number', current_phase_number)\
-              .execute()
             
             return True
             
