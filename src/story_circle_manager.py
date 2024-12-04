@@ -309,93 +309,11 @@ class StoryCircleManager:
             logger.error(f"Error progressing to next event: {e}")
             raise
 
-    def transform_db_to_narrative(self, db_story_circle):
-        """Transform database story circle to narrative structure"""
-        try:
-            if not db_story_circle:
-                raise ValueError("Empty story circle from database")
-            
-            # Create the narrative structure
-            narrative = {
-                'current_story_circle': [
-                    {
-                        'phase': phase['phase'],
-                        'description': phase.get('description', '')
-                    }
-                    for phase in db_story_circle.get('phases', [])
-                ],
-                'current_phase': db_story_circle.get('current_phase', 'You'),
-                'next_phase': self._get_next_phase(db_story_circle.get('current_phase', 'You')),
-                'events': db_story_circle.get('events', []),
-                'inner_dialogues': db_story_circle.get('dialogues', []),
-                'dynamic_context': db_story_circle.get('dynamic_context', {
-                    'current_event': '',
-                    'current_inner_dialogue': '',
-                    'next_event': ''
-                })
-            }
-            
-            return {'narrative': narrative, 'id': db_story_circle.get('id')}
-            
-        except Exception as e:
-            logger.error(f"Error transforming story circle: {e}")
-            raise
-
-    def _get_next_phase(self, current_phase):
-        """Get the next phase in the story circle"""
-        phases = ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
-        try:
-            current_index = phases.index(current_phase)
-            next_index = (current_index + 1) % len(phases)
-            return phases[next_index]
-        except ValueError:
-            return "You"
-
-    def progress_narrative(self):
-        """Main function to progress the narrative"""
-        try:
-            # Load current story circle from database
-            db_story_circle = self.db.get_story_circle()
-            
-            # Transform to narrative structure
-            story_circle = self.transform_db_to_narrative(db_story_circle)
-            
-            if not story_circle or "narrative" not in story_circle:
-                logger.error("Invalid story circle structure after transformation")
-                return self.update_story_circle()
-            
-            narrative = story_circle["narrative"]
-            current_event = narrative["dynamic_context"]["current_event"]
-            
-            if not current_event:
-                # No current event, start with first event
-                if narrative["events"]:
-                    narrative["dynamic_context"]["current_event"] = narrative["events"][0]
-                    narrative["dynamic_context"]["current_inner_dialogue"] = narrative["inner_dialogues"][0]
-                    narrative["dynamic_context"]["next_event"] = (
-                        narrative["events"][1] if len(narrative["events"]) > 1 else ""
-                    )
-                    # Transform back to database structure for saving
-                    self.db.update_story_circle_state(db_story_circle)
-                    return story_circle
-                else:
-                    # No events at all, need to generate new ones
-                    return self.update_story_circle()
-            
-            # Progress to next event
-            return self.progress_to_next_event(story_circle)
-            
-        except Exception as e:
-            logger.error(f"Error progressing narrative: {e}")
-            logger.error(f"Full error details: {str(e)}")
-            return self.update_story_circle()  # Fallback to generating new content
-
     def update_story_circle(self):
         """Update the story circle with new content"""
         try:
             # Get current story circle and circles memory
-            db_story_circle = self.db.get_story_circle()
-            story_circle = self.transform_db_to_narrative(db_story_circle)
+            story_circle = self.db.get_story_circle()
             circles_memory = self.db.get_circle_memories_sync()
             
             # Generate creative instructions
@@ -524,6 +442,41 @@ class StoryCircleManager:
                 'current_event': '',
                 'current_inner_dialogue': ''
             }
+
+    def progress_narrative(self):
+        """Main function to progress the narrative"""
+        try:
+            # Load current story circle from database
+            story_circle = self.db.get_story_circle()
+            
+            if not story_circle or "narrative" not in story_circle:
+                logger.error("Invalid story circle structure")
+                return self.update_story_circle()
+            
+            narrative = story_circle["narrative"]
+            current_event = narrative["dynamic_context"]["current_event"]
+            
+            if not current_event:
+                # No current event, start with first event
+                if narrative["events"]:
+                    narrative["dynamic_context"]["current_event"] = narrative["events"][0]
+                    narrative["dynamic_context"]["current_inner_dialogue"] = narrative["inner_dialogues"][0]
+                    narrative["dynamic_context"]["next_event"] = (
+                        narrative["events"][1] if len(narrative["events"]) > 1 else ""
+                    )
+                    self.db.update_story_circle_state(story_circle)
+                    return story_circle
+                else:
+                    # No events at all, need to generate new ones
+                    return self.update_story_circle()
+            
+            # Progress to next event
+            return self.progress_to_next_event(story_circle)
+            
+        except Exception as e:
+            logger.error(f"Error progressing narrative: {e}")
+            logger.error(f"Full error details: {str(e)}")
+            raise
 
     def complete_circle(self, story_circle):
         """Complete current circle and start new one"""
