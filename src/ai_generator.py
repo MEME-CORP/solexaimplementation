@@ -60,12 +60,21 @@ class AIGenerator:
         logger.info(f"Initialization complete. Memories loaded: {bool(self.memories)}, Narrative loaded: {bool(self.narrative)}")
 
     def load_length_formats(self):
-        """Load Twitter-specific length formats"""
+        """Load length formats from JSON file"""
         try:
-            formats = self.db.get_length_formats()
-            return formats if formats else [{"format": "one short sentence", "description": "Single concise sentence"}]
+            # Get the path to the length_formats.json file
+            file_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'length_formats.json')
+            
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                formats = data.get('formats', [])
+                if not formats:
+                    logger.warning("No length formats found in file")
+                    return [{"format": "one short sentence", "description": "Single concise sentence"}]
+                return formats
+                
         except Exception as e:
-            logger.error(f"Error loading length formats: {e}")
+            logger.error(f"Error loading length formats from file: {e}")
             return [{"format": "one short sentence", "description": "Single concise sentence"}]
 
     def load_emotion_formats(self):

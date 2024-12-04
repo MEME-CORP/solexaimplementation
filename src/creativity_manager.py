@@ -277,12 +277,16 @@ class CreativityManager:
             return {"format": "default response", "description": "Standard emotional response"}
 
     def get_length_format(self):
-        """Get a random length format from database"""
+        """Get a random length format from JSON file"""
         try:
-            formats = self.db.get_length_formats()
-            if not formats:
-                return {"format": "one short sentence", "description": "Single concise sentence"}
-            return random.choice(formats)
+            file_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'length_formats.json')
+            
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                formats = data.get('formats', [])
+                if not formats:
+                    return {"format": "one short sentence", "description": "Single concise sentence"}
+                return random.choice(formats)
         except Exception as e:
             logger.error(f"Error getting length format: {e}")
             return {"format": "one short sentence", "description": "Single concise sentence"}
