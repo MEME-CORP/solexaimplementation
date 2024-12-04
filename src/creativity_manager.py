@@ -213,15 +213,26 @@ class CreativityManager:
         growth_point: string    # How Fwog grows in this phase
     </INSTRUCTIONS> '''
 
-    async def generate_creative_instructions(self, circles_memory):
+    def generate_creative_instructions(self, circles_memory):
         """Generate creative instructions for the next story circle update"""
         try:
-            # Load current story circle state
-            current_story_circle = await self.db.get_story_circle()
+            # Get current story circle state from database
+            current_story_circle = self.db.get_story_circle()
+            
+            # Format the data to match expected structure
+            formatted_story_circle = {
+                "narrative": {
+                    "current_story_circle": current_story_circle["phases"],
+                    "current_phase": current_story_circle["current_phase"],
+                    "events": current_story_circle["events"],
+                    "inner_dialogues": current_story_circle["dialogues"],
+                    "dynamic_context": current_story_circle["dynamic_context"]
+                }
+            }
             
             # Format the prompt with current data
             formatted_prompt = self.creativity_prompt.format(
-                current_story_circle=json.dumps(current_story_circle, indent=2, ensure_ascii=False),
+                current_story_circle=json.dumps(formatted_story_circle, indent=2, ensure_ascii=False),
                 previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False)
             )
             

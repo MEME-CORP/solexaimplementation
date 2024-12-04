@@ -240,29 +240,26 @@ class StoryCircleManager:
             raise
 
     def archive_completed_circle(self, story_circle):
-        """Archive a completed story circle to circles_memory synchronously"""
+        """Archive a completed story circle and create a new one"""
         try:
+            # 1. Set current circle as completed
+            self.db.update_story_circle(
+                story_circle["id"], 
+                {"is_current": False}
+            )
+            
+            # 2. Generate summary for the completed circle
             circles_memory = self.load_circles_memory()
+            new_memory = self.generate_circle_summary(story_circle, circles_memory)
             
-            # Ensure circles_memory has the correct structure
-            if "memories" not in circles_memory:
-                circles_memory = {"memories": []}
+            # 3. Save the memory
+            self.db.insert_circle_memories(story_circle["id"], new_memory["memories"])
             
-            # Generate summary for the completed circle
-            try:
-                new_memory = self.generate_circle_summary(story_circle, circles_memory)
-                
-                # Add the new memories to the existing ones
-                circles_memory["memories"].extend(new_memory["memories"])
-                
-                # Save updated memories
-                self.save_circles_memory(circles_memory)
-                logger.info(f"Successfully archived story circle with summary: {new_memory}")
-                
-            except Exception as e:
-                logger.error(f"Error in summary generation: {e}")
-                raise
-                
+            # 4. Create new story circle
+            self.db.create_story_circle()
+            
+            logger.info(f"Successfully archived story circle and created new one")
+            
         except Exception as e:
             logger.error(f"Error in archive_completed_circle: {e}")
             raise
@@ -270,47 +267,25 @@ class StoryCircleManager:
     def progress_to_next_event(self, story_circle):
         """Progress to the next event in the current phase synchronously"""
         try:
-            if not story_circle or 'narrative' not in story_circle:
-                logger.error("Invalid story circle structure")
-                return None
-
-            narrative = story_circle['narrative']
-            current_events = narrative['events']
-            current_dialogues = narrative['inner_dialogues']
+            narrative = story_circle["narrative"]
+            current_events = narrative["events"]
+            current_dialogues = narrative["inner_dialogues"]
             
             # Find current event index
-            current_event = narrative['dynamic_context']['current_event']
-            if not current_event and current_events:
-                # If no current event but events exist, start with the first one
-                narrative['dynamic_context']['current_event'] = current_events[0]
-                narrative['dynamic_context']['current_inner_dialogue'] = current_dialogues[0]
-                narrative['dynamic_context']['next_event'] = current_events[1] if len(current_events) > 1 else ""
-                return story_circle
-
-            try:
-                current_index = current_events.index(current_event)
-            except ValueError:
-                logger.error("Current event not found in events list")
-                return None
+            current_event = narrative["dynamic_context"]["current_event"]
+            current_index = current_events.index(current_event)
             
             # If we have more events in the current list
             if current_index + 2 < len(current_events):
                 # Move to next event
-                narrative['dynamic_context']['current_event'] = current_events[current_index + 1]
-                narrative['dynamic_context']['current_inner_dialogue'] = current_dialogues[current_index + 1]
-                narrative['dynamic_context']['next_event'] = current_events[current_index + 2]
-                
-                # Update the current phase description
-                for phase in narrative['current_story_circle']:
-                    if phase['phase'] == narrative['current_phase']:
-                        if not phase['description']:
-                            phase['description'] = f"{current_event} - {narrative['dynamic_context']['current_inner_dialogue']}"
+                narrative["dynamic_context"]["current_event"] = current_events[current_index + 1]
+                narrative["dynamic_context"]["current_inner_dialogue"] = current_dialogues[current_index + 1]
+                narrative["dynamic_context"]["next_event"] = current_events[current_index + 2]
                 
                 # Save the updated story circle
-                if self.save_story_circle(story_circle):
-                    logger.info("Progressed to next event in current phase")
-                    return story_circle
-                return None
+                self.save_story_circle(story_circle)
+                logger.info("Progressed to next event in current phase")
+                return story_circle
                 
             else:
                 # If we're at the last or second-to-last event, we need new events
@@ -319,79 +294,62 @@ class StoryCircleManager:
                 
         except Exception as e:
             logger.error(f"Error progressing to next event: {e}")
-            return None
+            raise
 
     def update_story_circle(self):
-        """Update the story circle synchronously"""
+        """Update the story circle with new content"""
         try:
-            # Load current story circle and circles memory
-            story_circle = self.load_story_circle()
-            if not story_circle:
-                logger.error("Failed to load story circle")
-                return None
-
-            circles_memory = self.load_circles_memory()
+            # Get creative instructions
+            creative_instructions = self.creativity_manager.generate_creative_instructions([])
             
-            # Generate creative instructions
-            creative_storm_instructions = self.creativity_manager.generate_creative_instructions_sync(circles_memory)
+            # Create the chat completion with explicit JSON formatting instruction
+            messages = [
+                {"role": "system", "content": STORY_CIRCLE_PROMPT},
+                {"role": "user", "content": f"Instructions: {creative_instructions}\n\nPlease respond ONLY with a valid JSON object following the exact template structure shown above."}
+            ]
             
-            # Format the system prompt with current data
-            formatted_prompt = STORY_CIRCLE_PROMPT.format(
-                story_circle=json.dumps(story_circle, indent=2, ensure_ascii=False),
-                circle_memories=json.dumps(circles_memory, indent=2, ensure_ascii=False)
-            )
-            
-            # Get the updated narrative from the AI
             completion = self.client.chat.completions.create(
                 model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
-                messages=[
-                    {"role": "system", "content": formatted_prompt},
-                    {"role": "user", "content": f"Generate the next story circle update in the exact JSON format as shown in the template in your system prompt, without any additional text or comments, nor backticks, snippets or other formatting. Ensure the new phase or story circle is highly creative and compelling by following these instructions: {creative_storm_instructions}."}
-                ],
-                temperature=0.0,
-                max_tokens=1000
+                messages=messages,
+                temperature=0.7
             )
             
-            # Parse the response using new format
+            # Parse and validate the response
+            response_text = completion.choices[0].message.content.strip()
+            if not response_text:
+                raise ValueError("Empty response from AI")
+                
+            # Log the raw response for debugging
+            logger.info(f"Raw AI response: {response_text}")
+                
+            # Try to parse as JSON
             try:
-                new_story_circle = json.loads(completion.choices[0].message.content)
-                
-                # Check if we've completed a circle
-                current_phase = new_story_circle['narrative']['current_phase']
-                previous_phase = story_circle['narrative']['current_phase']
-                
-                # Only archive when moving TO "Change" phase
-                if current_phase == "Change" and previous_phase != "Change":
-                    self.archive_completed_circle(story_circle)
-                
-                # Save the updated story circle
-                if self.save_story_circle(new_story_circle):
-                    logger.info(f"Story circle updated successfully. Current phase: {current_phase}")
-                    return new_story_circle
-                return None
-                
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse AI response: {e}")
-                return None
-                
+                new_story_circle = json.loads(response_text)
+            except json.JSONDecodeError as je:
+                logger.error(f"Invalid JSON response: {response_text}")
+                raise
+            
+            # Validate required fields
+            required_fields = ['narrative']
+            if not all(field in new_story_circle for field in required_fields):
+                raise ValueError(f"Missing required fields. Got: {list(new_story_circle.keys())}")
+            
+            # Update the story circle with new content
+            self.db.update_story_circle_state(new_story_circle)
+            logger.info("Story circle updated successfully")
+            return new_story_circle
+            
         except Exception as e:
             logger.error(f"Error updating story circle: {e}")
-            return None
+            raise
 
     def get_current_context(self):
-        """Get the current story circle context synchronously"""
+        """Get the current story circle context"""
         try:
-            story_circle = self.load_story_circle()
-            if not story_circle or 'narrative' not in story_circle:
-                return {
-                    'current_event': '',
-                    'current_inner_dialogue': ''
-                }
-            
-            context = story_circle.get('narrative', {}).get('dynamic_context', {})
+            story_circle = self.db.get_story_circle()
             return {
-                'current_event': context.get('current_event', ''),
-                'current_inner_dialogue': context.get('current_inner_dialogue', '')
+                'current_event': story_circle['dynamic_context']['current_event'],
+                'current_inner_dialogue': story_circle['dynamic_context']['current_inner_dialogue']
             }
         except Exception as e:
             logger.error(f"Error getting current context: {e}")
@@ -401,32 +359,102 @@ class StoryCircleManager:
             }
 
     def progress_narrative(self):
-        """Main function to progress the narrative synchronously"""
+        """Main function to progress the narrative"""
         try:
             # Load current story circle
             story_circle = self.load_story_circle()
             if not story_circle:
                 logger.error("No story circle found")
                 return None
-                
-            narrative = story_circle["narrative"]
-            current_event = narrative["dynamic_context"]["current_event"]
-            current_events = narrative["events"]
             
-            # Find current event index
-            current_index = current_events.index(current_event)
+            # Get current phase info
+            current_phase = story_circle["current_phase"]
+            current_phase_number = story_circle["current_phase_number"]
             
-            # If we have more events in the current list
-            if current_index + 2 < len(current_events):
-                # Move to next event
-                return self.progress_to_next_event(story_circle)
-            else:
-                # If we're at the last or second-to-last event, generate new phase/events
+            # Get events for current phase
+            events = self.db.get_events_dialogues()
+            current_events = [e for e in events if e["phase_number"] == current_phase_number]
+            
+            if not current_events:
+                # Generate new events for this phase
                 return self.update_story_circle()
-                
+            
+            # Find current event
+            current_event = story_circle["dynamic_context"]["current_event"]
+            if not current_event:
+                # Start with first event of phase
+                story_circle["dynamic_context"]["current_event"] = current_events[0]["event"]
+                story_circle["dynamic_context"]["current_inner_dialogue"] = current_events[0]["inner_dialogue"]
+                if len(current_events) > 1:
+                    story_circle["dynamic_context"]["next_event"] = current_events[1]["event"]
+                self.db.update_story_circle_state(story_circle)
+                return story_circle
+            
+            # Find next event
+            current_event_data = next((e for e in current_events if e["event"] == current_event), None)
+            if current_event_data:
+                current_index = current_events.index(current_event_data)
+                if current_index + 1 < len(current_events):
+                    # Move to next event in current phase
+                    story_circle["dynamic_context"]["current_event"] = current_events[current_index + 1]["event"]
+                    story_circle["dynamic_context"]["current_inner_dialogue"] = current_events[current_index + 1]["inner_dialogue"]
+                    if current_index + 2 < len(current_events):
+                        story_circle["dynamic_context"]["next_event"] = current_events[current_index + 2]["event"]
+                    self.db.update_story_circle_state(story_circle)
+                    return story_circle
+            
+            # Move to next phase
+            next_phase_number = current_phase_number + 1
+            if next_phase_number > 8:
+                # Complete circle and start new one
+                return self.complete_circle(story_circle)
+            
+            # Update to next phase
+            phases = self.db.get_story_phases()
+            next_phase = next((p for p in phases if p["phase_number"] == next_phase_number), None)
+            if not next_phase:
+                logger.error(f"Could not find next phase (number {next_phase_number})")
+                return None
+            
+            story_circle["current_phase"] = next_phase["phase_name"]
+            story_circle["current_phase_number"] = next_phase_number
+            story_circle["dynamic_context"] = {
+                "current_event": "",
+                "current_inner_dialogue": "",
+                "next_event": ""
+            }
+            self.db.update_story_circle_state(story_circle)
+            return self.update_story_circle()
+            
         except Exception as e:
             logger.error(f"Error progressing narrative: {e}")
             return None
+
+    def complete_circle(self, story_circle):
+        """Complete current circle and start new one"""
+        try:
+            # 1. Set current circle as completed
+            self.db.update_story_circle(
+                story_circle["id"], 
+                {"is_current": False}
+            )
+            
+            # 2. Generate summary
+            circles_memory = self.load_circles_memory()
+            summary = self.generate_circle_summary(story_circle, circles_memory)
+            
+            # 3. Save memory - using sync version
+            self.db.insert_circle_memories(story_circle["id"], summary["memories"])
+            
+            # 4. Create new story circle
+            new_circle = self.db.create_story_circle()
+            
+            # 5. Generate initial content for new circle
+            return self.update_story_circle()
+            
+        except Exception as e:
+            logger.error(f"Error completing circle: {e}")
+            raise
 
 # Create a singleton instance
 _manager = StoryCircleManager()

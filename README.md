@@ -253,3 +253,42 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - OpenAI for model architectures
 - Selenium for web automation
 - Discord.py, python-telegram-bot for platform SDKs
+
+## Database Management Commands
+
+### Clear Database
+To clear all data from the database tables:
+```bash
+python migrations/clear_database.py
+```
+
+### Run Database Migration
+To migrate story circle data to Supabase:
+```bash
+python migrations/story_circle_supabase_migration.py
+```
+
+### Run Tests
+To run the story progression tests:
+```bash
+python -m pytest tests/test_story_progression.py -v
+```
+
+### Database Management Flow
+When setting up or resetting the database, follow this order:
+1. Clear the database first
+2. Run the migration
+3. Run tests to verify everything is working
+
+Example:
+```bash
+# Clear all data
+python migrations/clear_database.py
+
+# Run migration
+python migrations/story_circle_supabase_migration.py
+
+# Run tests
+python -m tests.test_story_progression
+
+Note: Make sure you have all required environment variables set in your `.env` file before running these commands.
