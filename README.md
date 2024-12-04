@@ -292,3 +292,19 @@ python migrations/story_circle_supabase_migration.py
 python -m tests.test_story_progression
 
 Note: Make sure you have all required environment variables set in your `.env` file before running these commands.
+
+
+# Run these queries to clean database completely
+
+DELETE FROM circle_memories;
+DELETE FROM events_dialogues;
+DELETE FROM story_phases;
+DELETE FROM story_circle;
+
+-- Then reset the sequences
+ALTER SEQUENCE circle_memories_id_seq RESTART WITH 1;
+ALTER SEQUENCE events_dialogues_id_seq RESTART WITH 1;
+ALTER SEQUENCE story_phases_id_seq RESTART WITH 1;
+ALTER SEQUENCE story_circle_id_seq RESTART WITH 1;
+
+
