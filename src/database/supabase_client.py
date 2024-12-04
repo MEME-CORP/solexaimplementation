@@ -370,42 +370,106 @@ class DatabaseService:
             logger.error(f"Error fetching story phases: {e}")
             return []
 
-    def get_events_dialogues(self):
-        """Get events and dialogues for current story circle"""
-        try:
-            # Get current story circle id
-            story = self.client.table('story_circle')\
-                .select('id')\
-                .eq('is_current', True)\
-                .single()\
-                .execute()
-            
-            if not story.data:
-                return []
-            
-            # Get events for this story circle
-            events = self.client.table('events_dialogues')\
-                .select('*')\
-                .eq('story_circle_id', story.data['id'])\
-                .order('phase_number')\
-                .order('id')\
-                .execute()
-            
-            return events.data
+    def get_events_dialogues(self, story_circle_id=None, phase_number=None):
+        """Get events and dialogues for a specific phase of a story circle
         
+        Args:
+            story_circle_id (int, optional): ID of the story circle. If None, gets current story circle.
+            phase_number (int, optional): Phase number to filter by. If None, gets all phases.
+            
+        Returns:
+            list: List of dicts containing events and dialogues with phase information
+        """
+        try:
+            # If no story_circle_id provided, get current story circle
+            if story_circle_id is None:
+                current_story = self.client.table('story_circle')\
+                    .select('id')\
+                    .eq('is_current', True)\
+                    .single()\
+                    .execute()
+                    
+                if not current_story.data:
+                    logger.error("No current story circle found")
+                    return []
+                    
+                story_circle_id = current_story.data['id']
+                
+            # Log the query parameters
+            logger.info(f"Querying events_dialogues with story_circle_id={story_circle_id}, phase_number={phase_number}")
+            
+            # Build base query with explicit column selection
+            query = self.client.table('events_dialogues')\
+                .select('id, story_circle_id, phase_number, event, inner_dialogue')\
+                .eq('story_circle_id', story_circle_id)
+                
+            # Add phase filter if provided
+            if phase_number is not None:
+                query = query.eq('phase_number', phase_number)
+                
+            # Execute query with ordering
+            result = query.order('id').execute()
+            
+            # Log raw result for debugging
+            logger.debug(f"Raw query result: {result.data}")
+            
+            if not result.data:
+                logger.warning(f"No events found for story_circle_id={story_circle_id}, phase_number={phase_number}")
+                return []
+                
+            # Transform the data into the expected format, now including phase_number
+            events_dialogues = [
+                {
+                    'event': row['event'],
+                    'dialogue': row['inner_dialogue'],
+                    'id': row['id'],
+                    'phase_number': row['phase_number'],  # Include phase_number in output
+                    'story_circle_id': row['story_circle_id']  # Include story_circle_id for reference
+                }
+                for row in result.data
+            ]
+            
+            # Log the transformed data
+            logger.info(f"Retrieved {len(events_dialogues)} events/dialogues")
+            logger.debug(f"Transformed events_dialogues: {events_dialogues}")
+            
+            # Validate phase numbers
+            phase_numbers = set(e['phase_number'] for e in events_dialogues)
+            logger.info(f"Phase numbers in result: {phase_numbers}")
+            
+            if None in phase_numbers:
+                logger.error("Found events with null phase_number")
+                
+            return events_dialogues
+            
         except Exception as e:
-            logger.error(f"Error fetching events/dialogues: {e}")
+            logger.error(f"Error getting events and dialogues: {e}")
+            logger.error(f"Parameters: story_circle_id={story_circle_id}, phase_number={phase_number}")
+            logger.exception("Full traceback:")
             return []
 
-    def update_story_phase(self, story_circle_id: int, phase_name: str, description: str) -> bool:
+    def update_phase_description(self, story_circle_id: int, phase_name: str, description: str) -> bool:
         """Update a specific phase description"""
         try:
-            response = self.client.table('story_phases').update({
-                'phase_description': description
-            }).eq('story_circle_id', story_circle_id).eq('phase_name', phase_name).execute()
+            # Log the update attempt
+            logger.info(f"Updating phase description for story_circle_id={story_circle_id}, phase={phase_name}")
+            logger.debug(f"New description: {description}")
             
-            return bool(response.data)
+            response = self.client.table('story_phases')\
+                .update({'phase_description': description})\
+                .eq('story_circle_id', story_circle_id)\
+                .eq('phase_name', phase_name)\
+                .execute()
+            
+            success = bool(response.data)
+            if success:
+                logger.info("Phase description updated successfully")
+            else:
+                logger.warning("No phase was updated - check if phase exists")
+                
+            return success
             
         except Exception as e:
             logger.error(f"Error updating story phase: {e}")
+            logger.exception("Full traceback:")
             return False
