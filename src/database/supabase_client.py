@@ -2,6 +2,7 @@
 from supabase import create_client
 from src.config import Config
 import logging
+import json
 
 logger = logging.getLogger('database')
 
@@ -52,51 +53,50 @@ class DatabaseService:
                 .order('phase_number')\
                 .execute()
 
+            # Get current phase
+            current_phase = next(
+                (phase for phase in phases.data if phase.get('is_current', False)),
+                phases.data[0] if phases.data else None
+            )
+            
+            if not current_phase:
+                current_phase = phases.data[0] if phases.data else None
+                current_phase_number = 1
+            else:
+                current_phase_number = current_phase['phase_number']
+
             # Get events and dialogues
             events_dialogues = self.client.table('events_dialogues')\
                 .select('*')\
                 .eq('story_circle_id', story_circle_id)\
-                .order('phase_number')\
+                .eq('phase_number', current_phase_number)\
                 .order('id')\
                 .execute()
-
-            # Find current phase by looking at the earliest phase with no events
-            all_phase_numbers = set(phase['phase_number'] for phase in phases.data)
-            event_phase_numbers = set(event['phase_number'] for event in events_dialogues.data)
-            incomplete_phases = sorted(all_phase_numbers - event_phase_numbers)
-            
-            current_phase_number = incomplete_phases[0] if incomplete_phases else 1
-            current_phase = next(
-                (phase['phase_name'] for phase in phases.data 
-                 if phase['phase_number'] == current_phase_number),
-                'You'  # Default to first phase if not found
-            )
-
-            # Get current event and dialogue
-            current_events = [e for e in events_dialogues.data 
-                             if e['phase_number'] == current_phase_number]
-            current_event = current_events[0] if current_events else None
 
             # Structure the response
             return {
                 "id": story_circle_id,
-                "current_phase": current_phase,
+                "current_phase": current_phase['phase_name'] if current_phase else 'You',
                 "current_phase_number": current_phase_number,
                 "is_current": story.data['is_current'],
                 "phases": [
                     {
                         "phase": phase['phase_name'],
                         "phase_number": phase['phase_number'],
-                        "description": phase['phase_description']
+                        "description": phase['phase_description'] or (
+                            "Fwog enjoys the serene simplicity of their little pond, surrounded by lush greenery and the gentle hum of nature." 
+                            if phase['phase_name'] == 'You' and phase['phase_number'] == 1 
+                            else ""
+                        )
                     }
                     for phase in phases.data
                 ],
                 "events": [ed['event'] for ed in events_dialogues.data],
                 "dialogues": [ed['inner_dialogue'] for ed in events_dialogues.data],
                 "dynamic_context": {
-                    'current_event': current_event['event'] if current_event else '',
-                    'current_inner_dialogue': current_event['inner_dialogue'] if current_event else '',
-                    'next_event': current_events[1]['event'] if len(current_events) > 1 else ''
+                    'current_event': events_dialogues.data[0]['event'] if events_dialogues.data else '',
+                    'current_inner_dialogue': events_dialogues.data[0]['inner_dialogue'] if events_dialogues.data else '',
+                    'next_event': events_dialogues.data[1]['event'] if len(events_dialogues.data) > 1 else ''
                 }
             }
 
@@ -252,16 +252,24 @@ class DatabaseService:
         try:
             story_circle_id = story_circle['id']
             
-            # Update main story circle data
+            # Update only the is_current flag in main story circle table
             update_data = {
-                'current_phase': story_circle['current_phase'],
-                'current_phase_number': story_circle['current_phase_number']
+                'is_current': story_circle.get('is_current', True)
             }
-            self.client.table('story_circle').update(update_data).eq('id', story_circle_id).execute()
+            
+            logger.info(f"Updating story circle with data: {json.dumps(update_data, indent=2)}")
+            
+            # Update the story circle
+            self.client.table('story_circle')\
+                .update(update_data)\
+                .eq('id', story_circle_id)\
+                .execute()
             
             # Update phases
             for phase in story_circle['phases']:
                 self.client.table('story_phases').update({
+                    'phase_name': phase['phase'],
+                    'phase_number': phase['phase_number'],
                     'phase_description': phase['description']
                 }).eq('story_circle_id', story_circle_id)\
                   .eq('phase_name', phase['phase'])\
@@ -290,6 +298,20 @@ class DatabaseService:
             
             for event_data in events_dialogues:
                 self.client.table('events_dialogues').insert(event_data).execute()
+            
+            # Update current phase in phases table
+            self.client.table('story_phases').update({
+                'is_current': True
+            }).eq('story_circle_id', story_circle_id)\
+              .eq('phase_number', current_phase_number)\
+              .execute()
+            
+            # Set other phases as not current
+            self.client.table('story_phases').update({
+                'is_current': False
+            }).eq('story_circle_id', story_circle_id)\
+              .neq('phase_number', current_phase_number)\
+              .execute()
             
             return True
             
@@ -388,3 +410,16 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error fetching events/dialogues: {e}")
             return []
+
+    def update_story_phase(self, story_circle_id: int, phase_name: str, description: str) -> bool:
+        """Update a specific phase description"""
+        try:
+            response = self.client.table('story_phases').update({
+                'phase_description': description
+            }).eq('story_circle_id', story_circle_id).eq('phase_name', phase_name).execute()
+            
+            return bool(response.data)
+            
+        except Exception as e:
+            logger.error(f"Error updating story phase: {e}")
+            return False
