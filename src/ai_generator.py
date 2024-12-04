@@ -69,12 +69,21 @@ class AIGenerator:
             return [{"format": "one short sentence", "description": "Single concise sentence"}]
 
     def load_emotion_formats(self):
-        """Load emotion formats for response generation"""
+        """Load emotion formats from JSON file"""
         try:
-            formats = self.db.get_emotion_formats()
-            return formats if formats else [{"format": "default response", "description": "Standard emotional response"}]
+            # Get the path to the emotion_formats.json file
+            file_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'emotion_formats.json')
+            
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+                formats = data.get('formats', [])
+                if not formats:
+                    logger.warning("No emotion formats found in file")
+                    return [{"format": "default response", "description": "Standard emotional response"}]
+                return formats
+                
         except Exception as e:
-            logger.error(f"Error loading emotion formats: {e}")
+            logger.error(f"Error loading emotion formats from file: {e}")
             return [{"format": "default response", "description": "Standard emotional response"}]
 
     def load_memories(self):
@@ -194,7 +203,7 @@ class AIGenerator:
             logger.debug(f"Generating with config: mode={self.mode}, model={self.model}, temp={self.temperature}")
             
             response = self.client.chat.completions.create(
-                model=self.model,
+                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",  # Update model name
                 messages=messages,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
