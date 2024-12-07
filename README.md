@@ -282,34 +282,11 @@ When setting up or resetting the database, follow this order:
 
 Example:
 ```bash
-# Clear all data
-python migrations/clear_database.py
-
-# Run migration
-python migrations/story_circle_supabase_migration.py
-
-# Run tests
-python -m tests.test_story_progression
-
-Note: Make sure you have all required environment variables set in your `.env` file before running these commands.
-
-## Database Migrations
-
-Run the following commands in order:
-
-```bash
-# Add narrative column (if not exists)
-python -m migrations.add_narrative_column
-
-# Run full migration
-python migrations/story_circle_supabase_migration.py
-
-# Run tests
-python -m tests.test_story_progression
-```
 
 
-## Run these queries to clean database completely
+
+
+## Run these queries to clean database completely on Supabase before running a test
 
 DELETE FROM circle_memories;
 DELETE FROM events_dialogues;
@@ -323,3 +300,7 @@ ALTER SEQUENCE story_phases_id_seq RESTART WITH 1;
 ALTER SEQUENCE story_circle_id_seq RESTART WITH 1;
 
 
+# Run tests
+python -m tests.test_story_progression
+
+Note: Make sure you have all required environment variables set in your `.env` file before running these commands.

@@ -755,7 +755,19 @@ class StoryCircleManager:
         try:
             logger.info(f"Completing story circle {story_circle['id']}")
             
-            # 1. Set current circle as completed
+            # 1. Set all phases of current circle to not current
+            try:
+                # Add explicit WHERE clause for the current story circle
+                self.db.client.table('story_phases')\
+                    .update({'is_current': False})\
+                    .eq('story_circle_id', story_circle["id"])\
+                    .execute()
+                logger.info(f"Set all phases to not current for story circle {story_circle['id']}")
+            except Exception as e:
+                logger.error(f"Error updating phase statuses: {e}")
+                raise
+            
+            # 2. Set current circle as completed
             self.db.update_story_circle(
                 story_circle["id"], 
                 {
@@ -764,7 +776,7 @@ class StoryCircleManager:
                 }
             )
             
-            # 2. Generate summary with validation
+            # 3. Generate summary with validation
             circles_memory = self.load_circles_memory()
             summary = self.generate_circle_summary(story_circle, circles_memory)
             
@@ -772,14 +784,14 @@ class StoryCircleManager:
                 logger.error("Invalid summary format")
                 raise Exception("Summary generation failed")
             
-            # 3. Save memory
+            # 4. Save memory
             success = self.db.insert_circle_memories(story_circle["id"], summary["memories"])
             if not success:
                 logger.error("Failed to save circle memories")
                 raise Exception("Memory insertion failed")
             logger.info(f"Successfully saved memories: {summary['memories']}")
             
-            # 4. Create new story circle
+            # 5. Create new story circle
             new_circle = self.db.create_story_circle()
             if not new_circle:
                 logger.error("Failed to create new story circle")
@@ -787,7 +799,7 @@ class StoryCircleManager:
             
             logger.info(f"Created new story circle {new_circle['id']}")
             
-            # 5. Generate initial content for new circle
+            # 6. Generate initial content for new circle
             updated_circle = self.update_story_circle()
             if not updated_circle:
                 logger.error("Failed to update new story circle")
@@ -810,8 +822,8 @@ class StoryCircleManager:
             transformed = {
                 'id': story_circle['id'],
                 'is_current': story_circle['is_current'],
-                'current_phase': narrative.get('current_phase', story_circle['current_phase']),
-                'current_phase_number': story_circle['current_phase_number'],
+                'current_phase': story_circle['current_phase'],  # Keep existing phase
+                'current_phase_number': story_circle['current_phase_number'],  # Keep existing phase number
                 'phases': story_circle['phases'],  # Preserve existing phases
                 'events': narrative.get('events', []),
                 'dialogues': narrative.get('inner_dialogues', []),
@@ -843,6 +855,60 @@ class StoryCircleManager:
             logger.error(f"Error transforming AI response: {e}")
             logger.exception("Full traceback:")
             return None
+
+    def _reconcile_story_states(self, memory_state, db_state):
+        """Reconcile differences between memory and database states"""
+        try:
+            # Log initial state
+            logger.info("Beginning state reconciliation")
+            logger.debug(f"Memory state: {json.dumps(memory_state, indent=2)}")
+            logger.debug(f"Database state: {json.dumps(db_state, indent=2)}")
+
+            # Update critical fields from database state
+            fields_to_sync = {
+                'current_phase': 'Current phase',
+                'current_phase_number': 'Phase number',
+                'events': 'Events',
+                'dialogues': 'Dialogues'
+            }
+
+            for field, description in fields_to_sync.items():
+                if memory_state.get(field) != db_state.get(field):
+                    logger.warning(f"{description} mismatch detected - updating from database")
+                    memory_state[field] = db_state[field]
+
+            # Special handling for dynamic context
+            if memory_state.get('events'):
+                memory_state['dynamic_context'] = {
+                    'current_event': memory_state['events'][0],
+                    'current_inner_dialogue': memory_state['dialogues'][0],
+                    'next_event': memory_state['events'][1] if len(memory_state['events']) > 1 else ''
+                }
+            else:
+                # If no events, initialize empty context but preserve structure
+                memory_state['dynamic_context'] = {
+                    'current_event': '',
+                    'current_inner_dialogue': '',
+                    'next_event': ''
+                }
+
+            # Ensure phase descriptions are consistent
+            if 'phases' in memory_state and 'phases' in db_state:
+                for mem_phase, db_phase in zip(memory_state['phases'], db_state['phases']):
+                    if mem_phase.get('description') != db_phase.get('description'):
+                        logger.warning(f"Phase description mismatch for phase {mem_phase.get('phase')}")
+                        mem_phase['description'] = db_phase['description']
+
+            # Save reconciled state
+            self.db.update_story_circle_state(memory_state)
+            logger.info("State reconciliation completed")
+
+            return memory_state
+
+        except Exception as e:
+            logger.error(f"Error reconciling states: {e}")
+            logger.exception("Full traceback:")
+            raise
 
 # Create a singleton instance
 _manager = StoryCircleManager()

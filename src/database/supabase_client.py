@@ -13,7 +13,7 @@ class DatabaseService:
             Config.SUPABASE_URL,
             Config.SUPABASE_KEY
         )
-
+      
     def get_memories(self):
         """Get all memories including circle memories synchronously"""
         try:
@@ -72,7 +72,19 @@ class DatabaseService:
             else:
                 current_phase_number = current_phase['phase_number']
 
-            # Structure the response
+            # Get events and dialogues for current phase
+            events_dialogues = self.get_events_dialogues(story_circle_id, current_phase_number)
+            
+            # Structure the response with proper dynamic context
+            events = [ed['event'] for ed in events_dialogues]
+            dialogues = [ed['inner_dialogue'] for ed in events_dialogues]
+            
+            dynamic_context = {
+                'current_event': events[0] if events else '',
+                'current_inner_dialogue': dialogues[0] if dialogues else '',
+                'next_event': events[1] if len(events) > 1 else ''
+            }
+
             return {
                 "id": story_circle_id,
                 "current_phase": current_phase['phase_name'] if current_phase else 'You',
@@ -86,13 +98,9 @@ class DatabaseService:
                     }
                     for phase in phases.data
                 ],
-                "events": [],
-                "dialogues": [],
-                "dynamic_context": {
-                    'current_event': '',
-                    'current_inner_dialogue': '',
-                    'next_event': ''
-                }
+                "events": events,
+                "dialogues": dialogues,
+                "dynamic_context": dynamic_context
             }
 
         except Exception as e:
@@ -268,6 +276,28 @@ class DatabaseService:
             story_circle_id = story.data[0]['id']
             logger.info(f"Created new story circle {story_circle_id}")
 
+            # Set phases of old story circles to not current
+            try:
+                # Get IDs of completed story circles
+                completed_circles = self.client.table('story_circle')\
+                    .select('id')\
+                    .eq('is_current', False)\
+                    .execute()
+                
+                if completed_circles.data:
+                    # Update phases for completed circles
+                    completed_ids = [circle['id'] for circle in completed_circles.data]
+                    for circle_id in completed_ids:
+                        self.client.table('story_phases')\
+                            .update({'is_current': False})\
+                            .eq('story_circle_id', circle_id)\
+                            .execute()
+                    
+                    logger.info(f"Reset phases for {len(completed_ids)} completed story circles")
+            except Exception as e:
+                logger.error(f"Error resetting old phases: {e}")
+                # Continue with creation even if reset fails
+
             # Create initial phases
             phase_order = ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
             for i, phase_name in enumerate(phase_order, 1):
@@ -278,6 +308,8 @@ class DatabaseService:
                     'phase_description': '',
                     'is_current': i == 1  # First phase is current
                 }).execute()
+
+            logger.info(f"Created phases for story circle {story_circle_id}")
 
             # Return the newly created circle
             return self.get_story_circle()
@@ -291,7 +323,7 @@ class DatabaseService:
         try:
             story_circle_id = story_circle['id']
             
-            # Update the story circle with full state
+            # Update only the is_current flag and narrative
             update_data = {
                 'is_current': story_circle.get('is_current', True),
                 'narrative': {
@@ -306,14 +338,10 @@ class DatabaseService:
             logger.info(f"Updating story circle with data: {json.dumps(update_data, indent=2)}")
             
             # Update the story circle
-            result = self.client.table('story_circle')\
+            self.client.table('story_circle')\
                 .update(update_data)\
                 .eq('id', story_circle_id)\
                 .execute()
-            
-            if not result.data:
-                logger.error("Failed to update story circle state")
-                return False
             
             # Update phases
             for phase in story_circle['phases']:

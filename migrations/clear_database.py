@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('database_clear')
 
 def clear_database():
-    """Clear all data from the database tables in the correct order"""
+    """Clear all data from the database tables while preserving schema"""
     try:
         db = DatabaseService()
         logger.info("Starting database clear...")
@@ -36,11 +36,14 @@ def clear_database():
             result = db.client.table(table).delete().filter('id', 'gte', 0).execute()
             logger.info(f"Cleared {table}")
 
-        logger.info("Successfully cleared all tables!")
+        # Initialize a new story circle with proper narrative structure
+        db.create_story_circle()
+        logger.info("Successfully cleared all tables and initialized new story circle!")
         return True
 
     except Exception as e:
         logger.error(f"Error clearing database: {e}")
+        logger.exception("Full traceback:")
         return False
 
 if __name__ == "__main__":
