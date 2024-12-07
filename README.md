@@ -293,8 +293,23 @@ python -m tests.test_story_progression
 
 Note: Make sure you have all required environment variables set in your `.env` file before running these commands.
 
+## Database Migrations
 
-# Run these queries to clean database completely
+Run the following commands in order:
+
+```bash
+# Add narrative column (if not exists)
+python -m migrations.add_narrative_column
+
+# Run full migration
+python migrations/story_circle_supabase_migration.py
+
+# Run tests
+python -m tests.test_story_progression
+```
+
+
+## Run these queries to clean database completely
 
 DELETE FROM circle_memories;
 DELETE FROM events_dialogues;

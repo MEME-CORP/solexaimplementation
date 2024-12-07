@@ -265,189 +265,189 @@ class StoryCircleManager:
             raise
 
     def progress_to_next_event(self, story_circle):
-        """Progress to the next event in the current phase"""
+        """Progress to next event in the current phase"""
         try:
             # Get current phase data
             current_phase = story_circle["current_phase"]
             current_phase_number = story_circle["current_phase_number"]
             
-            logger.info(f"Progressing events for phase {current_phase} (number {current_phase_number})")
+            # Get current event and events list
+            events = story_circle.get('events', [])
+            current_event = story_circle['dynamic_context']['current_event']
             
-            # Get events and dialogues for current phase
-            events_dialogues = self.db.get_events_dialogues(
-                story_circle["id"], 
-                current_phase_number
-            )
+            logger.info(f"Current phase: {current_phase}, Current event: {current_event}")
             
-            if not events_dialogues:
-                logger.error(f"No events found for phase {current_phase_number}")
-                return self.update_story_circle()
+            # If no events exist, generate new ones
+            if not events:
+                logger.info("No events found, generating new ones")
+                updated_circle = self.update_story_circle()
+                if not updated_circle or not updated_circle.get('events'):
+                    logger.error("Failed to generate new events")
+                    return story_circle
+                return updated_circle
             
-            logger.info(f"Found {len(events_dialogues)} events for current phase")
+            # Find current event index
+            current_index = events.index(current_event) if current_event in events else -1
             
-            # Get current event
-            current_event = story_circle["dynamic_context"]["current_event"]
-            
-            # Find current event index (will be 0-based)
-            try:
-                current_index = next(
-                    (i for i, e in enumerate(events_dialogues) 
-                     if e["event"] == current_event), 
-                    -1
-                )
+            # Check if we need to generate new events
+            if current_index == len(events) - 1:
+                logger.info("Completed all events in phase, updating phase description")
                 
-                logger.info(f"Current event index: {current_index} (Event order: {events_dialogues[current_index]['event_order'] if current_index >= 0 else 'not found'})")
-                
-            except (TypeError, KeyError) as e:
-                logger.error(f"Error finding current event: {e}")
-                logger.error(f"Current event: {current_event}")
-                logger.error(f"Available events: {[e['event'] for e in events_dialogues]}")
-                # Reset to first event (index 0)
-                story_circle["dynamic_context"].update({
-                    "current_event": events_dialogues[0]["event"],
-                    "current_inner_dialogue": events_dialogues[0]["inner_dialogue"],
-                    "next_event": events_dialogues[1]["event"] if len(events_dialogues) > 1 else ""
-                })
-                self.db.update_story_circle_state(story_circle)
-                return story_circle
+                # Update phase description with all events
+                try:
+                    for event in events:
+                        self._update_phase_description(story_circle, event)
+                    logger.info("Updated phase description with all events")
+                    
+                    # Complete current phase and progress to next
+                    return self._complete_phase_and_progress(story_circle)
+                except Exception as e:
+                    logger.error(f"Error updating phase description: {e}")
+                    return story_circle
             
-            # If current event not found or invalid
             if current_index == -1:
-                logger.error("Current event not found in events list")
-                # Reset to first event and progress to second
-                current_index = 0  # Start at first event
-                story_circle["dynamic_context"].update({
-                    "current_event": events_dialogues[current_index]["event"],
-                    "current_inner_dialogue": events_dialogues[current_index]["inner_dialogue"],
-                    "next_event": events_dialogues[current_index + 1]["event"] if len(events_dialogues) > 1 else ""
-                })
-                
-                # Update phase description
-                phase_description = story_circle['phases'][current_phase_number-1]['description']
-                updated_description = f"{phase_description} {events_dialogues[current_index]['event']}".strip()
-                
-                self.db.update_phase_description(
-                    story_circle["id"],
-                    current_phase,
-                    updated_description
-                )
-                
-                # Progress to next event
-                next_event = events_dialogues[current_index + 1]
-                story_circle["dynamic_context"].update({
-                    "current_event": next_event["event"],
-                    "current_inner_dialogue": next_event["inner_dialogue"],
-                    "next_event": (
-                        events_dialogues[current_index + 2]["event"] 
-                        if current_index + 2 < len(events_dialogues) 
-                        else ""
-                    )
-                })
-                
-                self.db.update_story_circle_state(story_circle)
-                return story_circle
+                logger.info("No current event found, generating new ones")
+                updated_circle = self.update_story_circle()
+                if not updated_circle or not updated_circle.get('events'):
+                    logger.error("Failed to generate new events")
+                    return story_circle
+                return updated_circle
             
-            # Update the current phase's description with completed event
-            phase_description = story_circle['phases'][current_phase_number-1]['description']
-            updated_description = f"{phase_description} {current_event}".strip()
+            # Progress to next event
+            next_event = events[current_index + 1]
+            next_dialogue = story_circle['dialogues'][current_index + 1]
             
-            self.db.update_phase_description(
-                story_circle["id"],
-                current_phase,
-                updated_description
-            )
+            # Update dynamic context
+            story_circle['dynamic_context'].update({
+                'current_event': next_event,
+                'current_inner_dialogue': next_dialogue,
+                'next_event': events[current_index + 2] if current_index + 2 < len(events) else ""
+            })
+            
+            # Update phase description with current event
+            try:
+                self._update_phase_description(story_circle, current_event)
+            except Exception as e:
+                logger.error(f"Error updating phase description: {e}")
+            
+            # Update database state
+            self.db.update_story_circle_state(story_circle)
+            logger.info(f"Progressed to next event: {next_event}")
+            return story_circle
                 
-            # If we have more events in the current phase
-            if current_index + 1 < len(events_dialogues):
-                # Move to next event
-                next_event = events_dialogues[current_index + 1]
-                story_circle["dynamic_context"].update({
-                    "current_event": next_event["event"],
-                    "current_inner_dialogue": next_event.get("inner_dialogue") or next_event.get("dialogue", ""),  # Try both field names
-                    "next_event": (
-                        events_dialogues[current_index + 2]["event"] 
-                        if current_index + 2 < len(events_dialogues) 
-                        else ""
-                    )
-                })
-                
-                # Save the updated story circle
-                self.db.update_story_circle_state(story_circle)
-                logger.info(f"Progressed to next event: {next_event['event']}")
-                return story_circle
-                    
-            else:
-                # We've completed all events in current phase, move to next phase
-                logger.info("All events completed in current phase, updating story circle")
-                
-                # Get next phase
-                next_phase = self._get_next_phase(story_circle["current_phase"])
-                
-                # Update phase and phase number
-                story_circle.update({
-                    "current_phase": next_phase,
-                    "current_phase_number": story_circle["current_phase_number"] + 1
-                })
-                
-                # Update dynamic context for new phase
-                story_circle["dynamic_context"].update({
-                    "current_event": "",
-                    "current_inner_dialogue": "",
-                    "next_event": ""
-                })
-                
-                # Save the updated story circle
-                self.db.update_story_circle_state(story_circle)
-                
-                return story_circle
-                    
         except Exception as e:
             logger.error(f"Error progressing to next event: {str(e)}")
             logger.exception("Full traceback:")
+            return story_circle
+
+    def _update_phase_description(self, story_circle, event):
+        """Helper method to update phase description"""
+        try:
+            # Get current phase index
+            current_phase_index = story_circle['current_phase_number'] - 1
+            
+            # Get current description and append new event
+            current_description = story_circle['phases'][current_phase_index]['description']
+            updated_description = f"{current_description} {event}".strip()
+            
+            # Update in database
+            success = self.db.update_phase_description(
+                story_circle["id"],
+                story_circle["current_phase"],
+                updated_description
+            )
+            
+            if success:
+                # Also update in memory
+                story_circle['phases'][current_phase_index]['description'] = updated_description
+                logger.info(f"Updated phase description for {story_circle['current_phase']}")
+                logger.debug(f"New description: {updated_description}")
+            else:
+                logger.error("Failed to update phase description in database")
+                raise Exception("Phase description update failed")
+            
+        except Exception as e:
+            logger.error(f"Error updating phase description: {e}")
+            raise
+
+    def _complete_phase_and_progress(self, story_circle):
+        """Helper method to complete current phase and progress to next"""
+        try:
+            logger.info("All events completed in current phase, updating story circle")
+            
+            # Ensure all events are added to phase description
+            current_phase_index = story_circle['current_phase_number'] - 1
+            current_phase = story_circle['phases'][current_phase_index]
+            events = story_circle.get('events', [])
+            
+            # Build complete phase description from events
+            phase_description = " ".join(events).strip()
+            logger.info(f"Final phase description: {phase_description}")
+            
+            # Update phase description in database
+            success = self.db.update_phase_description(
+                story_circle["id"],
+                story_circle["current_phase"],
+                phase_description
+            )
+            
+            if not success:
+                logger.error("Failed to update phase description")
+                raise Exception("Phase description update failed")
+            
+            # Get next phase
+            next_phase = self._get_next_phase(story_circle["current_phase"])
+            
+            # Update phase and phase number
+            story_circle.update({
+                "current_phase": next_phase,
+                "current_phase_number": story_circle["current_phase_number"] + 1,
+                "events": [],  # Clear events for next phase
+                "dialogues": [],  # Clear dialogues for next phase
+                "dynamic_context": {
+                    "current_event": "",
+                    "current_inner_dialogue": "",
+                    "next_event": ""
+                }
+            })
+            
+            # Also update the phase description in memory
+            story_circle['phases'][current_phase_index]['description'] = phase_description
+            
+            # Save the updated story circle
+            self.db.update_story_circle_state(story_circle)
+            logger.info(f"Progressed to next phase: {next_phase}")
+            
+            # Generate new events for the next phase
             return self.update_story_circle()
+            
+        except Exception as e:
+            logger.error(f"Error completing phase and progressing: {e}")
+            logger.exception("Full traceback:")
+            raise
 
     def update_story_circle(self):
-        """Update the story circle with new content"""
+        """Update story circle with new events from AI"""
         try:
-            # Get current story circle and circles memory
+            # Get current story circle
             story_circle = self.db.get_story_circle()
-            
             if not story_circle:
-                # Create a default story circle if none exists
-                logger.info("No story circle found, creating default")
-                story_circle = {
-                    "current_phase": "You",
-                    "current_phase_number": 1,
-                    "is_current": True,
-                    "phases": [],
-                    "dynamic_context": {
-                        "current_event": "",
-                        "current_inner_dialogue": "",
-                        "next_event": ""
-                    }
-                }
+                logger.error("No story circle found")
+                return None
             
+            # Get circles memory for context
             circles_memory = self.db.get_circle_memories_sync()
-            if not circles_memory:
-                circles_memory = {"memories": []}
-            
-            # Log current state
-            logger.info(f"Current story circle: {json.dumps(story_circle, indent=2)}")
-            logger.info(f"Current circles memory: {json.dumps(circles_memory, indent=2)}")
             
             # Generate creative instructions
             creative_instructions = self.creativity_manager.generate_creative_instructions([])
             
-            # Format the system prompt with current data
+            # Format the system prompt
             formatted_prompt = STORY_CIRCLE_PROMPT.format(
                 story_circle=json.dumps(story_circle, indent=2, ensure_ascii=False),
                 circle_memories=json.dumps(circles_memory, indent=2, ensure_ascii=False)
             )
             
-            # Log the prompt being sent to AI
-            logger.debug(f"Sending prompt to AI: {formatted_prompt}")
-            
-            # Get the updated narrative from the AI
+            # Get new events from AI with explicit JSON formatting instruction
             completion = self.client.chat.completions.create(
                 model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
                 messages=[
@@ -455,120 +455,76 @@ class StoryCircleManager:
                     {
                         "role": "user", 
                         "content": (
-                            "Generate the next story circle update in the exact JSON format shown in the template. "
-                            "The response must be a valid JSON object with a 'narrative' key containing all required fields. "
+                            "Generate exactly four new events and four matching inner dialogues "
+                            "for the next phase in the story circle. "
+                            "Return ONLY a valid JSON object exactly matching the template structure. "
+                            "Do not include any additional text, markdown formatting, or explanations. "
                             f"Make it creative by following these instructions: {creative_instructions}"
                         )
                     }
                 ],
                 temperature=0.7,
-                max_tokens=2000  # Ensure enough tokens for complete response
+                max_tokens=2000
             )
             
-            # Get and clean the response
+            # Parse response with better error handling
             response_text = completion.choices[0].message.content.strip()
-            logger.info(f"Raw AI response: {response_text}")
+            logger.debug(f"Raw AI response: {response_text}")
             
             if not response_text:
-                raise ValueError("Empty response from AI")
+                logger.error("Empty response from AI")
+                return story_circle
             
-            # Clean the response text if it contains markdown or extra formatting
-            cleaned_text = response_text
-            if "```" in cleaned_text:
-                import re
-                code_block_match = re.search(r'```(?:json)?(.*?)```', cleaned_text, re.DOTALL)
-                if code_block_match:
-                    cleaned_text = code_block_match.group(1).strip()
-                else:
-                    cleaned_text = cleaned_text.replace('```json', '').replace('```', '').strip()
+            # Clean the response if it contains markdown
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].strip()
             
-            logger.info(f"Cleaned response text: {cleaned_text}")
-            
-            # Parse and validate the response
+            # Try to parse the cleaned response
             try:
-                new_story_circle = json.loads(cleaned_text)
+                new_story_circle = json.loads(response_text)
                 
-                # Log the parsed response
-                logger.info(f"Parsed AI response: {json.dumps(new_story_circle, indent=2)}")
-                
-                # Validate required structure with detailed logging
+                # Validate response structure
                 if 'narrative' not in new_story_circle:
-                    logger.error(f"Missing 'narrative' key. Response structure: {json.dumps(new_story_circle, indent=2)}")
-                    raise ValueError("Missing 'narrative' key in response")
-                
+                    logger.error("Missing narrative in response")
+                    return story_circle
+                    
                 narrative = new_story_circle['narrative']
-                required_keys = [
-                    'current_story_circle', 'current_phase', 'next_phase',
-                    'events', 'inner_dialogues', 'dynamic_context'
-                ]
+                required_fields = ['current_story_circle', 'current_phase', 'next_phase', 
+                                 'events', 'inner_dialogues', 'dynamic_context']
                 
-                # Log all found and missing keys
-                found_keys = list(narrative.keys())
-                missing_keys = [key for key in required_keys if key not in found_keys]
+                missing_fields = [f for f in required_fields if f not in narrative]
+                if missing_fields:
+                    logger.error(f"Missing required fields in narrative: {missing_fields}")
+                    return story_circle
                 
-                logger.info(f"Found keys in narrative: {found_keys}")
-                if missing_keys:
-                    logger.error(f"Missing required keys in narrative: {missing_keys}")
-                    raise ValueError(f"Missing required keys in narrative: {missing_keys}")
+                # Validate events and dialogues
+                if len(narrative['events']) != 4 or len(narrative['inner_dialogues']) != 4:
+                    logger.error("Invalid number of events or dialogues")
+                    return story_circle
                 
-                # Transform to database structure
-                transformed_circle = {
-                    'id': story_circle['id'],
-                    'current_phase': narrative['current_phase'],
-                    'current_phase_number': story_circle['current_phase_number'],
-                    'is_current': True,
-                    'phases': [
-                        {
-                            'phase': phase['phase'],
-                            'phase_number': i + 1,
-                            'description': phase['description']
-                        }
-                        for i, phase in enumerate(narrative['current_story_circle'])
-                    ],
-                    'events': narrative['events'],
-                    'dialogues': narrative['inner_dialogues'],
-                    'dynamic_context': narrative['dynamic_context']
-                }
+                # Transform AI response to story circle format
+                transformed = self._transform_ai_response(new_story_circle, story_circle)
+                if not transformed:
+                    logger.error("Failed to transform AI response")
+                    return story_circle
                 
-                # Check if we've completed a circle
-                current_phase = transformed_circle["current_phase"]
-                previous_phase = story_circle["current_phase"]
+                # Update database
+                self.db.update_story_circle_state(transformed)
+                logger.info("Successfully updated story circle with new events")
                 
-                # Only archive when moving TO "Change" phase
-                if current_phase == "Change" and previous_phase != "Change":
-                    self.archive_completed_circle(story_circle)
-                
-                # Save the updated story circle to database
-                self.db.update_story_circle_state(transformed_circle)
-                
-                logger.info(f"Story circle updated successfully. Current phase: {current_phase}")
-                return transformed_circle
+                return transformed
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse AI response: {e}")
-                logger.error(f"Raw response: {cleaned_text}")
-                return story_circle
-                
-            except ValueError as e:
-                logger.error(f"Invalid story circle structure: {e}")
-                logger.error(f"Parsed response: {json.dumps(new_story_circle, indent=2)}")
+                logger.error(f"Response text: {response_text}")
                 return story_circle
                 
         except Exception as e:
-            logger.error(f"Error updating story circle: {str(e)}")
+            logger.error(f"Error updating story circle: {e}")
             logger.exception("Full traceback:")
-            # Return a default story circle structure instead of the undefined variable
-            return {
-                "current_phase": "You",
-                "current_phase_number": 1,
-                "is_current": True,
-                "phases": [],
-                "dynamic_context": {
-                    "current_event": "",
-                    "current_inner_dialogue": "",
-                    "next_event": ""
-                }
-            }
+            return story_circle
 
     async def get_current_narrative(self):
         """Get the current narrative state from database tables"""
@@ -798,6 +754,49 @@ class StoryCircleManager:
         except Exception as e:
             logger.error(f"Error completing circle: {e}")
             raise
+
+    def _transform_ai_response(self, ai_response, story_circle):
+        """Transform AI response into story circle format"""
+        try:
+            narrative = ai_response.get('narrative', {})
+            
+            # Preserve existing story circle structure
+            transformed = {
+                'id': story_circle['id'],
+                'is_current': story_circle['is_current'],
+                'current_phase': narrative.get('current_phase', story_circle['current_phase']),
+                'current_phase_number': story_circle['current_phase_number'],
+                'phases': story_circle['phases'],  # Preserve existing phases
+                'events': narrative.get('events', []),
+                'dialogues': narrative.get('inner_dialogues', []),
+                'dynamic_context': {
+                    'current_event': narrative.get('events', [])[0] if narrative.get('events') else '',
+                    'current_inner_dialogue': narrative.get('inner_dialogues', [])[0] if narrative.get('inner_dialogues') else '',
+                    'next_event': narrative.get('events', [])[1] if len(narrative.get('events', [])) > 1 else ''
+                }
+            }
+            
+            # Validate required fields
+            required_fields = ['id', 'current_phase', 'current_phase_number', 'phases', 
+                             'events', 'dialogues', 'dynamic_context']
+            if not all(field in transformed for field in required_fields):
+                logger.error(f"Missing required fields: {[f for f in required_fields if f not in transformed]}")
+                return None
+            
+            # Ensure events and dialogues are properly initialized
+            if transformed['events'] and not transformed['dynamic_context']['current_event']:
+                transformed['dynamic_context'].update({
+                    'current_event': transformed['events'][0],
+                    'current_inner_dialogue': transformed['dialogues'][0],
+                    'next_event': transformed['events'][1] if len(transformed['events']) > 1 else ''
+                })
+            
+            return transformed
+            
+        except Exception as e:
+            logger.error(f"Error transforming AI response: {e}")
+            logger.exception("Full traceback:")
+            return None
 
 # Create a singleton instance
 _manager = StoryCircleManager()

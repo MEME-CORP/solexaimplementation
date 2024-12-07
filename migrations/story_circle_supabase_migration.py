@@ -14,6 +14,7 @@ if project_root not in sys.path:
 
 from src.database.supabase_client import DatabaseService
 from src.config import Config
+from migrations.add_narrative_column import migrate_narrative_column
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,8 +50,17 @@ def clean_existing_data(db):
     logger.info("Cleaned existing data")
 
 def migrate_story_circle():
+    """Run all necessary migrations"""
     try:
         logger.info("Running database migration...")
+        
+        # First run the narrative column migration
+        if not migrate_narrative_column():
+            logger.error("Failed to add narrative column")
+            return False
+            
+        # Clean existing data
+        logger.info("Cleaning existing data...")
         db = DatabaseService()
         
         # Clean existing data

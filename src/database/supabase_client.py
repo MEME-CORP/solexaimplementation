@@ -34,17 +34,23 @@ class DatabaseService:
     def get_story_circle(self):
         """Get current story circle data with all related data"""
         try:
+            # First, ensure only one story circle is current
+            self._ensure_single_current_circle()
+            
             # Get the current active story circle
             story = self.client.table('story_circle')\
                 .select('*')\
                 .eq('is_current', True)\
+                .limit(1)\
                 .single()\
                 .execute()
 
             if not story.data:
+                logger.info("No current story circle found, creating new one")
                 return self.create_story_circle()
 
             story_circle_id = story.data['id']
+            logger.info(f"Retrieved story circle {story_circle_id}")
 
             # Get phases for this story circle
             phases = self.client.table('story_phases')\
@@ -65,14 +71,6 @@ class DatabaseService:
             else:
                 current_phase_number = current_phase['phase_number']
 
-            # Get events and dialogues
-            events_dialogues = self.client.table('events_dialogues')\
-                .select('*')\
-                .eq('story_circle_id', story_circle_id)\
-                .eq('phase_number', current_phase_number)\
-                .order('id')\
-                .execute()
-
             # Structure the response
             return {
                 "id": story_circle_id,
@@ -83,25 +81,56 @@ class DatabaseService:
                     {
                         "phase": phase['phase_name'],
                         "phase_number": phase['phase_number'],
-                        "description": phase['phase_description'] or (
-                            "Fwog enjoys the serene simplicity of their little pond, surrounded by lush greenery and the gentle hum of nature." 
-                            if phase['phase_name'] == 'You' and phase['phase_number'] == 1 
-                            else ""
-                        )
+                        "description": phase['phase_description'] or ""
                     }
                     for phase in phases.data
                 ],
-                "events": [ed['event'] for ed in events_dialogues.data],
-                "dialogues": [ed['inner_dialogue'] for ed in events_dialogues.data],
+                "events": [],
+                "dialogues": [],
                 "dynamic_context": {
-                    'current_event': events_dialogues.data[0]['event'] if events_dialogues.data else '',
-                    'current_inner_dialogue': events_dialogues.data[0]['inner_dialogue'] if events_dialogues.data else '',
-                    'next_event': events_dialogues.data[1]['event'] if len(events_dialogues.data) > 1 else ''
+                    'current_event': '',
+                    'current_inner_dialogue': '',
+                    'next_event': ''
                 }
             }
 
         except Exception as e:
             logger.error(f"Error fetching story circle: {e}")
+            return None
+
+    def _ensure_single_current_circle(self):
+        """Ensure only one story circle is marked as current"""
+        try:
+            # Get all current circles with explicit column selection
+            current_circles = self.client.table('story_circle')\
+                .select('id, is_current')\
+                .eq('is_current', True)\
+                .execute()
+            
+            if len(current_circles.data) > 1:
+                logger.warning(f"Found {len(current_circles.data)} current story circles, fixing...")
+                
+                # Keep the most recent one current, using 'date' instead of 'created_at'
+                most_recent = self.client.table('story_circle')\
+                    .select('id')\
+                    .eq('is_current', True)\
+                    .order('date', desc=True)\
+                    .limit(1)\
+                    .single()\
+                    .execute()
+                
+                if most_recent.data:
+                    # Update all others to not current
+                    self.client.table('story_circle')\
+                        .update({'is_current': False})\
+                        .neq('id', most_recent.data['id'])\
+                        .eq('is_current', True)\
+                        .execute()
+                    
+                    logger.info(f"Set story circle {most_recent.data['id']} as current")
+            
+        except Exception as e:
+            logger.error(f"Error ensuring single current circle: {e}")
             raise
 
     def update_story_circle(self, story_circle):
@@ -223,12 +252,20 @@ class DatabaseService:
     def create_story_circle(self):
         """Create a new story circle"""
         try:
-            # Create new story circle entry with only is_current flag
+            # First ensure no other circles are current
+            self._ensure_single_current_circle()
+            
+            # Create new story circle entry with minimal required fields
             story = self.client.table('story_circle').insert({
-                'is_current': True
+                'is_current': True,
+                'narrative': {}
             }).execute()
 
+            if not story.data:
+                raise Exception("Failed to create story circle")
+
             story_circle_id = story.data[0]['id']
+            logger.info(f"Created new story circle {story_circle_id}")
 
             # Create initial phases
             phase_order = ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
@@ -237,10 +274,11 @@ class DatabaseService:
                     'story_circle_id': story_circle_id,
                     'phase_name': phase_name,
                     'phase_number': i,
-                    'phase_description': ''
+                    'phase_description': '',
+                    'is_current': i == 1  # First phase is current
                 }).execute()
 
-            # Return initial story circle state
+            # Return the newly created circle
             return self.get_story_circle()
 
         except Exception as e:
@@ -415,21 +453,236 @@ class DatabaseService:
             logger.info(f"Updating phase description for story_circle_id={story_circle_id}, phase={phase_name}")
             logger.debug(f"New description: {description}")
             
+            # Update the phase description without updated_at timestamp
             response = self.client.table('story_phases')\
-                .update({'phase_description': description})\
+                .update({
+                    'phase_description': description
+                })\
                 .eq('story_circle_id', story_circle_id)\
                 .eq('phase_name', phase_name)\
                 .execute()
             
             success = bool(response.data)
             if success:
-                logger.info("Phase description updated successfully")
+                logger.info(f"Successfully updated phase description for {phase_name}")
+                logger.debug(f"Updated description: {description}")
             else:
-                logger.warning("No phase was updated - check if phase exists")
+                logger.warning(f"No phase was updated - phase {phase_name} might not exist")
                 
             return success
             
         except Exception as e:
-            logger.error(f"Error updating story phase: {e}")
+            logger.error(f"Error updating phase description: {e}")
             logger.exception("Full traceback:")
+            return False
+
+    def sync_story_circle(self, memory_state):
+        """Synchronize in-memory story circle state with database"""
+        try:
+            # Get current database state
+            db_state = self.get_story_circle()
+            if not db_state:
+                logger.error("No story circle found in database")
+                return memory_state
+
+            # Compare states
+            if self._states_match(memory_state, db_state):
+                logger.info("Story circle states are synchronized")
+                return memory_state
+
+            logger.warning("Story circle state mismatch detected - reconciling...")
+            return self._reconcile_story_states(memory_state, db_state)
+
+        except Exception as e:
+            logger.error(f"Error synchronizing story circle: {e}")
+            raise
+
+    def _states_match(self, memory_state, db_state):
+        """Compare critical fields between memory and database states"""
+        try:
+            # Define critical fields to compare
+            critical_fields = [
+                'current_phase',
+                'current_phase_number',
+                'dynamic_context',
+                'events',
+                'dialogues'
+            ]
+
+            # Log comparison for debugging
+            for field in critical_fields:
+                if field not in memory_state or field not in db_state:
+                    logger.warning(f"Missing field in state comparison: {field}")
+                    return False
+                
+                if memory_state[field] != db_state[field]:
+                    logger.info(f"Mismatch in {field}:")
+                    logger.info(f"Memory: {memory_state[field]}")
+                    logger.info(f"Database: {db_state[field]}")
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error comparing states: {e}")
+            return False
+
+    def _reconcile_story_states(self, memory_state, db_state):
+        """Reconcile differences between memory and database states"""
+        try:
+            # Log initial state
+            logger.info("Beginning state reconciliation")
+            logger.debug(f"Memory state: {json.dumps(memory_state, indent=2)}")
+            logger.debug(f"Database state: {json.dumps(db_state, indent=2)}")
+
+            # Update critical fields from database state
+            fields_to_sync = {
+                'current_phase': 'Current phase',
+                'current_phase_number': 'Phase number',
+                'dynamic_context': 'Dynamic context',
+                'events': 'Events',
+                'dialogues': 'Dialogues'
+            }
+
+            for field, description in fields_to_sync.items():
+                if memory_state.get(field) != db_state.get(field):
+                    logger.warning(f"{description} mismatch detected - updating from database")
+                    memory_state[field] = db_state[field]
+
+            # Ensure phase descriptions are consistent
+            if 'phases' in memory_state and 'phases' in db_state:
+                for mem_phase, db_phase in zip(memory_state['phases'], db_state['phases']):
+                    if mem_phase.get('description') != db_phase.get('description'):
+                        logger.warning(f"Phase description mismatch for phase {mem_phase.get('phase')}")
+                        mem_phase['description'] = db_phase['description']
+
+            # Update event order if needed
+            if 'events' in memory_state and 'events' in db_state:
+                events_dialogues = self.get_events_dialogues(
+                    memory_state['id'],
+                    memory_state['current_phase_number']
+                )
+                if events_dialogues:
+                    # Sort by event_order
+                    events_dialogues.sort(key=lambda x: x.get('event_order', 0))
+                    memory_state['events'] = [e['event'] for e in events_dialogues]
+                    memory_state['dialogues'] = [e['inner_dialogue'] for e in events_dialogues]
+
+            # Save reconciled state
+            self.update_story_circle_state(memory_state)
+            logger.info("State reconciliation completed")
+
+            return memory_state
+
+        except Exception as e:
+            logger.error(f"Error reconciling states: {e}")
+            logger.exception("Full traceback:")
+            raise
+
+    def verify_story_circle_state(self, story_circle):
+        """Verify story circle state consistency"""
+        try:
+            # Check required fields
+            required_fields = [
+                'id', 'current_phase', 'current_phase_number',
+                'is_current', 'phases', 'events', 'dialogues',
+                'dynamic_context'
+            ]
+
+            missing_fields = [f for f in required_fields if f not in story_circle]
+            if missing_fields:
+                logger.error(f"Story circle missing required fields: {missing_fields}")
+                return False
+
+            # Verify phase consistency
+            if not self._verify_phases(story_circle):
+                return False
+
+            # Verify events and dialogues
+            if not self._verify_events_dialogues(story_circle):
+                return False
+
+            logger.info("Story circle state verification passed")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error verifying story circle state: {e}")
+            return False
+
+    def _verify_phases(self, story_circle):
+        """Verify phase consistency"""
+        try:
+            phases = story_circle.get('phases', [])
+            
+            # Check phase order
+            expected_phases = ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
+            phase_names = [p.get('phase') for p in phases]
+            
+            if phase_names != expected_phases:
+                logger.error(f"Invalid phase order. Expected: {expected_phases}, Got: {phase_names}")
+                return False
+
+            # Verify current phase is valid
+            if story_circle['current_phase'] not in expected_phases:
+                logger.error(f"Invalid current phase: {story_circle['current_phase']}")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error verifying phases: {e}")
+            return False
+
+    def _verify_events_dialogues(self, story_circle):
+        """Verify events and dialogues consistency"""
+        try:
+            events = story_circle.get('events', [])
+            dialogues = story_circle.get('dialogues', [])
+
+            # Check events and dialogues match
+            if len(events) != len(dialogues):
+                logger.error(f"Events and dialogues length mismatch: {len(events)} vs {len(dialogues)}")
+                return False
+
+            # Verify dynamic context
+            context = story_circle.get('dynamic_context', {})
+            if context.get('current_event') and context['current_event'] not in events:
+                logger.error("Current event not found in events list")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error verifying events and dialogues: {e}")
+            return False
+
+    def _get_next_phase(self, current_phase):
+        """Get the next phase in the story circle"""
+        phases = ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
+        current_index = phases.index(current_phase)
+        next_index = (current_index + 1) % len(phases)
+        return phases[next_index]
+
+    def create_events_for_phase(self, story_circle_id, phase_number, events, dialogues):
+        """Create events and dialogues for a phase"""
+        try:
+            # Validate inputs
+            if len(events) != len(dialogues):
+                logger.error("Events and dialogues must have same length")
+                return False
+            
+            # Create events and dialogues
+            for i, (event, dialogue) in enumerate(zip(events, dialogues)):
+                self.client.table('events_dialogues').insert({
+                    'story_circle_id': story_circle_id,
+                    'phase_number': phase_number,
+                    'event_order': i + 1,
+                    'event': event,
+                    'dialogue': dialogue
+                }).execute()
+            
+            return True
+        
+        except Exception as e:
+            logger.error(f"Error creating events for phase: {e}")
             return False
