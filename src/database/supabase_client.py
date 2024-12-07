@@ -3,6 +3,7 @@ from supabase import create_client
 from src.config import Config
 import logging
 import json
+from datetime import datetime
 
 logger = logging.getLogger('database')
 
@@ -290,9 +291,16 @@ class DatabaseService:
         try:
             story_circle_id = story_circle['id']
             
-            # Update only the is_current flag in main story circle table
+            # Update only the is_current flag and narrative
             update_data = {
-                'is_current': story_circle.get('is_current', True)
+                'is_current': story_circle.get('is_current', True),
+                'narrative': {
+                    'current_phase': story_circle['current_phase'],
+                    'current_phase_number': story_circle['current_phase_number'],
+                    'events': story_circle['events'],
+                    'dialogues': story_circle['dialogues'],
+                    'dynamic_context': story_circle['dynamic_context']
+                }
             }
             
             logger.info(f"Updating story circle with data: {json.dumps(update_data, indent=2)}")
@@ -303,12 +311,13 @@ class DatabaseService:
                 .eq('id', story_circle_id)\
                 .execute()
             
-            # Update phases without is_current flag
+            # Update phases
             for phase in story_circle['phases']:
                 self.client.table('story_phases').update({
                     'phase_name': phase['phase'],
                     'phase_number': phase['phase_number'],
-                    'phase_description': phase['description']
+                    'phase_description': phase['description'],
+                    'is_current': phase['phase'] == story_circle['current_phase']
                 }).eq('story_circle_id', story_circle_id)\
                   .eq('phase_name', phase['phase'])\
                   .execute()
@@ -330,7 +339,7 @@ class DatabaseService:
                     'phase_number': current_phase_number,
                     'event': event,
                     'inner_dialogue': dialogue,
-                    'event_order': idx + 1  # Add event_order starting from 1
+                    'event_order': idx + 1
                 }
                 for idx, (event, dialogue) in enumerate(zip(story_circle['events'], story_circle['dialogues']))
             ]
@@ -354,32 +363,45 @@ class DatabaseService:
             raise
 
     def insert_circle_memories(self, story_circle_id, memories):
-        """Insert new memories for a completed story circle - synchronous"""
+        """Insert memories for a completed story circle"""
         try:
-            self.client.table('circle_memories').insert({
+            # Validate inputs
+            if not story_circle_id or not memories:
+                logger.error("Invalid inputs for circle memories")
+                return False
+            
+            # Insert memories with timestamp
+            result = self.client.table('circle_memories').insert({
                 'story_circle_id': story_circle_id,
-                'memory': memories
+                'memory': memories,
+                'date': datetime.now().isoformat()
             }).execute()
+            
+            if not result.data:
+                logger.error("No data returned from memory insertion")
+                return False
+            
+            logger.info(f"Successfully added memories for story circle {story_circle_id}")
+            logger.debug(f"Inserted memories: {memories}")
+            return True
+            
         except Exception as e:
             logger.error(f"Error inserting circle memories: {e}")
-            raise
+            logger.exception("Full traceback:")
+            return False
 
     def get_circle_memories(self):
         """Get all circle memories"""
         try:
-            # Get memories without ordering by created_at
-            memories = self.client.table('circle_memories')\
-                .select('memory')\
-                .execute()
-            
-            if not memories.data:
-                return {"memories": []}
-            
-            return {"memories": [m['memory'] for m in memories.data]}
-        
+            response = self.client.table('circle_memories').select('memory').execute()
+            memories = []
+            for record in response.data:
+                if record.get('memory'):
+                    memories.append(record['memory'])
+            return memories
         except Exception as e:
-            logger.error(f"Error fetching circle memories: {e}")
-            return {"memories": []}
+            logger.error(f"Error getting circle memories: {e}")
+            return []
 
     def update_story_circle(self, story_circle_id, updates):
         """Update specific story circle fields - synchronous"""
@@ -453,7 +475,7 @@ class DatabaseService:
             logger.info(f"Updating phase description for story_circle_id={story_circle_id}, phase={phase_name}")
             logger.debug(f"New description: {description}")
             
-            # Update the phase description without updated_at timestamp
+            # Update the phase description
             response = self.client.table('story_phases')\
                 .update({
                     'phase_description': description

@@ -134,27 +134,22 @@ END_CURRENT_JSON
 '''
 
 # Update the SUMMARY_PROMPT to match the style of the story circle prompt
-SUMMARY_PROMPT = '''You are a narrative summarizer for story circles. Your task is to create a concise, engaging summary of a completed story circle in a single paragraph.
+SUMMARY_PROMPT = '''You are a narrative summarizer tasked with summarizing the journey of Fwog-ai through a story circle. Your task is to create a concise, engaging summary of a completed story circle in a single paragraph.
 
-The summary should capture the essence of Fwog's journey through all phases of the story circle, highlighting key events and character development.
-
-IMPORTANT: You must return ONLY a valid JSON object matching EXACTLY this structure:
-
-JSON_TEMPLATE
-{{
-  "memories": [
-    "string"
-  ]
-}}
-END_JSON_TEMPLATE
+Previous circle summaries for context:
+{previous_summaries}
 
 Current story circle to summarize:
 {story_circle}
 
-Previous memories for context:
-{previous_summaries}
-
-Remember: Return ONLY the JSON object, no additional text, comments, or formatting.
+Return your summary in this exact JSON format:
+{{
+    "memories": [
+        "A concise one-line summary of the entire story circle",
+        "A key memorable moment from the journey",
+        "An insight about Fwog's character development"
+    ]
+}}
 '''
 
 class StoryCircleManager:
@@ -175,12 +170,12 @@ class StoryCircleManager:
             return None
 
     def load_circles_memory(self):
-        """Load the circles memory from database"""
+        """Load existing circle memories"""
         try:
-            return self.db.get_circle_memories_sync()
+            return self.db.get_circle_memories()
         except Exception as e:
             logger.error(f"Error loading circles memory: {e}")
-            return {"memories": []}
+            return []
 
     def save_story_circle(self, story_circle):
         """Save the updated story circle to database"""
@@ -221,23 +216,31 @@ class StoryCircleManager:
                 max_tokens=500
             )
             
-            # Parse the response using new format
+            # Parse the response with better error handling
             response_text = response.choices[0].message.content.strip()
+            logger.debug(f"Raw AI Response:\n{response_text}")
             
             try:
                 summary = json.loads(response_text)
-                return {
-                    "memories": summary["memories"] if "memories" in summary else [
-                        "A story about Fwog's adventure (summary generation failed)"
-                    ]
-                }
+                if "memories" not in summary:
+                    logger.error("Missing 'memories' key in summary")
+                    return {
+                        "memories": ["A story about Fwog's adventure (summary missing memories)"]
+                    }
+                return summary
+                
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse AI summary response: {e}\nRaw response: {response_text}")
-                raise
+                return {
+                    "memories": ["A story about Fwog's adventure (summary parsing failed)"]
+                }
                 
         except Exception as e:
             logger.error(f"Error generating circle summary: {e}")
-            raise
+            logger.exception("Full traceback:")
+            return {
+                "memories": ["A story about Fwog's adventure (summary generation failed)"]
+            }
 
     def archive_completed_circle(self, story_circle):
         """Archive a completed story circle and create a new one"""
@@ -395,13 +398,36 @@ class StoryCircleManager:
                 logger.error("Failed to update phase description")
                 raise Exception("Phase description update failed")
             
-            # Get next phase
-            next_phase = self._get_next_phase(story_circle["current_phase"])
+            # Check if current_phase is "Change", meaning the circle is completed
+            if story_circle["current_phase"] == "Change":
+                logger.info("Story circle completed, generating summary and starting new circle")
+                # Complete the current circle and start a new one
+                return self.complete_circle(story_circle)
             
-            # Update phase and phase number
+            # Not the last phase, so move on to the next phase as usual
+            next_phase = self._get_next_phase(story_circle["current_phase"])
+            next_phase_number = story_circle["current_phase_number"] + 1
+            
+            # Update phase status in database - set current phase to false
+            self.db.client.table('story_phases')\
+                .update({'is_current': False})\
+                .eq('story_circle_id', story_circle["id"])\
+                .eq('phase_name', story_circle["current_phase"])\
+                .execute()
+                
+            # Set next phase to current
+            self.db.client.table('story_phases')\
+                .update({'is_current': True})\
+                .eq('story_circle_id', story_circle["id"])\
+                .eq('phase_name', next_phase)\
+                .execute()
+            
+            logger.info(f"Updated phase status in database: {story_circle['current_phase']} -> {next_phase}")
+            
+            # Update story circle object
             story_circle.update({
                 "current_phase": next_phase,
-                "current_phase_number": story_circle["current_phase_number"] + 1,
+                "current_phase_number": next_phase_number,
                 "events": [],  # Clear events for next phase
                 "dialogues": [],  # Clear dialogues for next phase
                 "dynamic_context": {
@@ -436,7 +462,7 @@ class StoryCircleManager:
                 return None
             
             # Get circles memory for context
-            circles_memory = self.db.get_circle_memories_sync()
+            circles_memory = self.db.get_circle_memories()
             
             # Generate creative instructions
             creative_instructions = self.creativity_manager.generate_creative_instructions([])
@@ -732,27 +758,45 @@ class StoryCircleManager:
     def complete_circle(self, story_circle):
         """Complete current circle and start new one"""
         try:
+            logger.info(f"Completing story circle {story_circle['id']}")
+            
             # 1. Set current circle as completed
             self.db.update_story_circle(
                 story_circle["id"], 
                 {"is_current": False}
             )
             
-            # 2. Generate summary
+            # 2. Generate summary with better error handling
             circles_memory = self.load_circles_memory()
             summary = self.generate_circle_summary(story_circle, circles_memory)
             
-            # 3. Save memory - using sync version
-            self.db.insert_circle_memories(story_circle["id"], summary["memories"])
+            # 3. Save memory with validation
+            if summary and "memories" in summary:
+                success = self.db.insert_circle_memories(story_circle["id"], summary["memories"])
+                if not success:
+                    logger.error("Failed to save circle memories")
+                    raise Exception("Memory insertion failed")
+                logger.info(f"Successfully saved memories: {summary['memories']}")
+            else:
+                logger.error("Invalid summary format")
+                raise Exception("Summary generation failed")
             
             # 4. Create new story circle
             new_circle = self.db.create_story_circle()
+            if not new_circle:
+                logger.error("Failed to create new story circle")
+                raise Exception("Story circle creation failed")
+            
+            logger.info(f"Created new story circle {new_circle['id']}")
             
             # 5. Generate initial content for new circle
-            return self.update_story_circle()
+            updated_circle = self.update_story_circle()
+            logger.info("Successfully completed story circle cycle")
+            return updated_circle
             
         except Exception as e:
             logger.error(f"Error completing circle: {e}")
+            logger.exception("Full traceback:")
             raise
 
     def _transform_ai_response(self, ai_response, story_circle):
