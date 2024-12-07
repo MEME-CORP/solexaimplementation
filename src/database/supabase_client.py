@@ -291,7 +291,7 @@ class DatabaseService:
         try:
             story_circle_id = story_circle['id']
             
-            # Update only the is_current flag and narrative
+            # Update the story circle with full state
             update_data = {
                 'is_current': story_circle.get('is_current', True),
                 'narrative': {
@@ -306,21 +306,29 @@ class DatabaseService:
             logger.info(f"Updating story circle with data: {json.dumps(update_data, indent=2)}")
             
             # Update the story circle
-            self.client.table('story_circle')\
+            result = self.client.table('story_circle')\
                 .update(update_data)\
                 .eq('id', story_circle_id)\
                 .execute()
             
+            if not result.data:
+                logger.error("Failed to update story circle state")
+                return False
+            
             # Update phases
             for phase in story_circle['phases']:
-                self.client.table('story_phases').update({
+                phase_update = {
                     'phase_name': phase['phase'],
                     'phase_number': phase['phase_number'],
                     'phase_description': phase['description'],
                     'is_current': phase['phase'] == story_circle['current_phase']
-                }).eq('story_circle_id', story_circle_id)\
-                  .eq('phase_name', phase['phase'])\
-                  .execute()
+                }
+                
+                self.client.table('story_phases')\
+                    .update(phase_update)\
+                    .eq('story_circle_id', story_circle_id)\
+                    .eq('phase_name', phase['phase'])\
+                    .execute()
             
             # Get current phase number
             current_phase_number = story_circle['current_phase_number']
@@ -360,6 +368,7 @@ class DatabaseService:
             
         except Exception as e:
             logger.error(f"Error updating story circle state: {e}")
+            logger.exception("Full traceback:")
             raise
 
     def insert_circle_memories(self, story_circle_id, memories):
@@ -370,10 +379,14 @@ class DatabaseService:
                 logger.error("Invalid inputs for circle memories")
                 return False
             
+            # Ensure memories is a list
+            if not isinstance(memories, list):
+                memories = [memories]
+            
             # Insert memories with timestamp
             result = self.client.table('circle_memories').insert({
                 'story_circle_id': story_circle_id,
-                'memory': memories,
+                'memory': memories,  # Store as list
                 'date': datetime.now().isoformat()
             }).execute()
             
@@ -394,14 +407,19 @@ class DatabaseService:
         """Get all circle memories"""
         try:
             response = self.client.table('circle_memories').select('memory').execute()
+            # Transform the response to match expected format
             memories = []
             for record in response.data:
                 if record.get('memory'):
-                    memories.append(record['memory'])
-            return memories
+                    if isinstance(record['memory'], list):
+                        memories.extend(record['memory'])
+                    else:
+                        memories.append(record['memory'])
+            # Return in expected format
+            return {"memories": memories}
         except Exception as e:
             logger.error(f"Error getting circle memories: {e}")
-            return []
+            return {"memories": []}
 
     def update_story_circle(self, story_circle_id, updates):
         """Update specific story circle fields - synchronous"""

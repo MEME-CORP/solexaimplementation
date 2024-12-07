@@ -378,12 +378,12 @@ class StoryCircleManager:
         try:
             logger.info("All events completed in current phase, updating story circle")
             
-            # Ensure all events are added to phase description
+            # Get current phase info
             current_phase_index = story_circle['current_phase_number'] - 1
             current_phase = story_circle['phases'][current_phase_index]
             events = story_circle.get('events', [])
             
-            # Build complete phase description from events
+            # Build complete phase description
             phase_description = " ".join(events).strip()
             logger.info(f"Final phase description: {phase_description}")
             
@@ -398,24 +398,22 @@ class StoryCircleManager:
                 logger.error("Failed to update phase description")
                 raise Exception("Phase description update failed")
             
-            # Check if current_phase is "Change", meaning the circle is completed
+            # Check if this is the last phase (Change)
             if story_circle["current_phase"] == "Change":
-                logger.info("Story circle completed, generating summary and starting new circle")
-                # Complete the current circle and start a new one
+                logger.info("Story circle completed, archiving and starting new circle")
                 return self.complete_circle(story_circle)
             
-            # Not the last phase, so move on to the next phase as usual
+            # Not the last phase, move to next phase
             next_phase = self._get_next_phase(story_circle["current_phase"])
             next_phase_number = story_circle["current_phase_number"] + 1
             
-            # Update phase status in database - set current phase to false
+            # Update phase statuses in database
             self.db.client.table('story_phases')\
                 .update({'is_current': False})\
                 .eq('story_circle_id', story_circle["id"])\
                 .eq('phase_name', story_circle["current_phase"])\
                 .execute()
                 
-            # Set next phase to current
             self.db.client.table('story_phases')\
                 .update({'is_current': True})\
                 .eq('story_circle_id', story_circle["id"])\
@@ -436,9 +434,6 @@ class StoryCircleManager:
                     "next_event": ""
                 }
             })
-            
-            # Also update the phase description in memory
-            story_circle['phases'][current_phase_index]['description'] = phase_description
             
             # Save the updated story circle
             self.db.update_story_circle_state(story_circle)
@@ -763,23 +758,26 @@ class StoryCircleManager:
             # 1. Set current circle as completed
             self.db.update_story_circle(
                 story_circle["id"], 
-                {"is_current": False}
+                {
+                    "is_current": False,
+                    "completed_at": datetime.now().isoformat()
+                }
             )
             
-            # 2. Generate summary with better error handling
+            # 2. Generate summary with validation
             circles_memory = self.load_circles_memory()
             summary = self.generate_circle_summary(story_circle, circles_memory)
             
-            # 3. Save memory with validation
-            if summary and "memories" in summary:
-                success = self.db.insert_circle_memories(story_circle["id"], summary["memories"])
-                if not success:
-                    logger.error("Failed to save circle memories")
-                    raise Exception("Memory insertion failed")
-                logger.info(f"Successfully saved memories: {summary['memories']}")
-            else:
+            if not summary or "memories" not in summary:
                 logger.error("Invalid summary format")
                 raise Exception("Summary generation failed")
+            
+            # 3. Save memory
+            success = self.db.insert_circle_memories(story_circle["id"], summary["memories"])
+            if not success:
+                logger.error("Failed to save circle memories")
+                raise Exception("Memory insertion failed")
+            logger.info(f"Successfully saved memories: {summary['memories']}")
             
             # 4. Create new story circle
             new_circle = self.db.create_story_circle()
@@ -791,6 +789,10 @@ class StoryCircleManager:
             
             # 5. Generate initial content for new circle
             updated_circle = self.update_story_circle()
+            if not updated_circle:
+                logger.error("Failed to update new story circle")
+                raise Exception("Story circle update failed")
+        
             logger.info("Successfully completed story circle cycle")
             return updated_circle
             
