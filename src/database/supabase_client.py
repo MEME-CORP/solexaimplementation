@@ -285,19 +285,29 @@ class DatabaseService:
                 .eq('phase_number', current_phase_number)\
                 .execute()
             
-            # Insert new events/dialogues for current phase
+            # Insert new events/dialogues for current phase with event_order
             events_dialogues = [
                 {
                     'story_circle_id': story_circle_id,
                     'phase_number': current_phase_number,
                     'event': event,
-                    'inner_dialogue': dialogue
+                    'inner_dialogue': dialogue,
+                    'event_order': idx + 1  # Add event_order starting from 1
                 }
-                for event, dialogue in zip(story_circle['events'], story_circle['dialogues'])
+                for idx, (event, dialogue) in enumerate(zip(story_circle['events'], story_circle['dialogues']))
             ]
             
+            # Log the events being inserted
+            logger.debug(f"Inserting events/dialogues: {json.dumps(events_dialogues, indent=2)}")
+            
+            # Insert events one by one to better handle any errors
             for event_data in events_dialogues:
-                self.client.table('events_dialogues').insert(event_data).execute()
+                try:
+                    self.client.table('events_dialogues').insert(event_data).execute()
+                    logger.debug(f"Successfully inserted event {event_data['event_order']}")
+                except Exception as e:
+                    logger.error(f"Error inserting event {event_data['event_order']}: {e}")
+                    raise
             
             return True
             
@@ -344,23 +354,27 @@ class DatabaseService:
             logger.error(f"Error updating story circle: {e}")
             raise
 
-    def get_story_phases(self):
-        """Get phases for current story circle"""
+    def get_story_phases(self, story_circle_id=None):
+        """Get phases for story circle. If no ID provided, gets phases for current story circle"""
         try:
-            # Get current story circle id
-            story = self.client.table('story_circle')\
-                .select('id')\
-                .eq('is_current', True)\
-                .single()\
-                .execute()
-            
-            if not story.data:
-                return []
+            if story_circle_id is None:
+                # Get current story circle id
+                story = self.client.table('story_circle')\
+                    .select('id')\
+                    .eq('is_current', True)\
+                    .single()\
+                    .execute()
+                
+                if not story.data:
+                    logger.error("No current story circle found")
+                    return []
+                
+                story_circle_id = story.data['id']
             
             # Get phases for this story circle
             phases = self.client.table('story_phases')\
                 .select('*')\
-                .eq('story_circle_id', story.data['id'])\
+                .eq('story_circle_id', story_circle_id)\
                 .order('phase_number')\
                 .execute()
             
@@ -370,77 +384,23 @@ class DatabaseService:
             logger.error(f"Error fetching story phases: {e}")
             return []
 
-    def get_events_dialogues(self, story_circle_id=None, phase_number=None):
-        """Get events and dialogues for a specific phase of a story circle
-        
-        Args:
-            story_circle_id (int, optional): ID of the story circle. If None, gets current story circle.
-            phase_number (int, optional): Phase number to filter by. If None, gets all phases.
-            
-        Returns:
-            list: List of dicts containing events and dialogues with phase information
-        """
+    def get_events_dialogues(self, story_circle_id, phase_number):
+        """Get events and dialogues for a phase, ordered by event_order"""
         try:
-            # If no story_circle_id provided, get current story circle
-            if story_circle_id is None:
-                current_story = self.client.table('story_circle')\
-                    .select('id')\
-                    .eq('is_current', True)\
-                    .single()\
-                    .execute()
-                    
-                if not current_story.data:
-                    logger.error("No current story circle found")
-                    return []
-                    
-                story_circle_id = current_story.data['id']
-                
-            # Log the query parameters
-            logger.info(f"Querying events_dialogues with story_circle_id={story_circle_id}, phase_number={phase_number}")
-            
-            # Build base query with explicit column selection
             query = self.client.table('events_dialogues')\
-                .select('id, story_circle_id, phase_number, event, inner_dialogue')\
-                .eq('story_circle_id', story_circle_id)
-                
-            # Add phase filter if provided
-            if phase_number is not None:
-                query = query.eq('phase_number', phase_number)
-                
-            # Execute query with ordering
-            result = query.order('id').execute()
+                .select('*')\
+                .eq('story_circle_id', story_circle_id)\
+                .eq('phase_number', phase_number)\
+                .order('event_order')
             
-            # Log raw result for debugging
-            logger.debug(f"Raw query result: {result.data}")
+            result = query.execute()
             
             if not result.data:
-                logger.warning(f"No events found for story_circle_id={story_circle_id}, phase_number={phase_number}")
+                logger.warning(f"No events found for story_circle_id={story_circle_id}, phase={phase_number}")
                 return []
-                
-            # Transform the data into the expected format, now including phase_number
-            events_dialogues = [
-                {
-                    'event': row['event'],
-                    'dialogue': row['inner_dialogue'],
-                    'id': row['id'],
-                    'phase_number': row['phase_number'],  # Include phase_number in output
-                    'story_circle_id': row['story_circle_id']  # Include story_circle_id for reference
-                }
-                for row in result.data
-            ]
             
-            # Log the transformed data
-            logger.info(f"Retrieved {len(events_dialogues)} events/dialogues")
-            logger.debug(f"Transformed events_dialogues: {events_dialogues}")
-            
-            # Validate phase numbers
-            phase_numbers = set(e['phase_number'] for e in events_dialogues)
-            logger.info(f"Phase numbers in result: {phase_numbers}")
-            
-            if None in phase_numbers:
-                logger.error("Found events with null phase_number")
-                
-            return events_dialogues
+            logger.info(f"Retrieved {len(result.data)} events in order")
+            return result.data
             
         except Exception as e:
             logger.error(f"Error getting events and dialogues: {e}")

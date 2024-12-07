@@ -84,25 +84,59 @@ def migrate_story_circle():
                 'story_circle_id': story_circle_id,
                 'phase_number': 1,
                 'event': 'Fwog wakes up to the sound of birds chirping and stretches its tiny limbs in the morning sunlight.',
-                'inner_dialogue': 'Ahh, what a perfect start to the day! So peaceful and warm.'
+                'inner_dialogue': 'Ahh, what a perfect start to the day! So peaceful and warm.',
+                'event_order': 1
             },
             {
                 'story_circle_id': story_circle_id,
                 'phase_number': 1,
                 'event': 'Fwog splashes in the pond, chasing colorful ripples and giggling to itself.',
-                'inner_dialogue': 'Heehee, these ripples are so fun to chase. I wonder if they\'re running away from me!'
+                'inner_dialogue': 'Heehee, these ripples are so fun to chase. I wonder if they\'re running away from me!',
+                'event_order': 2
             },
             {
                 'story_circle_id': story_circle_id,
                 'phase_number': 1,
                 'event': 'Fwog sits on a lily pad, talking to dragonflies about the beauty of the day.',
-                'inner_dialogue': 'Dragonflies are so elegant. Do they think the pond is as pretty as I do?'
+                'inner_dialogue': 'Dragonflies are so elegant. Do they think the pond is as pretty as I do?',
+                'event_order': 3
+            },
+            {
+                'story_circle_id': story_circle_id,
+                'phase_number': 1,
+                'event': 'Fwog watches other pond creatures going about their morning routines.',
+                'inner_dialogue': 'Everyone seems so happy here in their little routines.',
+                'event_order': 4
             }
         ]
         
+        # Add validation for number of events
+        expected_events = 4
+        if len(initial_events) != expected_events:
+            logger.error(f"Wrong number of events. Expected {expected_events}, got {len(initial_events)}")
+            raise ValueError(f"Wrong number of events. Expected {expected_events}, got {len(initial_events)}")
+            
+        logger.info(f"Preparing to insert {len(initial_events)} events...")
+        
+        # Insert events with proper field mapping - using inner_dialogue instead of dialogue
         for event_data in initial_events:
-            db.client.table('events_dialogues').insert(event_data).execute()
-            logger.info("Inserted event-dialogue pair")
+            try:
+                insert_data = {
+                    'story_circle_id': event_data['story_circle_id'],
+                    'phase_number': event_data['phase_number'],
+                    'event': event_data['event'],
+                    'inner_dialogue': event_data['inner_dialogue'],  # Changed from dialogue to inner_dialogue
+                    'event_order': event_data['event_order']
+                }
+                logger.info(f"Inserting event with data: {json.dumps(insert_data, indent=2)}")
+                
+                db.client.table('events_dialogues').insert(insert_data).execute()
+                logger.info(f"Inserted event-dialogue pair with order {event_data['event_order']}")
+                
+            except Exception as e:
+                logger.error(f"Error inserting event: {e}")
+                logger.error(f"Attempted data: {json.dumps(insert_data, indent=2)}")
+                raise
         
         # Insert initial circle memory
         logger.info("Inserting circle memories...")
@@ -120,5 +154,46 @@ def migrate_story_circle():
         logger.error(f"Full error details: {repr(e)}")
         return False
 
+def verify_database_schema(db):
+    """Verify the database schema before migration"""
+    try:
+        logger.info("Verifying database schema...")
+        
+        # Get table information
+        tables = ['story_circle', 'story_phases', 'events_dialogues', 'circle_memories']
+        
+        for table in tables:
+            # This will raise an error if the table doesn't exist
+            result = db.client.table(table).select('*').limit(1).execute()
+            logger.info(f"Verified table {table} exists")
+            
+            # Log the column names
+            if hasattr(result, 'columns'):
+                logger.info(f"Columns in {table}: {result.columns}")
+        
+        logger.info("Database schema verification complete")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Schema verification failed: {e}")
+        return False
+
 if __name__ == "__main__":
-    migrate_story_circle() 
+    try:
+        db = DatabaseService()
+        
+        # First verify the schema
+        if not verify_database_schema(db):
+            logger.error("Schema verification failed, aborting migration")
+            sys.exit(1)
+            
+        # Then run the migration
+        if migrate_story_circle():
+            logger.info("Migration completed successfully")
+        else:
+            logger.error("Migration failed")
+            sys.exit(1)
+            
+    except Exception as e:
+        logger.error(f"Migration script failed: {e}")
+        sys.exit(1) 
