@@ -171,7 +171,7 @@ class ChallengeManager:
             }
             
             response = requests.post(
-                "http://localhost:3000/trigger",
+                "https://web3-agent.onrender.com/trigger",
                 json=payload,
                 headers={"Content-Type": "application/json"}
             )
