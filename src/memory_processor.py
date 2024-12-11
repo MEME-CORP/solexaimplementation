@@ -5,11 +5,23 @@ from datetime import datetime
 from src.config import Config
 import logging
 import os
+import yaml
 from src.database.supabase_client import DatabaseService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('memory_processor')
+
+def load_yaml_prompt(filename):
+    """Load a prompt from a YAML file"""
+    try:
+        prompt_path = os.path.join(os.path.dirname(__file__), 'prompts_config', filename)
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            prompt_config = yaml.safe_load(f)
+            return prompt_config.get('memory_analysis_prompt', '')
+    except Exception as e:
+        logger.error(f"Error loading prompt from {filename}: {e}")
+        return None
 
 # Initialize OpenAI client
 client = OpenAI(
@@ -17,32 +29,7 @@ client = OpenAI(
     base_url=Config.OPENAI_BASE_URL
 )
 
-MEMORY_ANALYSIS_PROMPT = """Analyze the following conversations and extract topics and summaries in JSON format. 
-Compare these with existing memories to determine if they're new and relevant for the character (a whimsical, innocent frog-like being).
 
-Existing memories for reference:
-{existing_memories}
-
-Today's conversations:
-{conversations}
-
-Provide analysis in the following JSON format only:
-{{
-    "topics": [
-        {{
-            "topic": "string",
-            "summary": "string",
-            "exists": boolean,
-            "relevant": boolean,
-            "reasoning": "string"
-        }}
-    ]
-}}
-
-Rules for relevancy:
-1. Topic should be specific and granular details that are meaningful or interesting to remember.
-2. Should be a personal experience or observation, like an anecdote or story that is meaningful to the character.
-"""
 
 class MemoryProcessor:
     def __init__(self):
@@ -51,6 +38,11 @@ class MemoryProcessor:
             base_url=Config.OPENAI_BASE_URL
         )
         self.db = DatabaseService()
+        
+        # Load prompt from YAML file
+        self.memory_analysis_prompt = load_yaml_prompt('memory_processor_prompt.yaml')
+        if not self.memory_analysis_prompt:
+            raise ValueError("Failed to load memory analysis prompt from YAML file")
 
     @staticmethod
     def format_conversations(user_conversations):
@@ -87,8 +79,8 @@ class MemoryProcessor:
             # Format conversations for analysis
             formatted_conversations = self.format_conversations(user_conversations)
             
-            # Prepare prompt with existing memories
-            prompt = MEMORY_ANALYSIS_PROMPT.format(
+            # Prepare prompt with existing memories using instance prompt
+            prompt = self.memory_analysis_prompt.format(
                 existing_memories=json.dumps(existing_memories, indent=2),
                 conversations=formatted_conversations
             )
