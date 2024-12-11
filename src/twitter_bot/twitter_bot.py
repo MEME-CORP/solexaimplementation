@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from src.ai_generator import AIGenerator
 from .scraper import Scraper
 from .tweets import TweetManager
+from src.challenge_manager import ChallengeManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +36,7 @@ class TwitterBot:
         self.tweet_manager = None
         self.running = False
         self.is_cleaning_up = False
+        self.challenge_manager = ChallengeManager()
         
         logger.info("Twitter bot initialization complete!")
 
@@ -83,7 +85,7 @@ class TwitterBot:
             # Execute initial tasks
             logger.info("=== Initial Tasks ===")
             if self.tweet_manager and self.generator:
-                self.tweet_manager.check_and_process_mentions(self.generator)
+                self.tweet_manager.check_and_process_mentions(self.generator, self.challenge_manager)
                 self.generate_and_send_tweet()
             
             # Set timers
@@ -91,6 +93,8 @@ class TwitterBot:
             last_notification_check = time.time()
             tweet_interval = random.randint(3600, 7200)  # 5-30 minutes
             notification_interval = 300  # 5 minutes
+            last_challenge_check = time.time()
+            challenge_check_interval = 3600  # 1 hour
 
             logger.info(f"Next tweet in {tweet_interval/60:.1f} minutes")
             logger.info(f"Next notification check in {notification_interval/60:.1f} minutes")
@@ -114,7 +118,7 @@ class TwitterBot:
                         logger.info("=== Checking Notifications ===")
                         if self.tweet_manager and self.generator:
                             try:
-                                self.tweet_manager.check_and_process_mentions(self.generator)
+                                self.tweet_manager.check_and_process_mentions(self.generator, self.challenge_manager)
                             except Exception as e:
                                 logger.error(f"Error checking notifications: {e}")
                         last_notification_check = current_time
@@ -130,6 +134,11 @@ class TwitterBot:
                         last_tweet_time = current_time
                         tweet_interval = random.randint(300, 1800)
                         logger.info(f"Next tweet in {tweet_interval/60:.1f} minutes")
+
+                    # Check challenge status
+                    if current_time - last_challenge_check >= challenge_check_interval:
+                        self.check_challenge_status()
+                        last_challenge_check = current_time
 
                     time.sleep(1)
 
@@ -202,3 +211,16 @@ class TwitterBot:
             logger.error(f"Error during cleanup: {e}")
         finally:
             os._exit(0)
+
+    def check_challenge_status(self):
+        """Check and potentially start new challenge"""
+        if not self.challenge_manager.is_challenge_active():
+            if self.challenge_manager.start_challenge():
+                # New challenge started - send announcement
+                announcement = (
+                    "new chawwenge time!! >w< guess a numbew between "
+                    f"{self.challenge_manager._min_range} and {self.challenge_manager._max_range}! "
+                    "make suwe to incwude ur sowana wawwet addwess in the message! "
+                    "winner gets 0.1 SOL!! good wuck! :3"
+                )
+                self.tweet_manager.send_tweet(announcement)
