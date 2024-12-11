@@ -47,3 +47,8 @@ data/processed_tweets.txt
 logs/ 
 
 tests/
+templates/
+
+# Test files
+.pytest_cache/
+tests/__pycache__/
