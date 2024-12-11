@@ -4,6 +4,8 @@ from src.config import Config
 import logging
 import json
 from datetime import datetime
+from typing import List, Dict, Any
+import os
 
 logger = logging.getLogger('database')
 
@@ -13,23 +15,43 @@ class DatabaseService:
             Config.SUPABASE_URL,
             Config.SUPABASE_KEY
         )
+        # Initialize storage bucket reference
+        self.storage = self.client.storage
       
-    def get_memories(self):
-        """Get all memories including circle memories synchronously"""
+    def get_memories(self) -> List[str]:
+        """Get all memories from storage and circle memories from database"""
         try:
-            # Get regular memories
-            memories_response = self.client.table('memories').select('content').execute()
-            memories = [record['content'] for record in memories_response.data]
+            memories = []
             
-            # Get circle memories
-            circle_response = self.client.table('circle_memories').select('memories').execute()
-            if circle_response.data:
-                circle_memories = circle_response.data[0]['memories']['memories']
-                memories.extend(circle_memories)
+            # Get memories from storage JSON file
+            try:
+                # Download memories.json if it exists
+                content = self.storage.from_('memories').download('memories.json')
+                if content:
+                    json_content = json.loads(content.decode('utf-8'))
+                    memories.extend(json_content.get('memories', []))
+                    logger.info(f"Retrieved {len(memories)} memories from storage")
+                
+            except Exception as e:
+                if 'Not found' in str(e):
+                    logger.info("No memories.json found in storage")
+                else:
+                    logger.error(f"Error fetching memories from storage: {e}")
+            
+            # Get circle memories (keep this functionality unchanged)
+            try:
+                circle_response = self.client.table('circle_memories').select('memories').execute()
+                if circle_response.data:
+                    circle_memories = circle_response.data[0]['memories']['memories']
+                    memories.extend(circle_memories)
+                    logger.info(f"Retrieved {len(circle_memories)} circle memories from database")
+            except Exception as e:
+                logger.error(f"Error fetching circle memories: {e}")
             
             return memories
+            
         except Exception as e:
-            logger.error(f"Error fetching memories: {e}")
+            logger.error(f"Error in get_memories: {e}")
             return []
 
     def get_story_circle(self):
@@ -249,11 +271,46 @@ class DatabaseService:
             logger.error(f"Error fetching processed tweets: {e}")
             return []
 
-    def add_memories(self, new_memories):
-        """Add new memories to database"""
+    def add_memories(self, new_memories: List[str]) -> None:
+        """Add new memories to storage JSON file"""
         try:
-            memory_records = [{'content': memory} for memory in new_memories]
-            self.client.table('memories').insert(memory_records).execute()
+            # Create memories bucket if it doesn't exist
+            try:
+                self.storage.create_bucket('memories')
+            except Exception as e:
+                if 'already exists' not in str(e):
+                    logger.error(f"Error creating memories bucket: {e}")
+                    raise
+            
+            # Get existing memories
+            existing_memories = []
+            try:
+                content = self.storage.from_('memories').download('memories.json')
+                if content:
+                    json_content = json.loads(content.decode('utf-8'))
+                    existing_memories = json_content.get('memories', [])
+            except Exception as e:
+                if 'Not found' not in str(e):
+                    logger.error(f"Error reading existing memories: {e}")
+            
+            # Combine existing and new memories
+            all_memories = {
+                'memories': existing_memories + new_memories
+            }
+            
+            # Upload updated memories file
+            try:
+                self.storage.from_('memories').upload(
+                    'memories.json',
+                    json.dumps(all_memories).encode('utf-8'),
+                    {'content-type': 'application/json'},
+                    upsert=True  # Update if exists, create if doesn't
+                )
+                logger.info(f"Added {len(new_memories)} new memories to storage")
+            except Exception as e:
+                logger.error(f"Error uploading memories: {e}")
+                raise
+                    
         except Exception as e:
             logger.error(f"Error adding memories: {e}")
             raise

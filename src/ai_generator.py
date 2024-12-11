@@ -11,6 +11,8 @@ import re
 import os.path
 import traceback
 from src.database.supabase_client import DatabaseService
+import yaml
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +58,9 @@ class AIGenerator:
         logger.info("Loading memories and narrative")
         self.memories = self.load_memories()
         self.narrative = self.load_narrative()
+        
+        # Load bot prompts
+        self.bot_prompts = self._load_bot_prompts()
         
         logger.info(f"Initialization complete. Memories loaded: {bool(self.memories)}, Narrative loaded: {bool(self.narrative)}")
 
@@ -122,6 +127,16 @@ class AIGenerator:
             logger.error(f"Error loading narrative: {e}")
             return None
 
+    def _load_bot_prompts(self):
+        """Load bot prompts from YAML file"""
+        try:
+            prompts_path = Path(__file__).parent / 'prompts_config' / 'bot_prompts.yaml'
+            with open(prompts_path, 'r') as f:
+                return yaml.safe_load(f)
+        except Exception as e:
+            logger.error(f"Error loading bot prompts: {e}")
+            return {}
+
     def _prepare_messages(self, **kwargs):
         """Prepare messages for API call - exposed for testing"""
         # Simplify memory handling with more familiar pattern
@@ -138,46 +153,38 @@ class AIGenerator:
         current_event = narrative_context.get('current_event', '') if narrative_context else ''
         inner_dialogue = narrative_context.get('current_inner_dialogue', '') if narrative_context else ''
         
-        # Simplify tweet content handling - remove topic logic
-        user_message = kwargs.get('user_message') or ''  # Convert None to empty string
-        tweet_content = (
-            user_message[9:].strip() if user_message.startswith('reply to:') 
-            else "your current event and inner dialogue"
-        )
-        
-        # Select appropriate formats based on mode
+        # Get the appropriate prompt template based on mode
         if self.mode == 'twitter':
+            prompt_template = self.bot_prompts.get('twitter', {}).get('content_prompt', '')
+            tweet_content = (
+                kwargs.get('user_message', '')[9:].strip() if kwargs.get('user_message', '').startswith('reply to:')
+                else "your current event and inner dialogue"
+            )
             emotion_format = random.choice(self.emotion_formats)['format']
             length_format = random.choice(self.length_formats)['format']
             
-            # Build Twitter-specific prompt with exact format
-            content_prompt = (
-                f"Talk about {tweet_content}. Format the response as: {length_format}; let this emotion shape your response: {emotion_format}. "
-                f"Remember to respond like a text message (max. 280 characters) "
-                f"using text-speak and replacing 'r' with 'fw' and 'l' with 'w', "
-                f"adhering to the format and format-length. "
-                f"And do not use emojis/visual-emojis nor quotes or any other characters, just plain text and ascii-emoticons if appropiate.\n\n"
-                f"memories: {memory_context}\n"
-                f"previous conversations: {kwargs.get('conversation_context', '')}\n"
-                f"current event: {current_event}\n"
-                f"inner dialogue: {inner_dialogue}"
+            content_prompt = prompt_template.format(
+                tweet_content=tweet_content,
+                length_format=length_format,
+                emotion_format=emotion_format,
+                memory_context=memory_context,
+                conversation_context=kwargs.get('conversation_context', ''),
+                current_event=current_event,
+                inner_dialogue=inner_dialogue
             )
         else:
             # Discord and Telegram format
+            prompt_template = self.bot_prompts.get('discord_telegram', {}).get('content_prompt', '')
             emotion_format = random.choice(self.emotion_formats)['format']
             
-            content_prompt = (
-                f"Previous conversation:\n"
-                f"{kwargs.get('conversation_context', '')}\n\n"
-                f"New message from {kwargs.get('username') or kwargs.get('user_id')}: \"{kwargs.get('user_message', '')}\"\n\n"
-                f"Let this emotion shape your response: {emotion_format}. "
-                f"Remember to respond like a text message using text-speak and replacing 'r' with 'fw' and 'l' with 'w'. "
-                f"And do not use emojis. Keep the conversation context in mind when responding; "
-                f"keep your memories in mind when responding: {memory_context}. "
-                f"Your character has an arc, if it seems relevant to your response, mention it, "
-                f"where the current event is: {current_event} "
-                f"and the inner dialogue to such an event is: {inner_dialogue}.\n\n"
-                f"NOTE //do not use emojis/visual-emojis nor quotes or any other characters, just plain text and ascii-emoticons if appropiate."
+            content_prompt = prompt_template.format(
+                conversation_context=kwargs.get('conversation_context', ''),
+                username=kwargs.get('username') or kwargs.get('user_id'),
+                user_message=kwargs.get('user_message', ''),
+                emotion_format=emotion_format,
+                memory_context=memory_context,
+                current_event=current_event,
+                inner_dialogue=inner_dialogue
             )
 
         messages = [
