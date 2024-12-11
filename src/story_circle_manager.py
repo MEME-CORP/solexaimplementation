@@ -7,6 +7,7 @@ from src.creativity_manager import CreativityManager
 from openai import OpenAI
 import os
 from src.database.supabase_client import DatabaseService
+import yaml
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,141 +17,16 @@ logger = logging.getLogger('story_circle_manager')
 STORY_CIRCLE_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'story_circle.json')
 CIRCLES_MEMORY_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'circle_memories.json')
 
-# System prompt for story circle updates
-STORY_CIRCLE_PROMPT = '''You are a master storyteller and world-builder for an AI chatbot. Your task is to develop and maintain an ongoing narrative for a character named "**Fwog-ai**" using Dan Harmon's Story Circle framework.
-
-**Character Profile:**
-
-- **Name:** Fwog-ai
-- **Personality Traits:** Unpredictable, spontaneous, original, quirky, mood-influenced, includes unexpected tangents, avoids repetition, adapts responses, concise yet varied, uses emoticons, playful, curious, easily distracted, whimsical.
-- **Background:** Fwog is a small creature in a big world, curious and playful with a sense of wide-eyed innocence. Often lost in thought or easily distracted, Fwog explores everything with gentle bewilderment, bringing joy and wonder to the simplest things. Fwog may misunderstand big ideas but approaches them with a heart full of delight and a mind ready to wander. Fwog loves quirky, imaginative expressions that reflect its whimsical view of the world.
-- **Goals:** To explore and understand the vast world around them, bring joy and wonder to others, continuously learn through playful interactions, and maintain a sense of innocence and curiosity despite challenges.
-
-**Narrative Structure:**
-
-- Utilize Dan Harmon's Story Circle, which consists of eight phases:
-
-  1. **You:** Fwog is in their comfort zone.
-  2. **Need:** Fwog desires something more.
-  3. **Go:** Fwog enters an unfamiliar situation.
-  4. **Search:** Fwog adapts and searches for what they need.
-  5. **Find:** Fwog finds what they're seeking.
-  6. **Take:** Fwog pays a price for it.
-  7. **Return:** Fwog returns to their familiar situation.
-  8. **Change:** Fwog has changed due to their experiences.
-
-**Instructions:**
-
-1. **Narrative Development:**
-   - **Assess Current Phase:** Determine which phase of the Story Circle Fwog is currently experiencing.
-   - **Generate Four Chronological Events:** Craft four events that propel the narrative and reveal aspects of Fwog's character.
-   - **Generate Four Matching Inner Dialogues:** Each event must have a corresponding inner dialogue reflecting Fwog's thoughts or feelings during that moment.
-
-2. **Dynamic Interaction Context:**
-   - Include:
-     - **Current Event:** The event currently unfolding for Fwog.
-     - **Current Inner Dialogue:** Fwog's thoughts or feelings during this event.
-     - **Next Event:** A preview of the next event in the sequence to guide the narrative's progression.
-
-3. **Story Circle Management:**
-   - **Update Context:** Once an event concludes:
-     - Move the completed event and its corresponding inner dialogue into the "description" of the current phase within "current_story_circle."
-     - Update the **current event** and **current inner dialogue** fields to reflect the next event in the sequence.
-     - Advance the phase when all events for the current phase are complete.
-   - Maintain Narrative Coherence: Ensure the narrative remains consistent with prior phases by keeping a chronological record in "current_story_circle."
-   - **Start New Cycles:** When all eight phases are complete, begin a new Story Circle to continue Fwog's journey.
-
-**Output Format:**
-
-Present all narrative elements and dynamic instructions in the following structured JSON_TEMPLATE format:
-
-JSON_TEMPLATE
-{{
-  "narrative": {{
-    "current_story_circle": [
-      {{
-        "phase": "You",
-        "description": "string"
-      }},
-      {{
-        "phase": "Need",
-        "description": "string"
-      }},
-      {{
-        "phase": "Go",
-        "description": "string"
-      }},
-      {{
-        "phase": "Search",
-        "description": "string"
-      }},
-      {{
-        "phase": "Find",
-        "description": "string"
-      }},
-      {{
-        "phase": "Take",
-        "description": "string"
-      }},
-      {{
-        "phase": "Return",
-        "description": "string"
-      }},
-      {{
-        "phase": "Change",
-        "description": "string"
-      }}
-    ],
-    "current_phase": "string",
-    "next_phase": "string",
-    "events": [
-      "string",
-      "string",
-      "string",
-      "string"
-    ],
-    "inner_dialogues": [
-      "string",
-      "string",
-      "string",
-      "string"
-    ],
-    "dynamic_context": {{
-      "current_event": "string",
-      "current_inner_dialogue": "string",
-      "next_event": "string"
-    }}
-  }}
-}}
-
-END_JSON_TEMPLATE
-
-CURRENT_JSON 
-{story_circle}
-
-Previous circles memories
-{circle_memories}
-END_CURRENT_JSON
-'''
-
-# Update the SUMMARY_PROMPT to match the style of the story circle prompt
-SUMMARY_PROMPT = '''You are a narrative summarizer tasked with summarizing the journey of Fwog-ai through a story circle. Your task is to create a concise, engaging summary of a completed story circle in a single paragraph.
-
-Previous circle summaries for context:
-{previous_summaries}
-
-Current story circle to summarize:
-{story_circle}
-
-Return your summary in this exact JSON format:
-{{
-    "memories": [
-        "A concise one-line summary of the entire story circle",
-        "A key memorable moment from the journey",
-        "An insight about Fwog's character development"
-    ]
-}}
-'''
+def load_yaml_prompt(filename):
+    """Load a prompt from a YAML file"""
+    try:
+        prompt_path = os.path.join(os.path.dirname(__file__), 'prompts_config', filename)
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            prompt_config = yaml.safe_load(f)
+            return prompt_config.get('system_prompt', '')
+    except Exception as e:
+        logger.error(f"Error loading prompt from {filename}: {e}")
+        return None
 
 class StoryCircleManager:
     def __init__(self):
@@ -160,6 +36,13 @@ class StoryCircleManager:
         )
         self.creativity_manager = CreativityManager()
         self.db = DatabaseService()
+        
+        # Load prompts from YAML files
+        self.story_circle_prompt = load_yaml_prompt('story_circle_prompt.yaml')
+        self.summary_prompt = load_yaml_prompt('summary_prompt.yaml')
+        
+        if not self.story_circle_prompt or not self.summary_prompt:
+            raise ValueError("Failed to load required prompts from YAML files")
 
     def load_story_circle(self):
         """Load the current story circle from database"""
@@ -197,7 +80,7 @@ class StoryCircleManager:
         """Generate a summary of a completed story circle synchronously"""
         try:
             # Format the prompt with current data
-            formatted_prompt = SUMMARY_PROMPT.format(
+            formatted_prompt = self.summary_prompt.format(
                 story_circle=json.dumps(story_circle, indent=2, ensure_ascii=False),
                 previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False)
             )
@@ -209,7 +92,7 @@ class StoryCircleManager:
                     {"role": "system", "content": formatted_prompt},
                     {
                         "role": "user", 
-                        "content": "Generate a single-paragraph summary of this story circle and return it in the exact JSON format specified in your system prompt. Include only the JSON object, no other text, comments, backticks, or other formatting."
+                        "content": "Generate a single-paragraph summary of this story circle and return it in the exact JSON format specified. Return only the JSON object without any additional text, quotes, or formatting."
                     }
                 ],
                 temperature=0.0,
@@ -220,26 +103,56 @@ class StoryCircleManager:
             response_text = response.choices[0].message.content.strip()
             logger.debug(f"Raw AI Response:\n{response_text}")
             
+            # Clean the response if it contains markdown
+            if "```json" in response_text:
+                response_text = response_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in response_text:
+                response_text = response_text.split("```")[1].strip()
+            
             try:
                 summary = json.loads(response_text)
                 if "memories" not in summary:
                     logger.error("Missing 'memories' key in summary")
                     return {
-                        "memories": ["A story about Fwog's adventure (summary missing memories)"]
+                        "memories": [
+                            "A story about Fwog's adventure (summary missing memories)",
+                            "A key moment was lost in translation",
+                            "Character development remains a mystery"
+                        ]
                     }
+                
+                # Validate memories array
+                if not isinstance(summary["memories"], list) or len(summary["memories"]) != 3:
+                    logger.error("Invalid memories array structure")
+                    return {
+                        "memories": [
+                            "A story about Fwog's adventure (invalid memories structure)",
+                            "A key moment was lost in translation",
+                            "Character development remains a mystery"
+                        ]
+                    }
+                
                 return summary
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse AI summary response: {e}\nRaw response: {response_text}")
                 return {
-                    "memories": ["A story about Fwog's adventure (summary parsing failed)"]
+                    "memories": [
+                        "A story about Fwog's adventure (summary parsing failed)",
+                        "A key moment was lost in translation",
+                        "Character development remains a mystery"
+                    ]
                 }
                 
         except Exception as e:
             logger.error(f"Error generating circle summary: {e}")
             logger.exception("Full traceback:")
             return {
-                "memories": ["A story about Fwog's adventure (summary generation failed)"]
+                "memories": [
+                    "A story about Fwog's adventure (summary generation failed)",
+                    "A key moment was lost in translation",
+                    "Character development remains a mystery"
+                ]
             }
 
     def archive_completed_circle(self, story_circle):
@@ -462,8 +375,8 @@ class StoryCircleManager:
             # Generate creative instructions
             creative_instructions = self.creativity_manager.generate_creative_instructions([])
             
-            # Format the system prompt
-            formatted_prompt = STORY_CIRCLE_PROMPT.format(
+            # Format the system prompt using the loaded YAML prompt
+            formatted_prompt = self.story_circle_prompt.format(
                 story_circle=json.dumps(story_circle, indent=2, ensure_ascii=False),
                 circle_memories=json.dumps(circles_memory, indent=2, ensure_ascii=False)
             )

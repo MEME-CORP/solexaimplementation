@@ -3,6 +3,7 @@ import json
 import logging
 from src.config import Config
 import os
+import yaml
 from typing import Union, Tuple
 from src.database.supabase_client import DatabaseService
 
@@ -10,28 +11,18 @@ from src.database.supabase_client import DatabaseService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('memory_decision')
 
-# Define the prompt template
-MEMORY_SELECTION_PROMPT = """Given the user's message and identity, select the most relevant memories that would help craft a meaningful response aligned with the character's personality (a whimsical, innocent frog-like being).
+def load_yaml_prompt(filename):
+    """Load a prompt from a YAML file"""
+    try:
+        prompt_path = os.path.join(os.path.dirname(__file__), 'prompts_config', filename)
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            prompt_config = yaml.safe_load(f)
+            return prompt_config.get('memory_selection_prompt', '')
+    except Exception as e:
+        logger.error(f"Error loading prompt from {filename}: {e}")
+        return None
 
-User: {user_identifier}
-Message: {user_message}
 
-Available memories:
-{all_memories}
-
-IMPORTANT: You must respond with ONLY a valid JSON object in exactly this format, with no additional text, comments, or formatting:
-{{
-    "selected_memories": [
-        "memory_string_1", (leave it as empty string if no relevant memories found)
-        //more memories if necessary. 
-    ]
-}}
-
-Selection criteria:
-1. Memory should be relevant to the current conversation topic
-2. Memory should be about something specific and granular, either a granular detail or story, otherwise it's not relevant.
-3. Memory should enrich the response without overwhelming it
-4. if no relevant memories are found, return empty strings"""
 
 class MemoryDecision:
     def __init__(self):
@@ -40,6 +31,11 @@ class MemoryDecision:
             base_url=Config.OPENAI_BASE_URL
         )
         self.db = DatabaseService()
+        
+        # Load prompt from YAML file
+        self.memory_selection_prompt = load_yaml_prompt('memory_selection_prompt.yaml')
+        if not self.memory_selection_prompt:
+            raise ValueError("Failed to load memory selection prompt from YAML file")
 
     def select_relevant_memories(self, user_identifier: str, user_message: str, return_details=False) -> Union[str, Tuple[str, dict]]:
         """Select relevant memories from existing ones."""
@@ -49,7 +45,8 @@ class MemoryDecision:
             if not all_memories:
                 return ("no relevant memories for this conversation", {}) if return_details else "no relevant memories for this conversation"
 
-            prompt = MEMORY_SELECTION_PROMPT.format(
+            # Use instance prompt instead of global constant
+            prompt = self.memory_selection_prompt.format(
                 user_identifier=user_identifier,
                 user_message=user_message,
                 all_memories="\n".join(all_memories)
@@ -73,7 +70,6 @@ class MemoryDecision:
             
             response_text = response.choices[0].message.content.strip()
             
-            # Process response and get memories
             memories = self._process_memory_response(response_text, all_memories)
             
             if return_details:
