@@ -42,3 +42,7 @@ class Config:
     # Database Configuration
     SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
     SUPABASE_KEY = os.getenv('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+
+    # Blockchain Configuration
+    TOKEN_MINT_ADDRESS = os.getenv('TOKEN_MINT_ADDRESS', 'DEFAULT_MINT_ADDRESS')
+    DEV_WALLET_ADDRESS = os.getenv('DEV_WALLET_ADDRESS', 'DEFAULT_DEV_WALLET')
