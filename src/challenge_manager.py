@@ -40,10 +40,11 @@ class ChallengeManager:
 
     async def check_eligibility(self, wallet_address: str) -> Tuple[bool, str]:
         """Check if wallet meets challenge requirements"""
-        if self._challenge_count < 2:
-            return True, "No requirements for first challenge"
-            
         try:
+            if self._challenge_count < 2:
+                return True, "No requirements for first challenge"
+            
+            # Get token percentage requirement based on challenge count
             if self._challenge_count == 2:
                 required_percentage = self._base_token_percentage  # 0.5%
                 required_transfer = self._base_transfer_amount    # 0.01 SOL
@@ -53,17 +54,58 @@ class ChallengeManager:
             else:
                 required_percentage = Decimal('1.0') + (Decimal('0.1') * (self._challenge_count - 3))
                 required_transfer = Decimal('0.2') * (2 ** (self._challenge_count - 4))
+
+            # Check holder percentage using new endpoint
+            holder_response = requests.post(
+                f"{self.wallet_manager.base_url}/holder-percentage",
+                json={
+                    "mintAddress": self.wallet_manager.token_mint_address,
+                    "holderAddress": wallet_address
+                },
+                headers={"Content-Type": "application/json"}
+            )
             
-            # Mock API calls for now
-            token_percentage = await self._mock_get_token_percentage(wallet_address)
-            transfer_amount = await self._mock_get_transfer_amount(wallet_address)
+            if holder_response.status_code != 200:
+                return False, "Error checking holder percentage"
             
-            if token_percentage < required_percentage:
+            holder_data = holder_response.json()
+            if holder_data.get('status') != 'success':
+                return False, "Error retrieving holder data"
+            
+            actual_percentage = Decimal(str(holder_data['data']['percentage']))
+            
+            # Check transfer amount using /check-transfers endpoint
+            transfer_response = requests.post(
+                f"{self.wallet_manager.base_url}/check-transfers",
+                json={
+                    "fromAddress": wallet_address,
+                    "toAddress": self._agent_wallet,
+                    "beforeTime": None,  # Include all history
+                    "afterTime": None
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if transfer_response.status_code != 200:
+                return False, "Error checking transfer history"
+            
+            transfer_data = transfer_response.json()
+            if transfer_data.get('status') != 'success':
+                return False, "Error retrieving transfer data"
+            
+            # Sum up all transfers
+            total_transferred = Decimal('0')
+            for tx in transfer_data.get('transfers', []):
+                if tx.get('status') == 'success':
+                    total_transferred += Decimal(str(tx.get('amount', 0))) / Decimal('1000000000')  # Convert lamports to SOL
+            
+            # Check requirements
+            if actual_percentage < required_percentage:
                 return False, f"Wallet must hold at least {required_percentage}% of tokens"
-                
-            if transfer_amount < required_transfer:
+            
+            if total_transferred < required_transfer:
                 return False, f"Wallet must have transferred at least {required_transfer} SOL to agent"
-                
+            
             return True, "Eligible"
             
         except Exception as e:
@@ -287,18 +329,18 @@ class ChallengeManager:
                 logger.error("No wallet credentials found")
                 return False, None
             
+            # Prepare payload for /trigger endpoint
             payload = {
                 "fromPrivateKey": creds['private_key'],
                 "fromPublicKey": creds['public_key'],
                 "toAddress": wallet_address,
-                "amount": 0.1,  # Challenge reward amount
-                "username": "twitter_winner",
-                "challengeCompleted": True
+                "amount": float(self._current_reward),  # Convert Decimal to float
+                "username": "twitter_winner"
             }
             
             logger.info(f"Sending reward to winner: {wallet_address}")
             response = requests.post(
-                "https://web3-agent.onrender.com/trigger",
+                f"{self.wallet_manager.base_url}/trigger",
                 json=payload,
                 headers={"Content-Type": "application/json"}
             )
@@ -330,3 +372,39 @@ class ChallengeManager:
             f"they found the wight numbew ({winning_number}) and won 0.1 SOL!! "
             f"hewe's the twansaction: https://solscan.io/tx/{tx_signature} ^w^"
         )
+
+    async def check_balance(self, wallet_address: str) -> Tuple[bool, Decimal]:
+        """Check wallet balance using new /check-balance endpoint"""
+        try:
+            response = requests.post(
+                f"{self.wallet_manager.base_url}/check-balance",
+                json={
+                    "publicKey": wallet_address,
+                    "mintAddress": self.wallet_manager.token_mint_address
+                },
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"Error checking balance. Status code: {response.status_code}")
+                return False, Decimal('0')
+            
+            data = response.json()
+            if data.get('status') != 'success':
+                logger.error(f"API error: {data.get('message')}")
+                return False, Decimal('0')
+            
+            # Get SOL balance
+            sol_balance = Decimal(str(data['solBalance']['balance']))
+            
+            # Get token balance if available
+            token_balance = None
+            if data.get('tokenBalance') and not data['tokenBalance'].get('error'):
+                token_balance = Decimal(str(data['tokenBalance']['balance']))
+            
+            logger.info(f"Wallet {wallet_address} balance - SOL: {sol_balance}, Token: {token_balance}")
+            return True, sol_balance
+            
+        except Exception as e:
+            logger.error(f"Error checking balance: {e}")
+            return False, Decimal('0')

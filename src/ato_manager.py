@@ -1,7 +1,8 @@
 import logging
 import asyncio
+import time
 from decimal import Decimal
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 from datetime import datetime, timedelta
 from src.wallet_manager import WalletManager
 from src.challenge_manager import ChallengeManager
@@ -18,6 +19,8 @@ class ATOManager:
         self._agent_wallet = None
         self._token_mint = Config.TOKEN_MINT_ADDRESS
         self._current_milestone_index = 0
+        self._max_retries = 3
+        self._retry_delay = 2
         
         # Initial milestones up to 1M
         self._base_milestones = [
@@ -91,65 +94,186 @@ class ATOManager:
             logger.error(f"Error in token monitoring: {e}")
             
     async def _check_token_balance(self) -> Decimal:
-        """Check token balance for the agent wallet"""
-        try:
-            balance = await self.wallet_manager.check_token_balance(
-                wallet_address=self._agent_wallet,
-                mint_address=self._token_mint
-            )
-            logger.info(f"Current token balance: {balance}")
-            return balance
-        except Exception as e:
-            logger.error(f"Error checking token balance: {e}")
-            return Decimal('0')
-            
+        """Check token balance using new /check-balance endpoint"""
+        for attempt in range(self._max_retries):
+            try:
+                success, balance_data = await self.wallet_manager.check_balance(
+                    self._agent_wallet,
+                    self._token_mint
+                )
+                
+                if success and balance_data and 'token' in balance_data:
+                    return balance_data['token']['balance']
+                
+                logger.warning(f"Balance check attempt {attempt + 1} failed")
+                if attempt < self._max_retries - 1:
+                    await asyncio.sleep(self._retry_delay * (attempt + 1))
+                    
+            except Exception as e:
+                logger.error(f"Error checking token balance: {e}")
+                if attempt < self._max_retries - 1:
+                    await asyncio.sleep(self._retry_delay * (attempt + 1))
+                    
+        return Decimal('0')
+
     async def _check_sol_balance(self) -> Decimal:
-        """Check SOL balance for the agent wallet"""
+        """Check SOL balance using new /check-balance endpoint"""
         try:
-            balance = await self.wallet_manager.check_sol_balance(
-                wallet_address=self._agent_wallet
-            )
-            logger.info(f"Current SOL balance: {balance}")
-            return balance
+            success, balance_data = await self.wallet_manager.check_balance(self._agent_wallet)
+            if success and balance_data and 'sol' in balance_data:
+                return balance_data['sol']['balance']
+            return Decimal('0')
         except Exception as e:
             logger.error(f"Error checking SOL balance: {e}")
             return Decimal('0')
-            
+
     async def _transfer_sol(self, to_address: str, amount: Decimal) -> bool:
-        """Transfer SOL from agent wallet"""
+        """Transfer SOL using new /trigger endpoint"""
         try:
-            success = await self.wallet_manager.transfer_sol(
-                from_wallet=self._agent_wallet,
-                to_wallet=to_address,
-                amount=amount
+            if amount <= Decimal('0'):
+                raise ValueError("Transfer amount must be greater than 0")
+                
+            success, signature = await self.wallet_manager.transfer_sol(
+                self._agent_wallet,
+                to_address,
+                amount
             )
-            if success:
+            
+            if success and signature:
                 logger.info(f"Successfully transferred {amount} SOL to {to_address}")
-            else:
-                logger.error(f"Failed to transfer {amount} SOL to {to_address}")
-            return success
+                logger.info(f"Transaction: {signature}")
+                return True
+                
+            logger.error("Transfer failed")
+            return False
+            
         except Exception as e:
             logger.error(f"Error transferring SOL: {e}")
             return False
-            
+
     async def _transfer_tokens(self, to_address: str, amount: Decimal) -> bool:
-        """Transfer tokens from agent wallet"""
+        """Transfer tokens using updated format"""
         try:
-            success = await self.wallet_manager.transfer_tokens(
-                from_wallet=self._agent_wallet,
-                to_wallet=to_address,
-                mint_address=self._token_mint,
-                amount=amount
+            if amount <= Decimal('0'):
+                raise ValueError("Transfer amount must be greater than 0")
+                
+            success, signature = await self.wallet_manager.transfer_sol(
+                self._agent_wallet,
+                to_address,
+                amount,
+                self._token_mint
             )
-            if success:
+            
+            if success and signature:
                 logger.info(f"Successfully transferred {amount} tokens to {to_address}")
-            else:
-                logger.error(f"Failed to transfer {amount} tokens to {to_address}")
-            return success
+                return True
+                
+            return False
+            
         except Exception as e:
             logger.error(f"Error transferring tokens: {e}")
             return False
+
+    async def _burn_tokens(self, amount: Decimal) -> bool:
+        """Burn tokens using new /burn-tokens endpoint"""
+        try:
+            if amount <= Decimal('0'):
+                raise ValueError("Burn amount must be greater than 0")
+                
+            creds = self.wallet_manager.get_wallet_credentials()
+            success, signature = await self.wallet_manager.burn_tokens(
+                creds['private_key'],
+                self._agent_wallet,
+                self._token_mint,
+                amount,
+                9  # Token decimals
+            )
             
+            if success and signature:
+                logger.info(f"Successfully burned {amount} tokens")
+                logger.info(f"Transaction: {signature}")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error burning tokens: {e}")
+            return False
+
+    async def _execute_buyback(self, sol_amount: Decimal) -> bool:
+        """Execute buyback using new /buy-tokens endpoint"""
+        try:
+            if sol_amount <= Decimal('0'):
+                raise ValueError("Buyback amount must be greater than 0")
+                
+            creds = self.wallet_manager.get_wallet_credentials()
+            success, data = await self.wallet_manager.buy_tokens(
+                creds['private_key'],
+                self._token_mint,
+                sol_amount
+            )
+            
+            if success and data:
+                logger.info(f"Successfully executed buyback for {sol_amount} SOL")
+                logger.info(f"Transaction: {data['transactionId']}")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error executing buyback: {e}")
+            return False
+
+    async def check_holder_percentage(self, holder_address: str) -> Tuple[bool, Optional[Decimal]]:
+        """Check holder's percentage of total supply"""
+        try:
+            success, data = await self.wallet_manager.get_holder_percentage(
+                self._token_mint,
+                holder_address
+            )
+            
+            if success and data:
+                return True, Decimal(str(data['percentage']))
+            return False, None
+            
+        except Exception as e:
+            logger.error(f"Error checking holder percentage: {e}")
+            return False, None
+
+    async def check_mint_supply(self) -> Tuple[bool, Optional[Dict]]:
+        """Check current mint supply information"""
+        try:
+            success, data = await self.wallet_manager.check_mint_balance(self._token_mint)
+            if success and data:
+                return True, data
+            return False, None
+            
+        except Exception as e:
+            logger.error(f"Error checking mint supply: {e}")
+            return False, None
+
+    async def verify_transfers(self, from_address: str, min_amount: Decimal) -> bool:
+        """Verify transfer requirements are met"""
+        try:
+            success, transfers = await self.wallet_manager.check_transfers(
+                from_address,
+                self._agent_wallet
+            )
+            
+            if not success or not transfers:
+                return False
+                
+            total_transferred = Decimal('0')
+            for tx in transfers:
+                if tx.get('status') == 'success':
+                    total_transferred += Decimal(str(tx['amount'])) / Decimal('1000000000')
+                    
+            return total_transferred >= min_amount
+            
+        except Exception as e:
+            logger.error(f"Error verifying transfers: {e}")
+            return False
+
     async def _check_marketcap(self) -> Decimal:
         """Check current marketcap of token"""
         try:
@@ -161,45 +285,6 @@ class ATOManager:
         except Exception as e:
             logger.error(f"Error checking marketcap: {e}")
             return Decimal('0')
-            
-    async def _burn_tokens(self, percentage: Decimal) -> bool:
-        """Burn tokens from agent wallet"""
-        try:
-            # Calculate burn amount based on total supply
-            burn_amount = (self._total_supply * percentage) / Decimal('100')
-            
-            # TODO: Replace with actual endpoint integration
-            # Placeholder for burn endpoint
-            # Example endpoint call:
-            # success = await self.wallet_manager.burn_tokens(
-            #     wallet=self._agent_wallet,
-            #     mint_address=self._token_mint,
-            #     amount=burn_amount
-            # )
-            
-            logger.info(f"Would burn {burn_amount} tokens ({percentage}% of supply)")
-            return True
-        except Exception as e:
-            logger.error(f"Error burning tokens: {e}")
-            return False
-            
-    async def _execute_buyback(self, sol_amount: Decimal) -> bool:
-        """Execute buyback using SOL"""
-        try:
-            # TODO: Replace with actual endpoint integration
-            # Placeholder for buyback endpoint
-            # Example endpoint call:
-            # success = await self.wallet_manager.execute_buyback(
-            #     wallet=self._agent_wallet,
-            #     mint_address=self._token_mint,
-            #     sol_amount=sol_amount
-            # )
-            
-            logger.info(f"Would execute buyback with {sol_amount} SOL")
-            return True
-        except Exception as e:
-            logger.error(f"Error executing buyback: {e}")
-            return False
             
     def _post_tokens_received(self, balance: Decimal):
         """Post announcement when tokens are received"""
