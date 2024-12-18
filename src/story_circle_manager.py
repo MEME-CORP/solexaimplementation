@@ -20,29 +20,88 @@ CIRCLES_MEMORY_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'cir
 def load_yaml_prompt(filename):
     """Load a prompt from a YAML file"""
     try:
-        prompt_path = os.path.join(os.path.dirname(__file__), 'prompts_config', filename)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        prompt_path = os.path.join(current_dir, 'prompts_config', filename)
+        
+        logger.info(f"Attempting to load prompt from: {prompt_path}")
+        
+        if not os.path.exists(prompt_path):
+            logger.error(f"Prompt file not found: {prompt_path}")
+            return None
+            
         with open(prompt_path, 'r', encoding='utf-8') as f:
-            prompt_config = yaml.safe_load(f)
-            return prompt_config.get('system_prompt', '')
+            try:
+                prompt_config = yaml.safe_load(f)
+                logger.info(f"Loaded YAML content from {filename}: {type(prompt_config)}")
+                
+                if not prompt_config:
+                    logger.error(f"Empty prompt configuration in {filename}")
+                    return None
+                
+                # Check for either system_prompt or specific prompt keys
+                prompt_text = None
+                if 'system_prompt' in prompt_config:
+                    prompt_text = prompt_config['system_prompt']
+                    logger.info(f"Found system_prompt in {filename}")
+                elif 'story_circle_prompt' in prompt_config and filename == 'story_circle_prompt.yaml':
+                    prompt_text = prompt_config['story_circle_prompt']
+                    logger.info(f"Found story_circle_prompt in {filename}")
+                elif 'summary_prompt' in prompt_config and filename == 'summary_prompt.yaml':
+                    prompt_text = prompt_config['summary_prompt']
+                    logger.info(f"Found summary_prompt in {filename}")
+                
+                if not prompt_text:
+                    logger.error(f"No valid prompt found in {filename}. Available keys: {list(prompt_config.keys())}")
+                    return None
+                
+                logger.info(f"Successfully loaded prompt from {filename} (length: {len(str(prompt_text))})")
+                return prompt_text
+                
+            except yaml.YAMLError as yaml_err:
+                logger.error(f"YAML parsing error in {filename}: {str(yaml_err)}")
+                return None
+            
     except Exception as e:
-        logger.error(f"Error loading prompt from {filename}: {e}")
+        logger.error(f"Error loading prompt from {filename}: {str(e)}")
+        logger.error(f"Current working directory: {os.getcwd()}")
+        logger.error(f"File path attempted: {prompt_path}")
         return None
 
 class StoryCircleManager:
     def __init__(self):
-        self.client = OpenAI(
-            api_key=Config.GLHF_API_KEY,
-            base_url=Config.OPENAI_BASE_URL
-        )
-        self.creativity_manager = CreativityManager()
-        self.db = DatabaseService()
-        
-        # Load prompts from YAML files
-        self.story_circle_prompt = load_yaml_prompt('story_circle_prompt.yaml')
-        self.summary_prompt = load_yaml_prompt('summary_prompt.yaml')
-        
-        if not self.story_circle_prompt or not self.summary_prompt:
-            raise ValueError("Failed to load required prompts from YAML files")
+        try:
+            self.client = OpenAI(
+                api_key=Config.GLHF_API_KEY,
+                base_url=Config.OPENAI_BASE_URL
+            )
+            self.creativity_manager = CreativityManager()
+            self.db = DatabaseService()
+            
+            # Load prompts with better error handling
+            logger.info("Initializing StoryCircleManager - Loading prompts...")
+            
+            self.story_circle_prompt = load_yaml_prompt('story_circle_prompt.yaml')
+            if not self.story_circle_prompt:
+                logger.error("Failed to load story_circle_prompt.yaml")
+            else:
+                logger.info("Successfully loaded story_circle_prompt.yaml")
+            
+            self.summary_prompt = load_yaml_prompt('summary_prompt.yaml')
+            if not self.summary_prompt:
+                logger.error("Failed to load summary_prompt.yaml")
+            else:
+                logger.info("Successfully loaded summary_prompt.yaml")
+            
+            if not self.story_circle_prompt or not self.summary_prompt:
+                logger.error("Critical error: Required prompts could not be loaded")
+                logger.error(f"story_circle_prompt loaded: {bool(self.story_circle_prompt)}")
+                logger.error(f"summary_prompt loaded: {bool(self.summary_prompt)}")
+                raise ValueError("Failed to load required prompts from YAML files. Check logs for details.")
+                
+        except Exception as e:
+            logger.error(f"Error initializing StoryCircleManager: {str(e)}")
+            logger.exception("Full initialization error traceback:")
+            raise
 
     def load_story_circle(self):
         """Load the current story circle from database"""
@@ -339,8 +398,8 @@ class StoryCircleManager:
             story_circle.update({
                 "current_phase": next_phase,
                 "current_phase_number": next_phase_number,
-                "events": [],  # Clear events for next phase
-                "dialogues": [],  # Clear dialogues for next phase
+                "events": [],
+                "dialogues": [],
                 "dynamic_context": {
                     "current_event": "",
                     "current_inner_dialogue": "",
@@ -352,8 +411,17 @@ class StoryCircleManager:
             self.db.update_story_circle_state(story_circle)
             logger.info(f"Progressed to next phase: {next_phase}")
             
-            # Generate new events for the next phase
-            return self.update_story_circle()
+            # Generate new events and ensure dynamic context is properly initialized
+            updated_circle = self.update_story_circle()
+            if updated_circle and updated_circle.get('events'):
+                updated_circle['dynamic_context'] = {
+                    "current_event": updated_circle['events'][0],
+                    "current_inner_dialogue": updated_circle['dialogues'][0],
+                    "next_event": updated_circle['events'][1] if len(updated_circle['events']) > 1 else ""
+                }
+                self.db.update_story_circle_state(updated_circle)
+            
+            return updated_circle
             
         except Exception as e:
             logger.error(f"Error completing phase and progressing: {e}")
@@ -375,90 +443,98 @@ class StoryCircleManager:
             # Generate creative instructions
             creative_instructions = self.creativity_manager.generate_creative_instructions([])
             
-            # Format the system prompt using the loaded YAML prompt
-            formatted_prompt = self.story_circle_prompt.format(
-                story_circle=json.dumps(story_circle, indent=2, ensure_ascii=False),
-                circle_memories=json.dumps(circles_memory, indent=2, ensure_ascii=False)
-            )
+            # Format the story circle data into the expected structure
+            formatted_story_circle = {
+                "narrative": {
+                    "current_story_circle": story_circle["phases"],
+                    "current_phase": story_circle["current_phase"],
+                    "events": story_circle.get("events", []),
+                    "inner_dialogues": story_circle.get("dialogues", []),
+                    "dynamic_context": story_circle.get("dynamic_context", {})
+                }
+            }
             
-            # Get new events from AI with explicit JSON formatting instruction
-            completion = self.client.chat.completions.create(
-                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
-                messages=[
-                    {"role": "system", "content": formatted_prompt},
-                    {
-                        "role": "user", 
-                        "content": (
-                            "Generate exactly four new events and four matching inner dialogues "
-                            "for the next phase in the story circle. "
-                            "Return ONLY a valid JSON object exactly matching the template structure. "
-                            "Do not include any additional text, markdown formatting, or explanations. "
-                            f"Make it creative by following these instructions: {creative_instructions}"
-                        )
-                    }
-                ],
-                temperature=0.0,
-                max_tokens=2000
-            )
-            
-            # Parse response with better error handling
-            response_text = completion.choices[0].message.content.strip()
-            logger.debug(f"Raw AI response: {response_text}")
-            
-            if not response_text:
-                logger.error("Empty response from AI")
-                return story_circle
-            
-            # Clean the response if it contains markdown
-            if "```json" in response_text:
-                response_text = response_text.split("```json")[1].split("```")[0].strip()
-            elif "```" in response_text:
-                response_text = response_text.split("```")[1].strip()
-            
-            # Try to parse the cleaned response
             try:
-                new_story_circle = json.loads(response_text)
+                # Format the system prompt using the loaded YAML prompt with proper escaping
+                story_circle_json = json.dumps(formatted_story_circle, indent=2, ensure_ascii=False)
+                circle_memories_json = json.dumps(circles_memory, indent=2, ensure_ascii=False)
                 
-                # Validate response structure
-                if 'narrative' not in new_story_circle:
-                    logger.error("Missing narrative in response")
+                # Replace template variables directly to avoid string.format() issues
+                formatted_prompt = self.story_circle_prompt.replace(
+                    "{{story_circle}}", story_circle_json
+                ).replace(
+                    "{{circle_memories}}", circle_memories_json
+                )
+                
+                # Get new events from AI with explicit JSON formatting instruction
+                completion = self.client.chat.completions.create(
+                    model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+                    messages=[
+                        {"role": "system", "content": formatted_prompt},
+                        {
+                            "role": "user", 
+                            "content": (
+                                "Generate exactly four new events and four matching inner dialogues "
+                                "for the next phase in the story circle. "
+                                "Return ONLY a valid JSON object exactly matching the template structure. "
+                                "Do not include any additional text, markdown formatting, or explanations. "
+                                f"Make it creative by following these instructions: {creative_instructions}"
+                            )
+                        }
+                    ],
+                    temperature=0.0,
+                    max_tokens=2000
+                )
+                
+                # Parse response with better error handling
+                response_text = completion.choices[0].message.content.strip()
+                
+                # Clean the response if it contains markdown
+                if "```json" in response_text:
+                    response_text = response_text.split("```json")[1].split("```")[0].strip()
+                elif "```" in response_text:
+                    response_text = response_text.split("```")[1].strip()
+                
+                try:
+                    ai_response = json.loads(response_text)
+                    logger.info(f"Successfully parsed AI response: {json.dumps(ai_response, indent=2)}")
+                    
+                    # Update story circle with new events
+                    story_circle["events"] = ai_response.get("narrative", {}).get("events", [])
+                    story_circle["dialogues"] = ai_response.get("narrative", {}).get("inner_dialogues", [])
+                    
+                    # Initialize dynamic context with first event if events exist
+                    if story_circle["events"]:
+                        story_circle["dynamic_context"] = {
+                            "current_event": story_circle["events"][0],
+                            "current_inner_dialogue": story_circle["dialogues"][0],
+                            "next_event": story_circle["events"][1] if len(story_circle["events"]) > 1 else ""
+                        }
+                    else:
+                        story_circle["dynamic_context"] = {
+                            "current_event": "",
+                            "current_inner_dialogue": "",
+                            "next_event": ""
+                        }
+                    
+                    # Save updated story circle
+                    self.db.update_story_circle_state(story_circle)
                     return story_circle
                     
-                narrative = new_story_circle['narrative']
-                required_fields = ['current_story_circle', 'current_phase', 'next_phase', 
-                                 'events', 'inner_dialogues', 'dynamic_context']
-                
-                missing_fields = [f for f in required_fields if f not in narrative]
-                if missing_fields:
-                    logger.error(f"Missing required fields in narrative: {missing_fields}")
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse AI response: {e}\nRaw response: {response_text}")
                     return story_circle
-                
-                # Validate events and dialogues
-                if len(narrative['events']) != 4 or len(narrative['inner_dialogues']) != 4:
-                    logger.error("Invalid number of events or dialogues")
-                    return story_circle
-                
-                # Transform AI response to story circle format
-                transformed = self._transform_ai_response(new_story_circle, story_circle)
-                if not transformed:
-                    logger.error("Failed to transform AI response")
-                    return story_circle
-                
-                # Update database
-                self.db.update_story_circle_state(transformed)
-                logger.info("Successfully updated story circle with new events")
-                
-                return transformed
-                
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse AI response: {e}")
-                logger.error(f"Response text: {response_text}")
+                    
+            except Exception as e:
+                logger.error(f"Prompt formatting error: {str(e)}")
+                logger.error(f"Prompt template: {self.story_circle_prompt}")
+                logger.error(f"Story circle data: {json.dumps(formatted_story_circle, indent=2)}")
                 return story_circle
                 
         except Exception as e:
-            logger.error(f"Error updating story circle: {e}")
+            logger.error(f"Error updating story circle: {str(e)}")
             logger.exception("Full traceback:")
-            return story_circle
+            return None
 
     async def get_current_narrative(self):
         """Get the current narrative state from database tables"""

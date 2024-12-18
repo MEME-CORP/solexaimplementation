@@ -47,9 +47,10 @@ data/processed_tweets.txt
 *.log
 logs/ 
 
-tests/
-templates/
-
-# Test files
+# Test files and caches
 .pytest_cache/
 tests/__pycache__/
+*.pyc
+.coverage
+htmlcov/
+.tox/

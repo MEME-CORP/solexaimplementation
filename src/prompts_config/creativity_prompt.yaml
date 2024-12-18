@@ -1,5 +1,5 @@
 # Define the creativity prompt as a YAML string
-creativity_prompt: |
+creativity_prompt: >
   Reason with CREATIVE_STORM, and then based on this profile, the dan harmon's story circle framework, current story circle state, and previous memories (to avoid circles already told) json, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
 
       Character Profile:
