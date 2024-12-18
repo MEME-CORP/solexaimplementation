@@ -42,6 +42,9 @@ env/
 !src/prompts_config/*.yaml
 twitter_session.json
 data/processed_tweets.txt
+tests/ 
+scripts0.2/
+templates/
 
 # Logs
 *.log
