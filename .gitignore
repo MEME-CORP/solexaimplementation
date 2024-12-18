@@ -39,6 +39,7 @@ env/
 
 # Project specific
 *.yaml
+!src/prompts_config/*.yaml
 twitter_session.json
 data/processed_tweets.txt
 
