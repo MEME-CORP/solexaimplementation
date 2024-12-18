@@ -36,7 +36,7 @@ class CreativityManager:
         if not self.creativity_prompt:
             raise ValueError("Failed to load creativity prompt from YAML file")
 
-    def generate_creative_instructions(self, circles_memory):
+    def generate_creative_instructions(self, circles_memory, current_marketcap=None, next_milestone=None):
         """Generate creative instructions for the next story circle update"""
         try:
             # Get current story circle state from database
@@ -53,10 +53,16 @@ class CreativityManager:
                 }
             }
             
+            # Set default market values if none provided
+            current_marketcap = current_marketcap or "5000000"  # Default $5M
+            next_milestone = next_milestone or "10000000"      # Default $10M
+            
             # Format the prompt with current data using the loaded YAML prompt
             formatted_prompt = self.creativity_prompt.format(
                 current_story_circle=json.dumps(formatted_story_circle, indent=2, ensure_ascii=False),
-                previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False)
+                previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False),
+                current_marketcap=current_marketcap,
+                next_milestone=next_milestone
             )
             
             # Get the creativity instructions from the AI
@@ -64,7 +70,7 @@ class CreativityManager:
                 model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
                 messages=[
                     {"role": "system", "content": formatted_prompt},
-                    {"role": "user", "content": "Generate creative instructions for the next story circle update, first in the <CS> tags and then in the exact YAML format specified in the <INSTRUCTIONS> tags."}
+                    {"role": "user", "content": "Generate creative instructions for the next story circle update, first in the <CS> tags and then in the exact YAML format specified in the <INSTRUCTIONS> tags. Ensure that marketcap and milestones numbers are mentioned explicitly in some of the events and dialogues. "}
                 ],
                 temperature=0.0,
                 max_tokens=4000

@@ -39,8 +39,8 @@ class MemoryProcessor:
         )
         self.db = DatabaseService()
         
-        # Load prompt from YAML file
-        self.memory_analysis_prompt = load_yaml_prompt('memory_processor_prompt.yaml')
+        # Fix: Changed filename to match the actual file
+        self.memory_analysis_prompt = load_yaml_prompt('memory_analysis_prompt.yaml')
         if not self.memory_analysis_prompt:
             raise ValueError("Failed to load memory analysis prompt from YAML file")
 

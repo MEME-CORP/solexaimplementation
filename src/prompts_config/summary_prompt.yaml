@@ -8,11 +8,11 @@ summary_prompt: >
   IMPORTANT: You must return ONLY a valid JSON object matching EXACTLY this structure:
 
   JSON_TEMPLATE
-  {
+  {{
     "memories": [
       "string"
     ]
-  }
+  }}
   END_JSON_TEMPLATE
 
   Current story circle to summarize:

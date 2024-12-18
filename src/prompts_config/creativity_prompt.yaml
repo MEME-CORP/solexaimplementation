@@ -1,6 +1,6 @@
 # Define the creativity prompt as a YAML string
 creativity_prompt: >
-  Reason with CREATIVE_STORM, and then based on this profile, the dan harmon's story circle framework, current story circle state, and previous memories (to avoid circles already told) json, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
+  Reason with CREATIVE_STORM, and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, and the current state of the launched token (marketcap and milestones, which should be mentioned explicitly in the events and dialogues) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
 
       Character Profile:
       Name: Fwog-ai
@@ -13,6 +13,10 @@ creativity_prompt: >
 
       Previous Circle Memories:
       {previous_summaries}
+
+        Current State of the Launched Token:
+         current marketcap: {current_marketcap}
+         next marketcap milestone: {next_milestone}
 
       Use CREATIVE_STORM to generate creative solutions:
 
@@ -170,6 +174,7 @@ creativity_prompt: >
       END_CREATIVE_STORM
 
       NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) to provide your responses. 
+      NOTE: Never use emojis.
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
       story_circle_update:
