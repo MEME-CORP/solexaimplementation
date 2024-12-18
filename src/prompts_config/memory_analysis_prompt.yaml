@@ -1,0 +1,29 @@
+memory_analysis_prompt: |
+  Analyze the following conversations and extract topics and summaries in JSON format. 
+  Compare these with existing memories to determine if they're new and relevant for the character (a whimsical, innocent frog-like being).
+
+  Existing memories for reference:
+  {existing_memories}
+
+  Today's conversations:
+  {conversations}
+
+  Provide analysis in the following JSON format only:
+  {{
+      "topics": [
+          {{
+              "topic": "string",
+              "summary": "string",
+              "exists": boolean,
+              "relevant": boolean,
+              "reasoning": "string"
+          }}
+      ]
+  }}
+
+  Rules for relevancy:
+  1. Topic should align with the character's innocent, whimsical nature
+  2. Memory should be something meaningful or interesting to remember
+  3. Should be expressed in the character's style (replacing 'r' with 'fw' and 'l' with 'w')
+  4. Should be a personal experience or observation
+  5. Should be simple enough for a child-like mind to grasp

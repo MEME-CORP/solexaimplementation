@@ -18,7 +18,7 @@ def load_yaml_prompt(filename):
         prompt_path = os.path.join(os.path.dirname(__file__), 'prompts_config', filename)
         with open(prompt_path, 'r', encoding='utf-8') as f:
             prompt_config = yaml.safe_load(f)
-            return prompt_config.get('memory_analysis_prompt', '')
+            return prompt_config['memory_analysis_prompt']
     except Exception as e:
         logger.error(f"Error loading prompt from {filename}: {e}")
         return None
