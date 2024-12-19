@@ -17,6 +17,7 @@ class TweetManager:
         self.processed_tweets = set()
         self.db = DatabaseService()
         self.load_processed_tweets()
+        self.challenge_manager = None  # Will be set by TwitterBot
 
     def load_processed_tweets(self):
         """Load processed tweet IDs from database"""
@@ -325,7 +326,7 @@ class TweetManager:
             self.logger.error(f"Error checking notifications: {e}")
             return []
 
-    def check_and_process_mentions(self, generator) -> None:
+    def check_and_process_mentions(self, generator):
         """Check and process mentions"""
         try:
             notifications = self.check_notifications()
@@ -392,4 +393,4 @@ class TweetManager:
             self.reply_to_tweet(notification, response)
             
         except Exception as e:
-            logger.error(f"Error processing challenge reply: {e}")
+            self.logger.error(f"Error processing challenge reply: {e}")

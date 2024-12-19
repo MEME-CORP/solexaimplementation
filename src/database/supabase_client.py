@@ -6,52 +6,32 @@ import json
 from datetime import datetime
 from typing import List, Dict, Any
 import os
+import requests
 
 logger = logging.getLogger('database')
 
 class DatabaseService:
     def __init__(self):
-        self.client = create_client(
-            Config.SUPABASE_URL,
-            Config.SUPABASE_KEY
-        )
-        # Initialize storage bucket reference
-        self.storage = self.client.storage
-      
+        """Initialize database service with storage access"""
+        # Initialize Supabase client
+        self.client = Config.get_supabase_client()
+        logger.info("Initialized database service")
+        # No bucket creation/checking - assume bucket exists
+
     def get_memories(self) -> List[str]:
-        """Get all memories from storage and circle memories from database"""
+        """Get all memories from database"""
         try:
-            memories = []
+            # Get memories directly from memories table
+            response = self.client.table('memories').select('memory').execute()
             
-            # Get memories from storage JSON file
-            try:
-                # Download memories.json if it exists
-                content = self.storage.from_('memories').download('memories.json')
-                if content:
-                    json_content = json.loads(content.decode('utf-8'))
-                    memories.extend(json_content.get('memories', []))
-                    logger.info(f"Retrieved {len(memories)} memories from storage")
-                
-            except Exception as e:
-                if 'Not found' in str(e):
-                    logger.info("No memories.json found in storage")
-                else:
-                    logger.error(f"Error fetching memories from storage: {e}")
+            if response.data:
+                memories = [record['memory'] for record in response.data]
+                logger.info(f"Retrieved {len(memories)} memories from database")
+                return memories
             
-            # Get circle memories (keep this functionality unchanged)
-            try:
-                circle_response = self.client.table('circle_memories').select('memories').execute()
-                if circle_response.data:
-                    circle_memories = circle_response.data[0]['memories']['memories']
-                    memories.extend(circle_memories)
-                    logger.info(f"Retrieved {len(circle_memories)} circle memories from database")
-            except Exception as e:
-                logger.error(f"Error fetching circle memories: {e}")
-            
-            return memories
-            
+            return []
         except Exception as e:
-            logger.error(f"Error in get_memories: {e}")
+            logger.error(f"Error fetching memories: {e}")
             return []
 
     def get_story_circle(self):
@@ -272,44 +252,15 @@ class DatabaseService:
             return []
 
     def add_memories(self, new_memories: List[str]) -> None:
-        """Add new memories to storage JSON file"""
+        """Add new memories to database"""
         try:
-            # Create memories bucket if it doesn't exist
-            try:
-                self.storage.create_bucket('memories')
-            except Exception as e:
-                if 'already exists' not in str(e):
-                    logger.error(f"Error creating memories bucket: {e}")
-                    raise
-            
-            # Get existing memories
-            existing_memories = []
-            try:
-                content = self.storage.from_('memories').download('memories.json')
-                if content:
-                    json_content = json.loads(content.decode('utf-8'))
-                    existing_memories = json_content.get('memories', [])
-            except Exception as e:
-                if 'Not found' not in str(e):
-                    logger.error(f"Error reading existing memories: {e}")
-            
-            # Combine existing and new memories
-            all_memories = {
-                'memories': existing_memories + new_memories
-            }
-            
-            # Upload updated memories file
-            try:
-                self.storage.from_('memories').upload(
-                    'memories.json',
-                    json.dumps(all_memories).encode('utf-8'),
-                    {'content-type': 'application/json'},
-                    upsert=True  # Update if exists, create if doesn't
-                )
-                logger.info(f"Added {len(new_memories)} new memories to storage")
-            except Exception as e:
-                logger.error(f"Error uploading memories: {e}")
-                raise
+            # Insert each memory as a separate record
+            for memory in new_memories:
+                response = self.client.table('memories').insert({
+                    'memory': memory
+                }).execute()
+                
+            logger.info(f"Added {len(new_memories)} new memories to database")
                     
         except Exception as e:
             logger.error(f"Error adding memories: {e}")
@@ -796,14 +747,14 @@ class DatabaseService:
                 logger.error("Events and dialogues must have same length")
                 return False
             
-            # Create events and dialogues
+            # Create events and dialogues - Updated to use inner_dialogue
             for i, (event, dialogue) in enumerate(zip(events, dialogues)):
                 self.client.table('events_dialogues').insert({
                     'story_circle_id': story_circle_id,
                     'phase_number': phase_number,
                     'event_order': i + 1,
                     'event': event,
-                    'dialogue': dialogue
+                    'inner_dialogue': dialogue  # Changed from 'dialogue' to 'inner_dialogue'
                 }).execute()
             
             return True
@@ -811,3 +762,71 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error creating events for phase: {e}")
             return False
+
+    def get_memories_sync(self):
+        """Get memories synchronously - used by AI generator"""
+        try:
+            response = self.client.table('memories').select('memory').execute()
+            if response.data:
+                return [record['memory'] for record in response.data]
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching memories synchronously: {e}")
+            return []
+
+    def get_story_circle_sync(self):
+        """Get current story circle data synchronously"""
+        try:
+            # Get current story circle
+            response = self.client.table('story_circle')\
+                .select('*')\
+                .eq('is_current', True)\
+                .limit(1)\
+                .execute()
+
+            if not response.data:
+                logger.warning("No current story circle found")
+                return None
+
+            story_circle = response.data[0]
+            
+            # Extract narrative data
+            narrative = story_circle.get('narrative', {})
+            if not narrative:
+                logger.warning("No narrative data found in story circle")
+                return None
+
+            # Get phases for this story circle
+            phases = self.client.table('story_phases')\
+                .select('*')\
+                .eq('story_circle_id', story_circle['id'])\
+                .order('phase_number')\
+                .execute()
+
+            # Structure the response
+            return {
+                'id': story_circle['id'],
+                'is_current': story_circle['is_current'],
+                'current_phase': narrative.get('current_phase', ''),
+                'current_phase_number': narrative.get('current_phase_number', 1),
+                'dynamic_context': narrative.get('dynamic_context', {
+                    'current_event': '',
+                    'current_inner_dialogue': '',
+                    'next_event': ''
+                }),
+                'phases': [
+                    {
+                        'phase': phase['phase_name'],
+                        'phase_number': phase['phase_number'],
+                        'description': phase.get('phase_description', '')
+                    }
+                    for phase in phases.data
+                ] if phases.data else []
+            }
+
+        except Exception as e:
+            logger.error(f"Error in get_story_circle_sync: {str(e)}")
+            logger.exception("Full traceback:")
+            return None
+
+  
