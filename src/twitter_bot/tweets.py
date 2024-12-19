@@ -393,4 +393,4 @@ class TweetManager:
             self.reply_to_tweet(notification, response)
             
         except Exception as e:
-            logger.error(f"Error processing challenge reply: {e}")
+            self.logger.error(f"Error processing challenge reply: {e}")
