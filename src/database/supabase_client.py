@@ -15,11 +15,7 @@ class DatabaseService:
         """Initialize database service with storage access"""
         # Initialize Supabase client
         self.client = Config.get_supabase_client()
-        # Initialize storage with S3 endpoint
-        self.storage = self.client.storage
-        self.bucket_name = Config.SUPABASE_BUCKET_NAME
-        self.storage_url = Config.SUPABASE_STORAGE_URL  # Using S3 storage URL
-        logger.info(f"Initialized S3 storage client for bucket: {self.bucket_name}")
+        logger.info("Initialized database service")
         # No bucket creation/checking - assume bucket exists
 
     def get_memories(self) -> List[str]:
