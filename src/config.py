@@ -33,7 +33,7 @@ class Config:
     OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://glhf.chat/api/openai/v1')
 
     # Model Configuration 2
-    AI_MODEL2 = os.getenv('MODEL2', 'hf:google/gemma-2-9b-it')
+    AI_MODEL2 = os.getenv('MODEL2', 'hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF')
     TEMPERATURE = float(os.getenv('TEMPERATURE', '0.7'))
     OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://glhf.chat/api/openai/v1')
 

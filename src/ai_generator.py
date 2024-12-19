@@ -35,11 +35,11 @@ class AIGenerator:
             self.length_formats = self.load_length_formats()
             self.emotion_formats = self.load_emotion_formats()
         elif mode == 'discord':
-            self.max_tokens = 50
+            self.max_tokens = 40
             self.temperature = 0.7
             self.emotion_formats = self.load_emotion_formats()
         else:  # telegram or other
-            self.max_tokens = 50
+            self.max_tokens = 40
             self.temperature = 0.7
             self.emotion_formats = self.load_emotion_formats()
             
@@ -234,11 +234,10 @@ class AIGenerator:
             logger.debug(f"Generating with config: mode={self.mode}, model={self.model}, temp={self.temperature}")
             
             response = self.client.chat.completions.create(
-                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",  # Update model name
+                model=self.model,  # Use the configured model instead of hardcoded value
                 messages=messages,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
-              
             )
             
             generated_content = response.choices[0].message.content
