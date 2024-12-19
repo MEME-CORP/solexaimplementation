@@ -11,6 +11,8 @@ import time
 from telegram import Update
 from telegram.ext import Application
 from dotenv import load_dotenv
+from src.ato_manager import ATOManager
+from functools import partial
 
 # Add project root to Python path
 project_root = Path(__file__).parent
@@ -105,10 +107,34 @@ def run_discord_bot():
     finally:
         print("Discord bot has stopped.")
 
+async def initialize_ato_manager():
+    """Initialize ATO Manager after 5 minute delay"""
+    try:
+        print("Waiting 5 minutes before initializing ATO Manager...")
+        await asyncio.sleep(2)  # 5 minutes delay
+        
+        print("Initializing ATO Manager...")
+        ato_manager = ATOManager()
+        await ato_manager.initialize()
+        print("ATO Manager initialized successfully")
+        
+    except Exception as e:
+        print(f"Error initializing ATO Manager: {e}")
+
+def run_ato_manager():
+    """Run the ATO manager in its own thread"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(initialize_ato_manager())
+    finally:
+        loop.close()
+
 def main():
     global twitter_thread, discord_thread, running
     parser = argparse.ArgumentParser()
-    parser.add_argument('--bots', nargs='+', choices=['twitter', 'telegram', 'discord'], 
+    parser.add_argument('--bots', nargs='+', 
+                       choices=['twitter', 'telegram', 'discord', 'ato'], 
                        help='Specify which bots to run')
     args = parser.parse_args()
 
@@ -116,10 +142,16 @@ def main():
         parser.print_help()
         return
 
-    # Set up signal handlers only in main thread
     setup_signal_handlers()
 
     try:
+        # Start ATO manager if specifically requested
+        if 'ato' in args.bots and len(args.bots) == 1:
+            print("Starting ATO Manager only...")
+            run_ato_manager()
+            return
+
+        # Start requested bots
         if 'twitter' in args.bots:
             twitter_thread = threading.Thread(target=run_twitter_bot, daemon=True)
             twitter_thread.start()
@@ -129,6 +161,12 @@ def main():
             discord_thread = threading.Thread(target=run_discord_bot, daemon=True)
             discord_thread.start()
             print("Discord bot thread started.")
+
+        # Start ATO manager thread if any bot is running
+        if any(bot in args.bots for bot in ['twitter', 'telegram', 'discord']):
+            ato_thread = threading.Thread(target=run_ato_manager, daemon=True)
+            ato_thread.start()
+            print("ATO Manager thread scheduled (5 minute delay)...")
 
         if 'telegram' in args.bots:
             # Run Telegram bot in main thread
