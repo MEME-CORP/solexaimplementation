@@ -85,7 +85,8 @@ class TwitterBot:
             # Execute initial tasks
             logger.info("=== Initial Tasks ===")
             if self.tweet_manager and self.generator:
-                self.tweet_manager.check_and_process_mentions(self.generator, self.challenge_manager)
+                self.tweet_manager.challenge_manager = self.challenge_manager
+                self.tweet_manager.check_and_process_mentions(self.generator)
                 self.generate_and_send_tweet()
             
             # Set timers
@@ -118,7 +119,7 @@ class TwitterBot:
                         logger.info("=== Checking Notifications ===")
                         if self.tweet_manager and self.generator:
                             try:
-                                self.tweet_manager.check_and_process_mentions(self.generator, self.challenge_manager)
+                                self.tweet_manager.check_and_process_mentions(self.generator)
                             except Exception as e:
                                 logger.error(f"Error checking notifications: {e}")
                         last_notification_check = current_time
