@@ -53,7 +53,7 @@ class MemoryDecision:
             )
 
             response = self.client.chat.completions.create(
-                model=Config.AI_MODEL2,
+                model=Config.AI_MODEL,
                 messages=[
                     {
                         "role": "system",
@@ -74,7 +74,7 @@ class MemoryDecision:
             
             if return_details:
                 details = {
-                    'model': Config.AI_MODEL2,
+                    'model': Config.AI_MODEL,
                     'temperature': 0.0,
                     'max_tokens': 100,
                     'prompt': prompt,

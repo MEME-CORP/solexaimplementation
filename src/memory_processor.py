@@ -39,7 +39,7 @@ class MemoryProcessor:
         )
         self.db = DatabaseService()
         
-        # Fix: Changed filename to match the actual file
+        # Load prompt from YAML file
         self.memory_analysis_prompt = load_yaml_prompt('memory_analysis_prompt.yaml')
         if not self.memory_analysis_prompt:
             raise ValueError("Failed to load memory analysis prompt from YAML file")
@@ -64,18 +64,29 @@ class MemoryProcessor:
     async def update_memories(self, analyzed_topics):
         """Add only new and relevant memories to the database"""
         try:
-            new_relevant_topics = [
-                topic for topic in analyzed_topics 
-                if not topic['exists'] and topic['relevant']
+            # Extract only the summary strings for relevant topics
+            new_memories = [
+                topic["summary"].strip()  # Just the string, no JSON wrapping
+                for topic in analyzed_topics
+                if not topic.get('exists', False) and topic.get('relevant', True)
             ]
-            if new_relevant_topics:
-                await self.db.add_memories(new_relevant_topics)
-                logger.info(f"Added {len(new_relevant_topics)} new relevant memories")
+            
+            if new_memories:
+                # Add memories to database
+                try:
+                    await self.db.add_memories(new_memories)
+                    logger.info(f"Added {len(new_memories)} new relevant memories")
+                    return True
+                except Exception as db_error:
+                    logger.error(f"Database error: {db_error}")
+                    return False
             else:
                 logger.info("No new relevant memories to add")
+                return False
+                
         except Exception as e:
             logger.error(f"Error in update_memories: {e}")
-            raise e
+            return False
 
     async def analyze_daily_conversations(self, user_conversations):
         try:
@@ -199,30 +210,87 @@ class MemoryProcessor:
             logger.error(f"Error cleaning memory content: {e}")
             return content  # Return original if cleaning fails
 
+    async def process_announcement(self, announcement: str):
+        """Process a single announcement and store it as a memory"""
+        try:
+            logger.info("Processing announcement through LLM analysis...")
+            
+            # Get existing memories - simplified error handling
+            try:
+                existing_memories = await self.db.get_memories()
+                memories_json = json.dumps(existing_memories if existing_memories else [], indent=2)
+            except Exception as db_error:
+                logger.error(f"Error getting existing memories: {db_error}")
+                memories_json = "[]"  # Continue with empty memories
+            
+            # Use the same memory analysis prompt
+            prompt = self.memory_analysis_prompt.format(
+                existing_memories=memories_json,
+                conversations=announcement
+            )
+            
+            # Get analysis using OpenAI client (keeping the working part unchanged)
+            response = self.client.chat.completions.create(
+                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+                messages=[
+                    {
+                        "role": "system", 
+                        "content": """You are a precise analysis tool that MUST respond with ONLY valid JSON format.
+                        Do not include any explanatory text before or after the JSON.
+                        The JSON must exactly match the requested format.
+                        Do not include markdown formatting or code blocks."""
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.0,
+                max_tokens=1000
+            )
+            
+            response_content = response.choices[0].message.content.strip()
+            logger.info(f"Raw API Response: {response_content}")
+            
+            # Process the response
+            try:
+                analysis = json.loads(response_content)
+                if analysis and 'topics' in analysis:
+                    success = await self.update_memories(analysis['topics'])
+                    if success:
+                        logger.info("Successfully processed and stored announcement")
+                        return True
+                    
+                return False
+                    
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON Parse Error: {e}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error processing announcement: {e}")
+            return False
+
     def store_announcement(self, announcement: str) -> bool:
         """
-        Directly store an announcement as a memory without analysis.
+        Process and store an announcement using the LLM pipeline.
         Returns True if successful, False otherwise.
         """
         try:
-            logger.info("Storing announcement as memory")
+            logger.info("Processing and storing announcement")
             
-            # Clean the announcement content
-            cleaned_announcement = self._clean_memory_content(announcement)
+            # Create asyncio event loop if needed
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
             
-            memory = {
-                "memory": cleaned_announcement,
-                "created_at": datetime.now().isoformat()
-            }
+            # Process the announcement through the LLM pipeline
+            analysis = loop.run_until_complete(self.process_announcement(announcement))
             
-            # Use database service to store memory directly
-            success = self.db.add_memory(memory)
-            
-            if success:
-                logger.info("Successfully stored announcement in memories")
+            if analysis and 'topics' in analysis:
+                logger.info("Successfully processed and stored announcement")
                 return True
             else:
-                logger.error("Failed to store announcement in memories")
+                logger.error("Failed to process announcement")
                 return False
                 
         except Exception as e:
