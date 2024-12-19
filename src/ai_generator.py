@@ -35,11 +35,11 @@ class AIGenerator:
             self.length_formats = self.load_length_formats()
             self.emotion_formats = self.load_emotion_formats()
         elif mode == 'discord':
-            self.max_tokens = 40
+            self.max_tokens = 50
             self.temperature = 0.7
             self.emotion_formats = self.load_emotion_formats()
         else:  # telegram or other
-            self.max_tokens = 40
+            self.max_tokens = 50
             self.temperature = 0.7
             self.emotion_formats = self.load_emotion_formats()
             
@@ -238,8 +238,7 @@ class AIGenerator:
                 messages=messages,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
-                presence_penalty=0.6,
-                frequency_penalty=0.6
+              
             )
             
             generated_content = response.choices[0].message.content
