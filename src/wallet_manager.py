@@ -6,6 +6,7 @@ import time
 from typing import Optional, Tuple, Dict, List
 from pathlib import Path
 from decimal import Decimal
+import aiohttp  # Add to imports
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -118,7 +119,7 @@ class WalletManager:
             logger.error(f"Error in transfer_sol: {str(e)}")
             return False, None
 
-    def check_balance(self, wallet_address: str, mint_address: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
+    async def check_balance(self, wallet_address: str, mint_address: Optional[str] = None) -> Tuple[bool, Optional[Dict]]:
         """Check wallet balance for both SOL and tokens"""
         try:
             payload = {
@@ -126,35 +127,35 @@ class WalletManager:
                 "mintAddress": mint_address
             }
             
-            response = requests.post(
-                f"{self.api_url}/check-balance",
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=self.request_timeout
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    result = {
-                        'sol': {
-                            'balance': Decimal(str(data['solBalance']['balance'])),
-                            'lamports': data['solBalance']['lamports']
-                        }
-                    }
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.api_url}/check-balance",
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=self.request_timeout
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if data.get('status') == 'success':
+                            result = {
+                                'sol': {
+                                    'balance': Decimal(str(data['solBalance']['balance'])),
+                                    'lamports': data['solBalance']['lamports']
+                                }
+                            }
+                            
+                            if data.get('tokenBalance') and not data['tokenBalance'].get('error'):
+                                result['token'] = {
+                                    'balance': Decimal(str(data['tokenBalance']['balance'])),
+                                    'decimals': data['tokenBalance']['decimals'],
+                                    'mint': data['tokenBalance']['mint']
+                                }
+                                
+                            return True, result
+                            
+                    logger.error(f"Balance check failed: {response.status}")
+                    return False, None
                     
-                    if data.get('tokenBalance') and not data['tokenBalance'].get('error'):
-                        result['token'] = {
-                            'balance': Decimal(str(data['tokenBalance']['balance'])),
-                            'decimals': data['tokenBalance']['decimals'],
-                            'mint': data['tokenBalance']['mint']
-                        }
-                        
-                    return True, result
-                    
-            logger.error(f"Balance check failed: {response.status_code}")
-            return False, None
-            
         except Exception as e:
             logger.error(f"Error checking balance: {str(e)}")
             return False, None

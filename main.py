@@ -13,6 +13,7 @@ from telegram.ext import Application
 from dotenv import load_dotenv
 from src.ato_manager import ATOManager
 from functools import partial
+from src.announcement_broadcaster import AnnouncementBroadcaster
 
 # Add project root to Python path
 project_root = Path(__file__).parent
@@ -59,11 +60,14 @@ def run_twitter_bot():
     try:
         # Create bot instance without signal handlers since we're in a thread
         bot = TwitterBot(handle_signals=False)
+        
+        # Register with broadcaster
+        AnnouncementBroadcaster.register_twitter_bot(bot)
+        
         # Create an event loop for this thread
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            # Run the bot's async function
             loop.run_until_complete(bot.run())
         except Exception as e:
             print(f"Twitter bot error: {e}")
@@ -84,8 +88,10 @@ def run_telegram_bot():
         bot = TelegramBot()
         application = bot.setup()
         
+        # Register with broadcaster
+        AnnouncementBroadcaster.register_telegram_bot(bot)
+        
         print("Starting Telegram bot...")
-        # Run the application in the main thread
         application.run_polling(allowed_updates=Update.ALL_TYPES)
         
     except Exception as e:
