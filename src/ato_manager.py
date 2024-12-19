@@ -8,6 +8,7 @@ from src.wallet_manager import WalletManager
 from src.challenge_manager import ChallengeManager
 from src.config import Config
 from src.announcement_broadcaster import AnnouncementBroadcaster
+from src.memory_processor import MemoryProcessor
 import sys
 
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,7 @@ class ATOManager:
         self.wallet_manager = WalletManager()
         self.challenge_manager = ChallengeManager()
         self.broadcaster = AnnouncementBroadcaster()
+        self.memory_processor = MemoryProcessor()
         self._agent_wallet = None
         self._token_mint = Config.TOKEN_MINT_ADDRESS
         self._current_milestone_index = 0
@@ -72,6 +74,19 @@ class ATOManager:
         # Start token monitoring
         await self._start_token_monitoring()
         
+    def _store_announcement_memory(self, announcement: str):
+        """Helper method to store announcements as memories"""
+        try:
+            # Use the simpler direct storage method
+            success = self.memory_processor.store_announcement(announcement)
+            if success:
+                logger.info("Stored announcement in memories")
+            else:
+                logger.error("Failed to store announcement")
+        except Exception as e:
+            logger.error(f"Error storing announcement memory: {e}")
+            # Don't raise - we don't want to interrupt the main flow
+            
     def _post_wallet_announcement(self):
         """Post wallet announcement in character style"""
         announcement = (
@@ -83,8 +98,9 @@ class ATOManager:
         )
         logger.info(f"Posted wallet announcement: {announcement}")
         
-        # Use create_task with broadcaster
+        # Use create_task for broadcasting but store memory synchronously
         asyncio.create_task(self.broadcaster.broadcast(announcement))
+        self._store_announcement_memory(announcement)  # Direct call, no create_task
         return announcement
         
     async def _start_token_monitoring(self):
@@ -310,8 +326,9 @@ class ATOManager:
         )
         logger.info(f"Posted tokens received: {announcement}")
         
-        # Use create_task with broadcaster
+        # Use create_task for both broadcasting and memory storage
         asyncio.create_task(self.broadcaster.broadcast(announcement))
+        asyncio.create_task(self._store_announcement_memory(announcement))
         return announcement
 
     async def _activate_post_token_receipt(self):

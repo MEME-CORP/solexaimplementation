@@ -829,4 +829,44 @@ class DatabaseService:
             logger.exception("Full traceback:")
             return None
 
+    def add_memory(self, memory: dict) -> bool:
+        """
+        Add a single memory to the database with proper ID sequencing.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            # First get the current max ID
+            max_id_response = self.client.table('memories')\
+                .select('id')\
+                .order('id', desc=True)\
+                .limit(1)\
+                .execute()
+                
+            # Calculate next ID
+            next_id = 1  # Default if no records exist
+            if max_id_response.data and len(max_id_response.data) > 0:
+                next_id = max_id_response.data[0]['id'] + 1
+                
+            # Prepare memory with correct ID
+            memory['id'] = next_id
+            
+            # Add timestamp if not present
+            if 'created_at' not in memory:
+                memory['created_at'] = datetime.now().isoformat()
+                
+            # Insert with explicit ID
+            response = self.client.table('memories')\
+                .insert(memory)\
+                .execute()
+                
+            if response.data:
+                logger.info(f"Successfully added memory to database with ID: {next_id}")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error adding memory to database: {e}")
+            return False
+
   

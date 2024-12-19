@@ -49,10 +49,15 @@ class MemoryProcessor:
         """Format the day's conversations into a readable string"""
         formatted = []
         for user_id, messages in user_conversations.items():
-            conversation = [
-                f"{'Assistant' if msg['is_bot'] else 'User'}: {msg['content']}"
-                for msg in messages
-            ]
+            # Handle both list and dict message formats
+            if isinstance(messages, list):
+                conversation = [
+                    f"{'Assistant' if msg['is_bot'] else 'User'}: {msg['content']}"
+                    for msg in messages
+                ]
+            else:
+                # Handle single message case
+                conversation = [f"Assistant: {messages['content']}"] if isinstance(messages, dict) else []
             formatted.extend(conversation)
         return "\n".join(formatted)
 
@@ -76,7 +81,24 @@ class MemoryProcessor:
         try:
             existing_memories = await self.db.get_memories()
             
-            # Format conversations for analysis
+            # Handle both single announcements and conversation lists
+            if isinstance(user_conversations, dict) and len(user_conversations) == 1:
+                # For single announcements, simplify the analysis
+                first_key = next(iter(user_conversations))
+                if isinstance(user_conversations[first_key], dict):
+                    # Single announcement case
+                    content = user_conversations[first_key].get('content', '')
+                    return {
+                        "topics": [{
+                            "topic": "announcement",
+                            "summary": content,
+                            "exists": False,
+                            "relevant": True,
+                            "reasoning": "Direct announcement from agent"
+                        }]
+                    }
+            
+            # Format conversations for analysis (existing logic for normal conversations)
             formatted_conversations = self.format_conversations(user_conversations)
             
             # Prepare prompt with existing memories using instance prompt
@@ -155,3 +177,54 @@ class MemoryProcessor:
         except Exception as e:
             logger.error(f"Error in process_daily_memories: {e}")
             raise e 
+
+    def _clean_memory_content(self, content: str) -> str:
+        """Clean and standardize memory content before storage"""
+        try:
+            # Remove extra whitespace and normalize line endings
+            cleaned = content.strip()
+            cleaned = ' '.join(cleaned.splitlines())
+            
+            # Remove multiple spaces
+            cleaned = ' '.join(cleaned.split())
+            
+            # Ensure content isn't too long (optional)
+            max_length = 1000  # Adjust as needed
+            if len(cleaned) > max_length:
+                cleaned = cleaned[:max_length] + "..."
+                
+            return cleaned
+            
+        except Exception as e:
+            logger.error(f"Error cleaning memory content: {e}")
+            return content  # Return original if cleaning fails
+
+    def store_announcement(self, announcement: str) -> bool:
+        """
+        Directly store an announcement as a memory without analysis.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            logger.info("Storing announcement as memory")
+            
+            # Clean the announcement content
+            cleaned_announcement = self._clean_memory_content(announcement)
+            
+            memory = {
+                "memory": cleaned_announcement,
+                "created_at": datetime.now().isoformat()
+            }
+            
+            # Use database service to store memory directly
+            success = self.db.add_memory(memory)
+            
+            if success:
+                logger.info("Successfully stored announcement in memories")
+                return True
+            else:
+                logger.error("Failed to store announcement in memories")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error storing announcement: {e}")
+            return False
