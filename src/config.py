@@ -3,6 +3,7 @@
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
+from supabase import create_client
 
 # Load environment variables from .env file
 load_dotenv()
@@ -46,3 +47,15 @@ class Config:
     # Blockchain Configuration
     TOKEN_MINT_ADDRESS = os.getenv('TOKEN_MINT_ADDRESS', 'DEFAULT_MINT_ADDRESS')
     DEV_WALLET_ADDRESS = os.getenv('DEV_WALLET_ADDRESS', 'DEFAULT_DEV_WALLET')
+
+    # S3 Storage Configuration
+    SUPABASE_STORAGE_URL = os.getenv('SUPABASE_STORAGE_URL', 'https://yopeqymfapmhjlpwmle.supabase.co/storage/v1/s3')
+    SUPABASE_BUCKET_NAME = os.getenv('SUPABASE_BUCKET_NAME', 'memories')
+
+    # Initialize Supabase client with storage config
+    @classmethod
+    def get_supabase_client(cls):
+        return create_client(
+            cls.SUPABASE_URL,
+            cls.SUPABASE_KEY
+        )

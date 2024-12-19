@@ -56,9 +56,24 @@ class AIGenerator:
 
         # Load memories and narrative after everything else is initialized
         logger.info("Loading memories and narrative")
-        self.memories = self.load_memories()
-        self.narrative = self.load_narrative()
-        
+        try:
+            memories_response = self.db.get_memories()
+            self.memories = memories_response if memories_response else []
+            logger.info(f"Successfully loaded {len(self.memories)} memories")
+        except Exception as e:
+            logger.error(f"Error loading memories: {e}")
+            self.memories = []
+
+        try:
+            self.narrative = self.db.get_story_circle_sync()
+            if self.narrative:
+                logger.info("Successfully loaded narrative")
+            else:
+                logger.warning("No narrative loaded")
+        except Exception as e:
+            logger.error(f"Error loading narrative: {e}")
+            self.narrative = None
+
         # Load bot prompts
         self.bot_prompts = self._load_bot_prompts()
         

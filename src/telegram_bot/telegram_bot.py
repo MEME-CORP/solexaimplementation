@@ -188,16 +188,16 @@ class TelegramBot:
             # Get conversation context
             conversation_context = self.get_conversation_context(user_id)
             
-            # Get relevant memories - this is sync now
+            # Get relevant memories from database
             memories = select_relevant_memories(username, user_message)
             
-            # Get current story circle context - this is synchronous
+            # Get current story circle context - keep this unchanged
             narrative_context = get_current_context()
 
-            # Get random emotion format from generator's loaded formats
+            # Get random emotion format - keep this unchanged
             emotion_format = random.choice(self.generator.emotion_formats)['format']
             
-            # Generate response - don't await since it's synchronous
+            # Generate response - keep this unchanged
             response = self.generator.generate_content(
                 user_message=user_message,
                 user_id=user_id,

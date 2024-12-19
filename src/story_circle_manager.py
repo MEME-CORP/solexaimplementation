@@ -648,14 +648,14 @@ class StoryCircleManager:
                     'current_inner_dialogue': ''
                 }
             
-            # Find matching dialogue
+            # Find matching dialogue - Updated to use inner_dialogue
             try:
                 current_dialogue = next(
-                    (e["dialogue"] for e in events_dialogues if e["event"] == current_event),
+                    (e["inner_dialogue"] for e in events_dialogues if e["event"] == current_event),
                     ''
                 )
                 logger.info(f"Found current event: {current_event}")
-                logger.info(f"Found current dialogue: {current_dialogue}")
+                logger.info(f"Found current inner dialogue: {current_dialogue}")
                 
             except Exception as e:
                 logger.error(f"Error finding current dialogue: {e}")
