@@ -82,6 +82,8 @@ class ATOManager:
             "waiting fow tokens..."
         )
         logger.info(f"Posted wallet announcement: {announcement}")
+        
+        # Use create_task with broadcaster
         asyncio.create_task(self.broadcaster.broadcast(announcement))
         return announcement
         
@@ -307,6 +309,8 @@ class ATOManager:
             "wet's make this waunch go to the mooooon! uwu\n\n"            
         )
         logger.info(f"Posted tokens received: {announcement}")
+        
+        # Use create_task with broadcaster
         asyncio.create_task(self.broadcaster.broadcast(announcement))
         return announcement
 
@@ -393,6 +397,9 @@ class ATOManager:
             "uwu"
         )
         logger.info(f"Posted milestones: {announcement}")
+        
+        # Use create_task with broadcaster
+        asyncio.create_task(self.broadcaster.broadcast(announcement))
         return announcement
 
     async def _monitor_marketcap(self):
@@ -446,4 +453,7 @@ class ATOManager:
             )
             
         logger.info(f"Posted marketcap update: {announcement}")
+        
+        # Use create_task with broadcaster
+        asyncio.create_task(self.broadcaster.broadcast(announcement))
         return announcement

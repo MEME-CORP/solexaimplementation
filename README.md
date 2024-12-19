@@ -57,9 +57,23 @@ cp .env.template .env
 1. Edit the `.env` file with your credentials:
    - Get GLHF API key from [GLHF Chat](https://glhf.chat)
    - Create a [Telegram Bot](https://core.telegram.org/bots#creating-a-new-bot) and get the token
+   - Set up your Telegram chat ID (see Telegram Setup below)
    - Set up a [Discord Application](https://discord.com/developers/applications) and get the bot token
    - Add your Twitter credentials
    - Set up Supabase (see Database Setup below)
+
+### Telegram Setup
+1. Add your bot to the desired Telegram chat/group
+2. Use the `/chatid` command in the chat where you want the bot to operate
+3. The bot will respond with the chat ID
+4. Add this chat ID to your `.env` file as `TELEGRAM_CHAT_ID`
+
+Alternatively, you can:
+1. Add your bot to the chat/group
+2. Send any message to the chat
+3. Visit `https://api.telegram.org/bot<YourBOTToken>/getUpdates`
+4. Look for the `"chat":{"id":` field in the response
+5. Use that ID in your `.env` file
 
 2. Configure bot settings:
    - Adjust model parameters in `.env` if needed

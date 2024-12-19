@@ -59,3 +59,8 @@ class Config:
             cls.SUPABASE_URL,
             cls.SUPABASE_KEY
         )
+
+    # Telegram Configuration
+    TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+    TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '-1002496779456')  # Default chat ID with env override capability
+    
