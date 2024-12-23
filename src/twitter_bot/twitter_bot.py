@@ -12,6 +12,7 @@ from src.ai_generator import AIGenerator
 from .scraper import Scraper
 from .tweets import TweetManager
 from src.challenge_manager import ChallengeManager
+from src.announcement_broadcaster import AnnouncementBroadcaster
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -57,6 +58,12 @@ class TwitterBot:
                 if not self.scraper or not self.scraper.driver:
                     logger.error("Scraper or driver not properly initialized")
                     return False
+                    
+                # Register driver with broadcaster before creating TweetManager
+                from src.announcement_broadcaster import AnnouncementBroadcaster
+                AnnouncementBroadcaster.set_twitter_driver(self.scraper.driver)
+                
+                # Initialize TweetManager which will process pending tweets
                 self.tweet_manager = TweetManager(self.scraper.driver)
                 
             # Verify all components
@@ -225,3 +232,9 @@ class TwitterBot:
                     "winner gets 0.1 SOL!! good wuck! :3"
                 )
                 self.tweet_manager.send_tweet(announcement)
+
+    async def _initialize_components(self):
+        # ... existing initialization code ...
+        
+        # Process any pending tweets
+        await AnnouncementBroadcaster.process_pending_tweets()

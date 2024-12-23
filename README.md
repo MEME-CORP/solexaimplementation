@@ -168,6 +168,8 @@ python main.py --bots discord
 
 # Telegram Bot only
 python main.py --bots telegram
+
+   python main.py --bots twitter telegram
 ```
 
 ### Development Mode

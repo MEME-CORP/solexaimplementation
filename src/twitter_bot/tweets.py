@@ -18,6 +18,26 @@ class TweetManager:
         self.db = DatabaseService()
         self.load_processed_tweets()
         self.challenge_manager = None  # Will be set by TwitterBot
+        
+        # Process any pending tweets right after initialization
+        self._process_pending_announcements()
+
+    def _process_pending_announcements(self):
+        """Process any pending announcements right after initialization"""
+        from src.announcement_broadcaster import AnnouncementBroadcaster
+        
+        if not hasattr(AnnouncementBroadcaster, '_pending_tweets'):
+            return
+            
+        pending = AnnouncementBroadcaster._pending_tweets[:]  # Make a copy
+        
+        for message in pending:
+            try:
+                self.send_tweet(message)
+                AnnouncementBroadcaster._pending_tweets.remove(message)
+                self.logger.info(f"Successfully posted pending announcement: {message[:30]}...")
+            except Exception as e:
+                self.logger.error(f"Failed to post pending announcement: {e}")
 
     def load_processed_tweets(self):
         """Load processed tweet IDs from database"""
@@ -31,7 +51,17 @@ class TweetManager:
 
     def save_processed_tweets(self):
         """Save processed tweet IDs to database"""
-        pass
+        try:
+            # Convert set to list for database storage
+            tweet_ids = list(self.processed_tweets)
+            
+            # Store in database using existing db service
+            for tweet_id in tweet_ids:
+                self.db.add_processed_tweet(tweet_id)
+                
+            self.logger.info(f"Saved {len(tweet_ids)} processed tweet IDs to database")
+        except Exception as e:
+            self.logger.error(f"Error saving processed tweets: {e}")
 
     def extract_tweet_id(self, article) -> str:
         """Extract tweet ID from article element"""
@@ -365,9 +395,15 @@ class TweetManager:
         return tweet_id in self.processed_tweets
 
     def mark_tweet_processed(self, tweet_id: str) -> None:
-        """Mark a tweet as processed in database"""
+        """Mark a tweet as processed and save to database"""
+        if not tweet_id:
+            return
+            
+        self.processed_tweets.add(tweet_id)
         try:
-            self.processed_tweets.add(tweet_id)
+            # Save individual tweet right after processing
+            self.db.add_processed_tweet(tweet_id)
+            self.logger.info(f"Marked tweet {tweet_id} as processed")
         except Exception as e:
             self.logger.error(f"Error marking tweet as processed: {e}")
 

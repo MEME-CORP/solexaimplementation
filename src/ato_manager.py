@@ -317,6 +317,16 @@ class ATOManager:
             logger.error(f"Error checking marketcap: {e}")
             return Decimal('0')
             
+    def _format_announcement_for_twitter(self, announcement: str) -> str:
+        """Format announcement to fit Twitter's character limit"""
+        # Twitter's character limit is 280
+        if len(announcement) <= 280:
+            return announcement
+            
+        # If longer, try to find a good breaking point
+        shortened = announcement[:277] + "..."
+        return shortened
+
     def _post_tokens_received(self, balance: Decimal):
         """Post announcement when tokens are received"""
         announcement = (
@@ -326,8 +336,11 @@ class ATOManager:
         )
         logger.info(f"Posted tokens received: {announcement}")
         
-        # Use create_task for both broadcasting and memory storage
-        asyncio.create_task(self.broadcaster.broadcast(announcement))
+        # Format for Twitter
+        twitter_announcement = self._format_announcement_for_twitter(announcement)
+        
+        # Use create_task for broadcasting
+        asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
         asyncio.create_task(self._store_announcement_memory(announcement))
         return announcement
 
@@ -415,8 +428,11 @@ class ATOManager:
         )
         logger.info(f"Posted milestones: {announcement}")
         
+        # Format for Twitter
+        twitter_announcement = self._format_announcement_for_twitter(announcement)
+        
         # Use create_task with broadcaster
-        asyncio.create_task(self.broadcaster.broadcast(announcement))
+        asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
         return announcement
 
     async def _monitor_marketcap(self):
@@ -471,6 +487,9 @@ class ATOManager:
             
         logger.info(f"Posted marketcap update: {announcement}")
         
+        # Format for Twitter
+        twitter_announcement = self._format_announcement_for_twitter(announcement)
+        
         # Use create_task with broadcaster
-        asyncio.create_task(self.broadcaster.broadcast(announcement))
+        asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
         return announcement

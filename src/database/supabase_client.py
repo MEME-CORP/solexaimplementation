@@ -869,4 +869,21 @@ class DatabaseService:
             logger.error(f"Error adding memory to database: {e}")
             return False
 
+    def add_processed_tweet(self, tweet_id: str) -> None:
+        """Add a processed tweet ID to database"""
+        try:
+            # Check if tweet_id already exists
+            existing = self.client.table('processed_tweets').select('tweet_id').eq('tweet_id', tweet_id).execute()
+            
+            if not existing.data:
+                # Insert new tweet_id with processed_at timestamp
+                self.client.table('processed_tweets').insert({
+                    'tweet_id': tweet_id,
+                    'processed_at': datetime.now().isoformat()
+                }).execute()
+                logger.debug(f"Added tweet ID {tweet_id} to processed tweets")
+        except Exception as e:
+            logger.error(f"Error adding processed tweet {tweet_id}: {e}")
+            raise
+
   
