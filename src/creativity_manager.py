@@ -4,9 +4,11 @@ import logging
 from src.config import Config
 import os
 from src.database.supabase_client import DatabaseService
+from src.wallet_manager import WalletManager
 import random
 import yaml
 import os.path
+from decimal import Decimal
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,13 +32,45 @@ class CreativityManager:
             base_url=Config.OPENAI_BASE_URL
         )
         self.db = DatabaseService()
+        self.wallet_manager = WalletManager()
         
         # Load prompt from YAML file
         self.creativity_prompt = load_yaml_prompt('creativity_prompt.yaml')
         if not self.creativity_prompt:
             raise ValueError("Failed to load creativity prompt from YAML file")
+        
+        # Initialize milestones
+        self._milestones = [
+            (Decimal('75000'), Decimal('0.5'), Decimal('0.2')),
+            (Decimal('150000'), Decimal('0.5'), Decimal('0.4')),
+            (Decimal('300000'), Decimal('0.5'), Decimal('0.8')),
+            (Decimal('600000'), Decimal('0.5'), Decimal('1.0')),
+            (Decimal('1000000'), Decimal('0.5'), Decimal('1.5'))
+        ]
 
-    def generate_creative_instructions(self, circles_memory, current_marketcap=None, next_milestone=None):
+    async def _get_market_data(self):
+        """Get current marketcap and next milestone"""
+        try:
+            # Get current marketcap from wallet manager
+            success, balance_data = await self.wallet_manager.check_balance(
+                Config.TOKEN_MINT_ADDRESS,
+                Config.TOKEN_MINT_ADDRESS
+            )
+            
+            if not success or not balance_data:
+                logger.error("Failed to get balance data")
+                return None, None
+                
+            current_marketcap = balance_data['token']['balance']
+            next_milestone = self._milestones[0][0]  # Get first milestone
+            
+            return current_marketcap, next_milestone
+            
+        except Exception as e:
+            logger.error(f"Error getting market data: {e}")
+            return None, None
+
+    async def generate_creative_instructions(self, circles_memory):
         """Generate creative instructions for the next story circle update"""
         try:
             # Get current story circle state from database
@@ -53,9 +87,8 @@ class CreativityManager:
                 }
             }
             
-            # Set default market values if none provided
-            current_marketcap = current_marketcap or "5000000"  # Default $5M
-            next_milestone = next_milestone or "10000000"      # Default $10M
+            # Get real market data
+            current_marketcap, next_milestone = await self._get_market_data()
             
             # Format the prompt with current data using the loaded YAML prompt
             formatted_prompt = self.creativity_prompt.format(
@@ -70,7 +103,7 @@ class CreativityManager:
                 model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
                 messages=[
                     {"role": "system", "content": formatted_prompt},
-                    {"role": "user", "content": "Generate creative instructions for the next story circle update, first in the <CS> tags and then in the exact YAML format specified in the <INSTRUCTIONS> tags. Ensure that marketcap and milestones numbers are mentioned explicitly in some of the events and dialogues. "}
+                    {"role": "user", "content": "Generate creative instructions for the next story circle update, first in the <CS> tags and then in the exact YAML format specified in the <INSTRUCTIONS> tags. Ensure that marketcap numbers are mentioned explicitly in the first event and dialogue. "}
                 ],
                 temperature=0.0,
                 max_tokens=4000
