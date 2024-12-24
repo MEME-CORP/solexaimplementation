@@ -63,9 +63,30 @@ class ATOManager:
 
     async def initialize(self):
         """Initialize agent wallet and start monitoring"""
+        # Check if we already have wallet credentials
+        existing_credentials = self.wallet_manager.get_wallet_credentials()
+        if existing_credentials and existing_credentials.get('public_key'):
+            logger.info("Using existing wallet credentials")
+            self._agent_wallet = existing_credentials['public_key']
+            self._post_wallet_announcement()
+            
+            # Start token monitoring
+            await self._start_token_monitoring()
+            return True
+        
+        # If no existing credentials, generate new wallet
         success, wallet_data = self.wallet_manager.generate_new_wallet()
         if not success:
             logger.error("Failed to generate agent wallet")
+            return False
+        
+        # Store the credentials properly
+        if not self.wallet_manager.set_wallet_credentials(
+            public_key=wallet_data['publicKey'],
+            private_key=wallet_data['privateKey'],
+            secret_key=wallet_data['privateKey']  # Using private key as secret key
+        ):
+            logger.error("Failed to store wallet credentials")
             return False
             
         self._agent_wallet = wallet_data['publicKey']
@@ -73,19 +94,19 @@ class ATOManager:
         
         # Start token monitoring
         await self._start_token_monitoring()
+        return True
         
     def _store_announcement_memory(self, announcement: str):
         """Helper method to store announcements as memories"""
         try:
-            # Use the simpler direct storage method
-            success = self.memory_processor.store_announcement(announcement)
+            # Use synchronous storage
+            success = self.memory_processor.store_announcement_sync(announcement)
             if success:
                 logger.info("Stored announcement in memories")
             else:
                 logger.error("Failed to store announcement")
         except Exception as e:
             logger.error(f"Error storing announcement memory: {e}")
-            # Don't raise - we don't want to interrupt the main flow
             
     def _post_wallet_announcement(self):
         """Post wallet announcement in character style"""
@@ -107,23 +128,54 @@ class ATOManager:
         """Monitor token balance until tokens are received"""
         try:
             check_count = 0
+            logger.info("Starting token balance monitoring...")
+            
             while True:
                 balance = await self._check_token_balance()
+                logger.info(f"Current token balance: {balance}")
+                
                 if balance > 0:
-                    self._post_tokens_received(balance)
+                    logger.info(f"Tokens received! Balance: {balance}")
+                    # Create announcement task
+                    announcement_task = asyncio.create_task(self._handle_token_receipt(balance))
+                    
+                    try:
+                        # Wait for the announcement and post-receipt actions to complete
+                        await announcement_task
+                    except Exception as e:
+                        logger.error(f"Error in token receipt handling: {e}")
                     break
                 
                 # Break after a few checks in test environment
                 check_count += 1
                 if 'pytest' in sys.modules or 'unittest' in sys.modules:
-                    if check_count >= 2:  # Break after 2 checks in tests
+                    if check_count >= 2:
                         break
                 
+                logger.info("No tokens yet, waiting before next check...")
                 await asyncio.sleep(1 if 'pytest' in sys.modules or 'unittest' in sys.modules else 120)
                 
         except Exception as e:
             logger.error(f"Error in token monitoring: {e}")
+
+    async def _handle_token_receipt(self, balance: Decimal):
+        """Handle token receipt announcement and post-receipt actions"""
+        try:
+            # Post announcement first
+            announcement = self._post_tokens_received(balance)
             
+            # Ensure the broadcast completes
+            if hasattr(self, '_broadcast_tasks') and self._broadcast_tasks:
+                await asyncio.gather(*self._broadcast_tasks)
+                self._broadcast_tasks.clear()
+            
+            # Then activate post-receipt actions
+            await self._activate_post_token_receipt()
+            
+        except Exception as e:
+            logger.error(f"Error handling token receipt: {e}")
+            raise
+
     async def _check_token_balance(self) -> Decimal:
         """Check token balance using new /check-balance endpoint"""
         for attempt in range(self._max_retries):
@@ -133,9 +185,15 @@ class ATOManager:
                     self._token_mint
                 )
                 
-                if success and balance_data and 'token' in balance_data:
-                    return balance_data['token']['balance']
-                
+                if success and balance_data:
+                    # Check if token balance exists and has a balance field
+                    if 'token' in balance_data and 'balance' in balance_data['token']:
+                        balance = balance_data['token']['balance']
+                        logger.info(f"Token balance check successful: {balance}")
+                        return balance
+                    else:
+                        logger.info("No token balance found")
+                        
                 logger.warning(f"Balance check attempt {attempt + 1} failed")
                 if attempt < self._max_retries - 1:
                     await asyncio.sleep(self._retry_delay * (attempt + 1))
@@ -336,25 +394,47 @@ class ATOManager:
         )
         logger.info(f"Posted tokens received: {announcement}")
         
-        # Format for Twitter
-        twitter_announcement = self._format_announcement_for_twitter(announcement)
+        # Create and store the broadcast task
+        broadcast_task = asyncio.create_task(self.broadcaster.broadcast(announcement))
         
-        # Use create_task for broadcasting
-        asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
-        asyncio.create_task(self._store_announcement_memory(announcement))
+        # Store the task reference to prevent garbage collection
+        if not hasattr(self, '_broadcast_tasks'):
+            self._broadcast_tasks = []
+        self._broadcast_tasks.append(broadcast_task)
+        
+        # Store memory synchronously
+        try:
+            self._store_announcement_memory(announcement)
+        except Exception as e:
+            logger.error(f"Error storing announcement memory: {e}")
+        
         return announcement
 
     async def _activate_post_token_receipt(self):
         """Handle actions after tokens are received"""
-        # Activate challenge manager
-        await self.challenge_manager.trigger_challenge()
-        
-        # Get initial marketcap and post milestones
-        initial_mc = await self._check_marketcap()
-        self._post_milestone_announcement(initial_mc)
-        
-        # Start marketcap monitoring
-        await self._monitor_marketcap()
+        try:
+            # Activate challenge manager
+            await self.challenge_manager.trigger_challenge()
+            
+            # Get initial marketcap and post milestones
+            initial_mc = await self._check_marketcap()
+            
+            # Create milestone announcement task
+            milestone_task = asyncio.create_task(
+                self.broadcaster.broadcast(self._post_milestone_announcement(initial_mc))
+            )
+            
+            # Store the task
+            if not hasattr(self, '_broadcast_tasks'):
+                self._broadcast_tasks = []
+            self._broadcast_tasks.append(milestone_task)
+            
+            # Start marketcap monitoring
+            await self._monitor_marketcap()
+            
+        except Exception as e:
+            logger.error(f"Error in post-token receipt activation: {e}")
+            raise
 
     async def _execute_standard_milestone(self, burn_percentage: Decimal, buyback_amount: Decimal):
         """Execute standard milestone"""

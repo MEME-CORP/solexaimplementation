@@ -27,7 +27,17 @@ class WalletManager:
         self.wallet_credentials = self._load_wallet_credentials()
 
     def generate_new_wallet(self) -> Tuple[bool, Optional[dict]]:
-        """Generate a new wallet using the API"""
+        """Generate a new wallet using the API or return existing credentials"""
+        # First check if we already have valid credentials
+        existing_creds = self.get_wallet_credentials()
+        if existing_creds and existing_creds.get('public_key') and existing_creds.get('private_key'):
+            logger.info(f"Using existing wallet: {existing_creds['public_key']}")
+            return True, {
+                'publicKey': existing_creds['public_key'],
+                'privateKey': existing_creds['private_key']
+            }
+        
+        # If no valid credentials exist, proceed with generating new wallet
         max_retries = 3
         retry_delay = 2
         
@@ -47,6 +57,17 @@ class WalletManager:
                         wallet_data = data['wallet']
                         if all(k in wallet_data for k in ['publicKey', 'privateKey']):
                             logger.info(f"Successfully generated wallet: {wallet_data['publicKey']}")
+                            
+                            # Store credentials immediately after successful generation
+                            if self.set_wallet_credentials(
+                                public_key=wallet_data['publicKey'],
+                                private_key=wallet_data['privateKey'],
+                                secret_key=wallet_data['privateKey']  # Using private key as secret key
+                            ):
+                                logger.info("Successfully stored wallet credentials")
+                            else:
+                                logger.error("Failed to store wallet credentials")
+                                
                             return True, wallet_data
                         logger.error("Wallet data missing required keys")
                 
@@ -331,14 +352,25 @@ class WalletManager:
             return False
 
     def set_wallet_credentials(self, public_key: str, private_key: str, secret_key: str) -> bool:
-        """Set wallet credentials"""
+        """Set wallet credentials and ensure they are saved to file"""
         try:
+            # Update credentials in memory
             self.wallet_credentials = {
                 "public_key": public_key,
                 "private_key": private_key,
                 "secret_key": secret_key
             }
-            return self._save_wallet_credentials()
+            
+            # Ensure data directory exists
+            self.data_dir.mkdir(exist_ok=True)
+            
+            # Save to file with proper formatting
+            with open(self.wallet_file, 'w') as f:
+                json.dump(self.wallet_credentials, f, indent=4)
+                
+            logger.info(f"Successfully saved wallet credentials to {self.wallet_file}")
+            return True
+            
         except Exception as e:
             logger.error(f"Error setting wallet credentials: {e}")
             return False

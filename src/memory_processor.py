@@ -296,3 +296,16 @@ class MemoryProcessor:
         except Exception as e:
             logger.error(f"Error storing announcement: {e}")
             return False
+
+    def store_announcement_sync(self, announcement: str) -> bool:
+        """Synchronous version of store_announcement"""
+        try:
+            # Process announcement synchronously
+            self.announcements.append({
+                'content': announcement,
+                'timestamp': datetime.now().isoformat()
+            })
+            return True
+        except Exception as e:
+            logger.error(f"Error storing announcement: {e}")
+            return False

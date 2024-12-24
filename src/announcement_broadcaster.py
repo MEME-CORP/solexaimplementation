@@ -78,39 +78,50 @@ class AnnouncementBroadcaster:
             
             if not chat_id:
                 logger.error("No chat ID available. Use /chatid command to set it or configure TELEGRAM_CHAT_ID")
-                raise ValueError("No chat ID available for broadcasting. Use /chatid command to set it.")
+                raise ValueError("No chat ID available for broadcasting")
 
-            # Send to Telegram once
+            # Send to Telegram
+            telegram_success = False
             if cls._instance and cls._instance._telegram_app:
-                await cls._instance._telegram_app.bot.send_message(
-                    chat_id=chat_id,
-                    text=message,
-                    disable_web_page_preview=True
-                )
-                logger.info(f"Announcement sent to Telegram chat {chat_id}")
+                try:
+                    await cls._instance._telegram_app.bot.send_message(
+                        chat_id=chat_id,
+                        text=message,
+                        disable_web_page_preview=True
+                    )
+                    telegram_success = True
+                    logger.info(f"Successfully sent announcement to Telegram chat {chat_id}")
+                except Exception as e:
+                    logger.error(f"Failed to send Telegram message: {e}")
+                    # Don't raise here, try Twitter anyway
 
-            # Store message for Twitter if driver not ready
-            if not cls._twitter_driver:
+            # Handle Twitter posting
+            twitter_success = False
+            if cls._twitter_driver:
+                try:
+                    await cls._send_tweet(message)
+                    twitter_success = True
+                    logger.info("Successfully sent announcement to Twitter")
+                except Exception as e:
+                    logger.error(f"Error sending tweet: {e}")
+                    if message not in cls._pending_tweets:
+                        cls._pending_tweets.append(message)
+                        logger.info("Message stored for Twitter posting after error")
+            else:
                 if message not in cls._pending_tweets:
                     cls._pending_tweets.append(message)
-                    logger.info("Message stored for Twitter posting")
-                return
+                    logger.info("Message stored for Twitter posting (no driver available)")
 
-            # Try to send to Twitter if driver is ready
-            try:
-                await cls._send_tweet(message)
-                logger.info("Announcement sent to Twitter")
-            except Exception as e:
-                logger.error(f"Error sending tweet: {e}")
-                if message not in cls._pending_tweets:
-                    cls._pending_tweets.append(message)
-                    logger.info("Message stored for Twitter posting after error")
+            # Log overall broadcast status
+            if telegram_success or twitter_success:
+                logger.info("Broadcast completed successfully to at least one platform")
+            else:
+                logger.warning("Broadcast failed on all platforms")
 
-        except ValueError as ve:
-            logger.error(f"Configuration error in broadcast: {ve}")
-            raise
+            return telegram_success or twitter_success
+
         except Exception as e:
-            logger.error(f"Error broadcasting announcement: {e}", exc_info=True)
+            logger.error(f"Critical error in broadcast: {e}", exc_info=True)
             raise
 
     @classmethod
