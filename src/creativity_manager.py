@@ -4,9 +4,11 @@ import logging
 from src.config import Config
 import os
 from src.database.supabase_client import DatabaseService
+from src.wallet_manager import WalletManager
 import random
 import yaml
 import os.path
+from decimal import Decimal
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,13 +32,74 @@ class CreativityManager:
             base_url=Config.OPENAI_BASE_URL
         )
         self.db = DatabaseService()
+        self.wallet_manager = WalletManager()
         
         # Load prompt from YAML file
         self.creativity_prompt = load_yaml_prompt('creativity_prompt.yaml')
         if not self.creativity_prompt:
             raise ValueError("Failed to load creativity prompt from YAML file")
+        
+        # Initialize milestones
+        self._milestones = [
+            (Decimal('75000'), Decimal('0.5'), Decimal('0.2')),
+            (Decimal('150000'), Decimal('0.5'), Decimal('0.4')),
+            (Decimal('300000'), Decimal('0.5'), Decimal('0.8')),
+            (Decimal('600000'), Decimal('0.5'), Decimal('1.0')),
+            (Decimal('1000000'), Decimal('0.5'), Decimal('1.5'))
+        ]
 
-    def generate_creative_instructions(self, circles_memory, current_marketcap=None, next_milestone=None):
+    def _get_next_milestone(self, current_marketcap: Decimal) -> Decimal:
+        """Get the next milestone based on current marketcap"""
+        for milestone, _, _ in self._milestones:
+            if milestone > current_marketcap:
+                return milestone
+        return self._milestones[-1][0]  # Return highest milestone if we're past all others
+
+    async def _get_market_data(self):
+        """Get current marketcap and next milestone"""
+        try:
+            # First get price to check if it's a bonding curve token
+            price_success, _ = await self.wallet_manager.get_token_price(
+                Config.TOKEN_MINT_ADDRESS
+            )
+            
+            # Get marketcap (will return default value for bonding curve)
+            success, marketcap = await self.wallet_manager.get_token_marketcap(
+                Config.TOKEN_MINT_ADDRESS
+            )
+            
+            if not success or marketcap is None:
+                logger.error("Failed to get marketcap data")
+                return None, None
+                
+            current_marketcap = marketcap
+            
+            # Verify marketcap is valid
+            if not isinstance(current_marketcap, Decimal):
+                logger.error("Invalid marketcap type")
+                return None, None
+                
+            # Get next milestone
+            next_milestone = self._get_next_milestone(current_marketcap)
+            
+            # Verify milestone is valid and greater than current marketcap
+            if not isinstance(next_milestone, Decimal) or next_milestone <= current_marketcap:
+                logger.error("Invalid milestone calculation")
+                return None, None
+            
+            # Log marketcap source for debugging
+            if not price_success:
+                logger.info(f"Using default bonding curve marketcap: {current_marketcap}")
+            else:
+                logger.info(f"Using real market price marketcap: {current_marketcap}")
+                
+            return current_marketcap, next_milestone
+            
+        except Exception as e:
+            logger.error(f"Error getting market data: {e}")
+            return None, None
+
+    async def generate_creative_instructions(self, circles_memory):
         """Generate creative instructions for the next story circle update"""
         try:
             # Get current story circle state from database
@@ -53,16 +116,15 @@ class CreativityManager:
                 }
             }
             
-            # Set default market values if none provided
-            current_marketcap = current_marketcap or "5000000"  # Default $5M
-            next_milestone = next_milestone or "10000000"      # Default $10M
+            # Get real market data
+            current_marketcap, next_milestone = await self._get_market_data()
             
             # Format the prompt with current data using the loaded YAML prompt
             formatted_prompt = self.creativity_prompt.format(
                 current_story_circle=json.dumps(formatted_story_circle, indent=2, ensure_ascii=False),
                 previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False),
-                current_marketcap=current_marketcap,
-                next_milestone=next_milestone
+                current_marketcap=float(current_marketcap),  # Convert to float for formatting
+                next_milestone=float(next_milestone)  # Convert to float for formatting
             )
             
             # Get the creativity instructions from the AI
@@ -70,7 +132,7 @@ class CreativityManager:
                 model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
                 messages=[
                     {"role": "system", "content": formatted_prompt},
-                    {"role": "user", "content": "Generate creative instructions for the next story circle update, first in the <CS> tags and then in the exact YAML format specified in the <INSTRUCTIONS> tags. Ensure that marketcap and milestones numbers are mentioned explicitly in some of the events and dialogues. "}
+                    {"role": "user", "content": "Generate creative instructions for the next story circle update, first in the <CS> tags and then in the exact YAML format specified in the <INSTRUCTIONS> tags. Ensure that marketcap numbers are mentioned explicitly in the first event and dialogue. "}
                 ],
                 temperature=0.0,
                 max_tokens=4000
