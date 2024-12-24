@@ -48,22 +48,51 @@ class CreativityManager:
             (Decimal('1000000'), Decimal('0.5'), Decimal('1.5'))
         ]
 
+    def _get_next_milestone(self, current_marketcap: Decimal) -> Decimal:
+        """Get the next milestone based on current marketcap"""
+        for milestone, _, _ in self._milestones:
+            if milestone > current_marketcap:
+                return milestone
+        return self._milestones[-1][0]  # Return highest milestone if we're past all others
+
     async def _get_market_data(self):
         """Get current marketcap and next milestone"""
         try:
-            # Get current marketcap from wallet manager
-            success, balance_data = await self.wallet_manager.check_balance(
-                Config.TOKEN_MINT_ADDRESS,
+            # First get price to check if it's a bonding curve token
+            price_success, _ = await self.wallet_manager.get_token_price(
                 Config.TOKEN_MINT_ADDRESS
             )
             
-            if not success or not balance_data:
-                logger.error("Failed to get balance data")
+            # Get marketcap (will return default value for bonding curve)
+            success, marketcap = await self.wallet_manager.get_token_marketcap(
+                Config.TOKEN_MINT_ADDRESS
+            )
+            
+            if not success or marketcap is None:
+                logger.error("Failed to get marketcap data")
                 return None, None
                 
-            current_marketcap = balance_data['token']['balance']
-            next_milestone = self._milestones[0][0]  # Get first milestone
+            current_marketcap = marketcap
             
+            # Verify marketcap is valid
+            if not isinstance(current_marketcap, Decimal):
+                logger.error("Invalid marketcap type")
+                return None, None
+                
+            # Get next milestone
+            next_milestone = self._get_next_milestone(current_marketcap)
+            
+            # Verify milestone is valid and greater than current marketcap
+            if not isinstance(next_milestone, Decimal) or next_milestone <= current_marketcap:
+                logger.error("Invalid milestone calculation")
+                return None, None
+            
+            # Log marketcap source for debugging
+            if not price_success:
+                logger.info(f"Using default bonding curve marketcap: {current_marketcap}")
+            else:
+                logger.info(f"Using real market price marketcap: {current_marketcap}")
+                
             return current_marketcap, next_milestone
             
         except Exception as e:
@@ -94,8 +123,8 @@ class CreativityManager:
             formatted_prompt = self.creativity_prompt.format(
                 current_story_circle=json.dumps(formatted_story_circle, indent=2, ensure_ascii=False),
                 previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False),
-                current_marketcap=current_marketcap,
-                next_milestone=next_milestone
+                current_marketcap=float(current_marketcap),  # Convert to float for formatting
+                next_milestone=float(next_milestone)  # Convert to float for formatting
             )
             
             # Get the creativity instructions from the AI

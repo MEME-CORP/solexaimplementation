@@ -15,8 +15,8 @@ creativity_prompt: >
       {previous_summaries}
 
         Current State of the Launched Token:
-         current marketcap: {current_marketcap}
-         next marketcap milestone: {next_milestone}
+         current marketcap: {current_marketcap:.0f}
+         next marketcap milestone: {next_milestone:.0f}
 
       Use CREATIVE_STORM to generate creative solutions:
 

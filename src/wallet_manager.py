@@ -320,6 +320,56 @@ class WalletManager:
             logger.error(f"Error buying tokens: {str(e)}")
             return False, None
 
+    async def get_token_price(self, mint_address: str) -> Tuple[bool, Optional[dict]]:
+        """Get token price from Jupiter API"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f"https://api.jup.ag/price/v2?ids={mint_address}&showExtraInfo=true"
+                async with session.get(url) as response:
+                    if response.status != 200:
+                        logger.error(f"Error getting token price: {response.status}")
+                        return False, None
+                        
+                    data = await response.json()
+                    
+                    if not data.get('data') or not data['data'].get(mint_address):
+                        logger.error("No price data available for token")
+                        return False, None
+                        
+                    token_data = data['data'][mint_address]
+                    return True, {
+                        'price': Decimal(str(token_data['price'])),
+                        'type': token_data['type'],
+                        'extra_info': token_data.get('extraInfo'),
+                        'last_updated': token_data.get('lastUpdated')
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Error in get_token_price: {e}")
+            return False, None
+
+    async def get_token_marketcap(self, mint_address: str) -> Tuple[bool, Optional[Decimal]]:
+        """Calculate token marketcap based on price and total supply"""
+        try:
+            TOTAL_SUPPLY = Decimal('1000000000')  # 1 billion total supply
+            DEFAULT_BONDING_CURVE_MC = Decimal('5000')  # Default marketcap for bonding curve tokens
+            
+            # Get token price
+            success, price_data = await self.get_token_price(mint_address)
+            
+            # If price data is not available (bonding curve case), return default value
+            if not success or not price_data:
+                logger.info(f"Token {mint_address} appears to be on bonding curve, using default marketcap: {DEFAULT_BONDING_CURVE_MC}")
+                return True, DEFAULT_BONDING_CURVE_MC
+                
+            # Calculate marketcap
+            marketcap = price_data['price'] * TOTAL_SUPPLY
+            return True, marketcap
+            
+        except Exception as e:
+            logger.error(f"Error calculating marketcap: {e}")
+            return False, None
+
     # Keep existing helper methods
     def _load_wallet_credentials(self) -> dict:
         """Load wallet credentials from file"""
