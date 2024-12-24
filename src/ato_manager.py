@@ -413,9 +413,27 @@ class ATOManager:
     async def _activate_post_token_receipt(self):
         """Handle actions after tokens are received"""
         try:
-            # Activate challenge manager
-            await self.challenge_manager.trigger_challenge()
+            # Activate challenge manager and get announcement
+            challenge_success = await self.challenge_manager.trigger_challenge()
             
+            if challenge_success:
+                # Get and broadcast challenge announcement
+                challenge_announcement = self.challenge_manager.generate_challenge_announcement()
+                logger.info(f"Generated challenge announcement: {challenge_announcement}")
+                
+                # Create challenge announcement task
+                challenge_task = asyncio.create_task(
+                    self.broadcaster.broadcast(challenge_announcement)
+                )
+                
+                # Store the task
+                if not hasattr(self, '_broadcast_tasks'):
+                    self._broadcast_tasks = []
+                self._broadcast_tasks.append(challenge_task)
+                
+                # Wait for challenge announcement to complete
+                await challenge_task
+                
             # Get initial marketcap and post milestones
             initial_mc = await self._check_marketcap()
             
@@ -425,8 +443,6 @@ class ATOManager:
             )
             
             # Store the task
-            if not hasattr(self, '_broadcast_tasks'):
-                self._broadcast_tasks = []
             self._broadcast_tasks.append(milestone_task)
             
             # Start marketcap monitoring

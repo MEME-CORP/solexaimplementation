@@ -126,23 +126,28 @@ class ChallengeManager:
             return Decimal('0.1')
         return Decimal('0.0')
 
-    def trigger_challenge(self) -> bool:
+    async def trigger_challenge(self) -> bool:
         """
         Trigger new challenge - called by CTO Manager
         Returns: Whether challenge was triggered successfully
         """
-        # Double reward for next challenge (after first challenge)
-        if self._challenge_count > 0:
-            self._current_reward *= 2
+        try:
+            # Double reward for next challenge (after first challenge)
+            if self._challenge_count > 0:
+                self._current_reward *= 2
+                
+            # Increment challenge count
+            self._challenge_count += 1
             
-        # Increment challenge count
-        self._challenge_count += 1
-        
-        # Start the challenge
-        success = self.start_challenge()
-        if success:
-            logger.info(f"Challenge {self._challenge_count} triggered with reward {self._current_reward} SOL")
-        return success
+            # Start the challenge
+            success = self.start_challenge()
+            if success:
+                logger.info(f"Challenge {self._challenge_count} triggered with reward {self._current_reward} SOL")
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error triggering challenge: {e}")
+            return False
 
     def generate_challenge_announcement(self) -> str:
         """Generate announcement for new challenge"""
