@@ -14,6 +14,7 @@ from .tweets import TweetManager
 from src.challenge_manager import ChallengeManager
 from src.announcement_broadcaster import AnnouncementBroadcaster
 from src.challenge_response_manager import ChallengeResponseManager
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -79,7 +80,7 @@ class TwitterBot:
             logger.error(f"Error initializing Twitter bot: {e}")
             return False
 
-    def run(self):
+    async def run(self):
         """Run the main loop of the Twitter bot"""
         try:
             logger.info("Initializing Twitter bot components...")
@@ -94,28 +95,19 @@ class TwitterBot:
             logger.info("=== Initial Tasks ===")
             if self.tweet_manager and self.generator:
                 self.tweet_manager.challenge_manager = self.challenge_manager
-                self.tweet_manager.check_and_process_mentions(self.generator)
-                self.generate_and_send_tweet()
+                await self.tweet_manager.check_and_process_mentions(self.generator)
+                await self.generate_and_send_tweet()
             
             # Set timers
             last_tweet_time = time.time()
             last_notification_check = time.time()
-            tweet_interval = random.randint(3600, 7200)  # 5-30 minutes
+            tweet_interval = random.randint(3600, 7200)  # 1-2 hours
             notification_interval = 300  # 5 minutes
             last_challenge_check = time.time()
             challenge_check_interval = 3600  # 1 hour
 
-            logger.info(f"Next tweet in {tweet_interval/60:.1f} minutes")
-            logger.info(f"Next notification check in {notification_interval/60:.1f} minutes")
-
             while self.running:
                 try:
-                    if not all([self.generator, self.scraper, self.tweet_manager]):
-                        logger.error("Critical components lost during runtime")
-                        if not self.initialize():  # Try to reinitialize
-                            logger.error("Could not recover components")
-                            break
-
                     current_time = time.time()
 
                     if self.is_cleaning_up:
@@ -127,40 +119,28 @@ class TwitterBot:
                         logger.info("=== Checking Notifications ===")
                         if self.tweet_manager and self.generator:
                             try:
-                                self.tweet_manager.check_and_process_mentions(self.generator)
+                                await self.tweet_manager.check_and_process_mentions(self.generator)
                             except Exception as e:
                                 logger.error(f"Error checking notifications: {e}")
                         last_notification_check = current_time
-                        logger.info(f"Next notification check in {notification_interval/60:.1f} minutes")
-
-                    # Post tweets
-                    if current_time - last_tweet_time >= tweet_interval:
-                        logger.info("=== Generating Tweet ===")
-                        try:
-                            self.generate_and_send_tweet()
-                        except Exception as e:
-                            logger.error(f"Error generating tweet: {e}")
-                        last_tweet_time = current_time
-                        tweet_interval = random.randint(300, 1800)
-                        logger.info(f"Next tweet in {tweet_interval/60:.1f} minutes")
 
                     # Check challenge status
                     if current_time - last_challenge_check >= challenge_check_interval:
-                        self.check_challenge_status()
+                        await self.check_challenge_status()
                         last_challenge_check = current_time
 
-                    time.sleep(1)
+                    await asyncio.sleep(1)
 
                 except Exception as e:
                     logger.error(f"Error in run loop: {e}")
-                    time.sleep(10)
+                    await asyncio.sleep(10)
 
         except Exception as e:
             logger.error(f"Critical error in Twitter bot: {e}")
         finally:
-            self.stop()
+            await self.stop()
             if not self.is_cleaning_up:
-                self.cleanup()
+                await self.cleanup()
 
     def generate_and_send_tweet(self):
         """Generate and send a tweet"""
@@ -221,18 +201,25 @@ class TwitterBot:
         finally:
             os._exit(0)
 
-    def check_challenge_status(self):
+    async def check_challenge_status(self):
         """Check and potentially start new challenge"""
-        if not self.challenge_manager.is_challenge_active():
-            if self.challenge_manager.start_challenge():
-                # New challenge started - send announcement
-                announcement = (
-                    "new chawwenge time!! >w< guess a numbew between "
-                    f"{self.challenge_manager._min_range} and {self.challenge_manager._max_range}! "
-                    "make suwe to incwude ur sowana wawwet addwess in the message! "
-                    "winner gets 0.1 SOL!! good wuck! :3"
-                )
-                self.tweet_manager.send_tweet(announcement)
+        try:
+            if not self.challenge_manager.is_challenge_active():
+                return
+            
+            # Get challenge announcement
+            announcement = self.challenge_manager.generate_challenge_announcement()
+            
+            # Post the challenge tweet
+            tweet_id = await self.tweet_manager.send_tweet(announcement)
+            
+            # Store the tweet ID for tracking responses
+            if tweet_id:
+                self.challenge_manager.set_active_challenge_tweet_id(tweet_id)
+                self.logger.info(f"Posted new challenge announcement with ID: {tweet_id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error checking challenge status: {e}")
 
     async def _initialize_components(self):
         # ... existing initialization code ...

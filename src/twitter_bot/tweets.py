@@ -369,8 +369,8 @@ class TweetManager:
             self.driver.get("https://twitter.com/notifications")
             time.sleep(3)
 
-    def check_notifications(self) -> List[dict]:
-        """Check notifications for mentions"""
+    async def check_notifications(self) -> List[dict]:
+        """Check notifications for mentions and process any challenge attempts"""
         try:
             self.driver.get("https://twitter.com/notifications")
             time.sleep(5)
@@ -398,12 +398,22 @@ class TweetManager:
                         
                         tweet_text = article.find_element(By.CSS_SELECTOR, "div[data-testid='tweetText']").text
                         
+                        notification = {
+                            "text": tweet_text,
+                            "tweet_id": tweet_id,
+                            "element": article
+                        }
+                        
+                        # Check if it's a mention
                         if f"@{username}" in tweet_text.lower():
-                            notifications.append({
-                                "text": tweet_text,
-                                "tweet_id": tweet_id,
-                                "element": article
-                            })
+                            notifications.append(notification)
+                        
+                        # Process as potential challenge reply
+                        await self.process_challenge_reply(notification)
+                        
+                        # Mark as processed
+                        self.mark_tweet_processed(tweet_id)
+                        
                     except Exception as e:
                         self.logger.error(f"Error processing article: {e}")
                         continue
@@ -422,7 +432,6 @@ class TweetManager:
                 else:
                     break
 
-            self.logger.info(f"Found {len(notifications)} new mentions")
             return notifications
 
         except Exception as e:
@@ -480,25 +489,33 @@ class TweetManager:
         except Exception as e:
             self.logger.error(f"Error marking tweet as processed: {e}")
 
-    def process_challenge_reply(self, notification: dict, challenge_manager) -> None:
-        """Process a reply to the challenge tweet"""
+    async def process_challenge_reply(self, notification: dict) -> None:
+        """Process a reply to see if it's a challenge attempt"""
         try:
             message = notification['text']
-            username = notification.get('username', 'fwiend')  # Default to 'fwiend' if username not found
+            username = notification.get('username', 'fwiend')
             
-            is_valid, response, wallet_address = challenge_manager.check_guess(message, username)
+            # First check if there's a wallet address
+            wallet_address = self.challenge_manager.extract_solana_wallet(message)
             
-            # If response is None, this is not a challenge attempt - handle with regular AI
-            if response is None:
+            # If no wallet found, treat as regular message
+            if not wallet_address:
                 reply_content = self.generator.generate_content(
-                    user_message=f"reply to: {message}", 
+                    user_message=f"reply to: {message}",
                     conversation_context='',
                     username=username
                 )
                 self.reply_to_tweet(notification, reply_content)
                 return
             
-            # Otherwise, send challenge response
+            # If challenge is not active, respond accordingly
+            if not self.challenge_manager.is_challenge_active():
+                response = "sowwy, thewe's no active chawwenge wight now! >w< stay tuned for the next one!"
+                self.reply_to_tweet(notification, response)
+                return
+            
+            # Process the guess
+            is_valid, response, _ = await self.challenge_manager.check_guess(message, username)
             self.reply_to_tweet(notification, response)
             
         except Exception as e:
