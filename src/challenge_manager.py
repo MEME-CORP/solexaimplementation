@@ -32,6 +32,8 @@ class ChallengeManager:
         
         # Initialize wallet manager
         self.wallet_manager = WalletManager("https://web3-agent.onrender.com")
+        
+        self._active_challenge_tweet_id = None
 
     def set_agent_wallet(self, wallet: str):
         """Set agent wallet address - called by CTO Manager"""
@@ -413,3 +415,37 @@ class ChallengeManager:
         except Exception as e:
             logger.error(f"Error checking balance: {e}")
             return False, Decimal('0')
+
+    def set_active_challenge_tweet_id(self, tweet_id: str):
+        """Set the active challenge tweet ID and log it"""
+        self._active_challenge_tweet_id = tweet_id
+        logger.info(f"Set active challenge tweet ID to: {tweet_id}")
+        
+        # Store in database for persistence
+        try:
+            self.db.store_challenge_tweet_id(tweet_id)
+            logger.info("Stored challenge tweet ID in database")
+        except Exception as e:
+            logger.error(f"Error storing challenge tweet ID in database: {e}")
+        
+        # Verify storage
+        stored_id = self.get_active_challenge_tweet_id()
+        if stored_id == tweet_id:
+            logger.info("Successfully verified tweet ID storage")
+        else:
+            logger.error(f"Tweet ID storage verification failed. Expected: {tweet_id}, Got: {stored_id}")
+
+    def get_active_challenge_tweet_id(self) -> Optional[str]:
+        """Get the current active challenge tweet ID"""
+        if not hasattr(self, '_active_challenge_tweet_id'):
+            # Try to load from database
+            try:
+                tweet_id = self.db.get_latest_challenge_tweet_id()
+                if tweet_id:
+                    self._active_challenge_tweet_id = tweet_id
+                    logger.info(f"Loaded challenge tweet ID from database: {tweet_id}")
+            except Exception as e:
+                logger.error(f"Error loading challenge tweet ID from database: {e}")
+                return None
+            
+        return self._active_challenge_tweet_id

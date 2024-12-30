@@ -3,7 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
-from typing import List
+from typing import List, Optional
 import os
 import logging
 from pathlib import Path
@@ -115,8 +115,8 @@ class TweetManager:
         except:
             pass
 
-    def send_tweet(self, content: str) -> None:
-        """Send a new tweet with enhanced error handling and selectors"""
+    def send_tweet(self, content: str) -> str:
+        """Send a new tweet with enhanced error handling and selectors. Returns tweet ID"""
         max_retries = 3
         
         for attempt in range(max_retries):
@@ -197,10 +197,23 @@ class TweetManager:
                 # Click post button
                 self.logger.info("Clicking post button...")
                 self.driver.execute_script("arguments[0].click();", post_button)
-                time.sleep(2)
+                time.sleep(3)  # Increased wait time
                 
-                self.logger.info("Tweet posted successfully")
-                return
+                # Get the tweet ID after posting
+                self.logger.info("Getting tweet ID...")
+                tweet_id = self._get_latest_tweet_id()
+                
+                if tweet_id:
+                    self.logger.info(f"Tweet posted successfully with ID: {tweet_id}")
+                    
+                    # Check if this is a challenge announcement
+                    if "chawwenge" in content.lower() and "guess" in content.lower():
+                        self.logger.info("Challenge tweet detected - starting response monitoring")
+                        self._handle_challenge_post(tweet_id, content)
+                        
+                    return tweet_id
+                else:
+                    raise Exception("Failed to get tweet ID")
                 
             except Exception as e:
                 self.logger.error(f"Attempt {attempt + 1} failed: {str(e)}")
@@ -209,6 +222,66 @@ class TweetManager:
                     time.sleep(2)
                     continue
                 raise Exception(f"Failed to send tweet after {max_retries} attempts: {str(e)}")
+
+    def _get_latest_tweet_id(self) -> Optional[str]:
+        """Get the ID of the most recently posted tweet"""
+        try:
+            # Clear cache and reload profile
+            self.driver.execute_script("window.location.reload(true);")
+            self.driver.get("https://twitter.com/fwogai")
+            time.sleep(3)
+            
+            # Get recent tweets with timestamps
+            tweets = self.driver.find_elements(By.CSS_SELECTOR, "article[data-testid='tweet']")
+            if not tweets:
+                return None
+            
+            # Get timestamps and IDs
+            tweet_times = []
+            for tweet in tweets[:5]:
+                try:
+                    time_element = tweet.find_element(By.CSS_SELECTOR, "time")
+                    timestamp = time_element.get_attribute("datetime")
+                    tweet_id = self.extract_tweet_id(tweet)
+                    tweet_times.append((timestamp, tweet_id))
+                except Exception as e:
+                    self.logger.error(f"Error getting tweet details: {e}")
+                    continue
+                
+            if not tweet_times:
+                return None
+            
+            # Get most recent
+            tweet_times.sort(reverse=True)
+            return tweet_times[0][1]
+            
+        except Exception as e:
+            self.logger.error(f"Error getting latest tweet ID: {e}")
+            return None
+
+    def _handle_challenge_post(self, tweet_id: str, content: str):
+        """Handle a newly posted challenge tweet"""
+        try:
+            # Store the tweet ID in challenge manager
+            if hasattr(self, 'challenge_manager') and self.challenge_manager:
+                self.challenge_manager.set_active_challenge_tweet_id(tweet_id)
+                
+                # Create and start response manager directly
+                from src.challenge_response_manager import ChallengeResponseManager
+                response_manager = ChallengeResponseManager(
+                    self.driver,
+                    self.challenge_manager
+                )
+                
+                # Start monitoring in background
+                import asyncio
+                asyncio.create_task(response_manager.start_response_monitoring())
+                self.logger.info(f"Started challenge response monitoring for tweet {tweet_id}")
+            else:
+                self.logger.error("No challenge manager available")
+                
+        except Exception as e:
+            self.logger.error(f"Error handling challenge post: {e}")
 
     def clean_content(self, content: str) -> str:
         """Clean tweet content"""

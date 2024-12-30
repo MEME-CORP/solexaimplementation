@@ -589,3 +589,27 @@ class ATOManager:
         # Use create_task with broadcaster
         asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
         return announcement
+
+    async def trigger_challenge(self):
+        """Trigger a new challenge"""
+        try:
+            # Generate announcement
+            announcement = self.challenge_manager.generate_challenge_announcement()
+            self.logger.info("Generated new challenge announcement")
+            
+            # Broadcast and get tweet ID
+            tweet_id = await self.broadcaster.broadcast_challenge(announcement)
+            
+            if tweet_id:
+                self.logger.info(f"Challenge broadcast successful, tweet ID: {tweet_id}")
+                # Verify the challenge manager received the ID
+                stored_id = self.challenge_manager.get_active_challenge_tweet_id()
+                if stored_id == tweet_id:
+                    self.logger.info("Challenge tweet ID successfully tracked")
+                else:
+                    self.logger.error(f"Challenge tweet ID mismatch: broadcast={tweet_id}, stored={stored_id}")
+            else:
+                self.logger.error("Failed to get challenge tweet ID")
+                
+        except Exception as e:
+            self.logger.error(f"Error triggering challenge: {e}")

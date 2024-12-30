@@ -13,6 +13,7 @@ from .scraper import Scraper
 from .tweets import TweetManager
 from src.challenge_manager import ChallengeManager
 from src.announcement_broadcaster import AnnouncementBroadcaster
+from src.challenge_response_manager import ChallengeResponseManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -238,3 +239,25 @@ class TwitterBot:
         
         # Process any pending tweets
         await AnnouncementBroadcaster.process_pending_tweets()
+
+    def initialize_components(self):
+        """Initialize bot components"""
+        try:
+            # ... existing initialization code ...
+            
+            # Create and register challenge response manager
+            self.challenge_response_manager = ChallengeResponseManager(
+                self.tweet_manager.driver,
+                self.challenge_manager
+            )
+            
+            # Register with broadcaster
+            AnnouncementBroadcaster.register_challenge_response_manager(
+                self.challenge_response_manager
+            )
+            
+            self.logger.info("All components initialized successfully")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error initializing components: {e}")
+            return False

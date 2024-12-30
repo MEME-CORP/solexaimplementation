@@ -7,6 +7,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from src.config import Config
 from selenium.webdriver.common.by import By
 import time
+from src.challenge_response_manager import ChallengeResponseManager
 
 logger = logging.getLogger('AnnouncementBroadcaster')
 
@@ -19,6 +20,7 @@ class AnnouncementBroadcaster:
     _twitter_bot = None  # Keep this for backward compatibility
     _chat_id = None
     _pending_tweets = []  # Class variable to store pending tweets
+    _challenge_response_manager = None  # Add this line
 
     def __new__(cls):
         if cls._instance is None:
@@ -55,12 +57,23 @@ class AnnouncementBroadcaster:
 
     @classmethod
     def register_twitter_bot(cls, bot):
-        """Register twitter bot instance - maintained for compatibility"""
+        """Register twitter bot instance and initialize challenge response manager"""
         cls._twitter_bot = bot
         # Set the driver from the bot's tweet manager
         if hasattr(bot, 'tweet_manager') and hasattr(bot.tweet_manager, 'driver'):
             cls._twitter_driver = bot.tweet_manager.driver
             logger.info("Twitter WebDriver registered from bot's tweet manager")
+            
+            # Initialize ChallengeResponseManager with the driver and challenge manager
+            if hasattr(bot, 'challenge_manager'):
+                cls._challenge_response_manager = ChallengeResponseManager(
+                    cls._twitter_driver, 
+                    bot.challenge_manager
+                )
+                logger.info("Challenge Response Manager initialized with Twitter driver")
+            else:
+                logger.error("Bot has no challenge_manager attribute")
+            
         logger.info("Twitter bot registered with broadcaster")
 
     @classmethod
@@ -264,3 +277,74 @@ class AnnouncementBroadcaster:
         cls._chat_id = chat_id
         logger.info(f"Chat ID set to: {chat_id}")
         return True
+
+    @classmethod
+    async def broadcast_challenge(cls, message: str) -> Optional[str]:
+        """Broadcast challenge announcement and return the tweet ID"""
+        try:
+            tweet_id = None
+            
+            # Send to Telegram
+            if cls._instance and cls._instance._telegram_app and cls._chat_id:
+                try:
+                    await cls._instance._telegram_app.bot.send_message(
+                        chat_id=cls._chat_id,
+                        text=message,
+                        disable_web_page_preview=True
+                    )
+                    logger.info(f"Successfully sent challenge to Telegram chat {cls._chat_id}")
+                except Exception as e:
+                    logger.error(f"Failed to send Telegram message: {e}")
+
+            # Handle Twitter posting and get tweet ID
+            if cls._twitter_driver:
+                try:
+                    # Use the modified send_tweet method that returns the tweet ID
+                    tweet_id = await cls._send_tweet_and_get_id(message)
+                    if tweet_id:
+                        logger.info(f"Successfully posted challenge to Twitter with ID: {tweet_id}")
+                        
+                        # Store the tweet ID in the challenge manager
+                        if cls._challenge_response_manager:
+                            if cls._challenge_response_manager.challenge_manager:
+                                logger.info(f"Setting active challenge tweet ID: {tweet_id}")
+                                cls._challenge_response_manager.challenge_manager.set_active_challenge_tweet_id(tweet_id)
+                                
+                                # Start monitoring in background task
+                                logger.info("Starting challenge response monitoring...")
+                                asyncio.create_task(cls._challenge_response_manager.start_response_monitoring())
+                            else:
+                                logger.error("Challenge manager not initialized in response manager")
+                        else:
+                            logger.error("No challenge response manager registered")
+                    else:
+                        logger.error("Failed to get tweet ID for challenge")
+                        
+                except Exception as e:
+                    logger.error(f"Error sending challenge tweet: {e}", exc_info=True)
+                
+            return tweet_id
+
+        except Exception as e:
+            logger.error(f"Critical error in broadcast_challenge: {e}", exc_info=True)
+            return None
+
+    @classmethod
+    async def _send_tweet_and_get_id(cls, content: str) -> Optional[str]:
+        """Send tweet and return its ID"""
+        try:
+            if cls._twitter_driver and hasattr(cls._twitter_driver, 'send_tweet'):
+                tweet_id = cls._twitter_driver.send_tweet(content)
+                if tweet_id:
+                    logger.info(f"Got tweet ID after posting: {tweet_id}")
+                    return tweet_id
+            return None
+        except Exception as e:
+            logger.error(f"Error in _send_tweet_and_get_id: {e}")
+            return None
+
+    @classmethod
+    def register_challenge_response_manager(cls, manager: ChallengeResponseManager):
+        """Register the challenge response manager"""
+        cls._challenge_response_manager = manager
+        logger.info("Challenge Response Manager registered with broadcaster")
