@@ -8,7 +8,6 @@ import os
 import logging
 from pathlib import Path
 from src.database.supabase_client import DatabaseService
-from src.challenge_manager import ChallengeManager
 
 class TweetManager:
     def __init__(self, driver: WebDriver):
@@ -17,7 +16,6 @@ class TweetManager:
         self.processed_tweets = set()
         self.db = DatabaseService()
         self.load_processed_tweets()
-        self.challenge_manager = None  # Will be set by TwitterBot
         
         # Process any pending tweets right after initialization
         self._process_pending_announcements()
@@ -365,18 +363,16 @@ class TweetManager:
                 self.logger.info(f"Processing {len(notifications)} mentions...")
                 for notification in notifications:
                     try:
-                        # Use the working message format
                         reply_content = generator.generate_content(
                             user_message=f"reply to: {notification['text']}", 
-                            topic='',  # Empty for replies
-                            conversation_context='',  # Could add previous context if needed
-                            username=''  # Could add username if needed
+                            topic='',
+                            conversation_context='',
+                            username=''
                         )
                         
                         if reply_content and isinstance(reply_content, str):
                             self.logger.info(f"Generated reply: {reply_content[:50]}...")
                             self.reply_to_tweet(notification, reply_content)
-                            # Explicitly save processed tweets after each reply
                             self.processed_tweets.add(notification['tweet_id'])
                             self.save_processed_tweets()
                             self.logger.info(f"Replied to tweet ID: {notification['tweet_id']}")
@@ -406,27 +402,3 @@ class TweetManager:
             self.logger.info(f"Marked tweet {tweet_id} as processed")
         except Exception as e:
             self.logger.error(f"Error marking tweet as processed: {e}")
-
-    def process_challenge_reply(self, notification: dict, challenge_manager) -> None:
-        """Process a reply to the challenge tweet"""
-        try:
-            message = notification['text']
-            username = notification.get('username', 'fwiend')  # Default to 'fwiend' if username not found
-            
-            is_valid, response, wallet_address = challenge_manager.check_guess(message, username)
-            
-            # If response is None, this is not a challenge attempt - handle with regular AI
-            if response is None:
-                reply_content = self.generator.generate_content(
-                    user_message=f"reply to: {message}", 
-                    conversation_context='',
-                    username=username
-                )
-                self.reply_to_tweet(notification, reply_content)
-                return
-            
-            # Otherwise, send challenge response
-            self.reply_to_tweet(notification, response)
-            
-        except Exception as e:
-            self.logger.error(f"Error processing challenge reply: {e}")

@@ -93,7 +93,6 @@ class AnnouncementBroadcaster:
                     logger.info(f"Successfully sent announcement to Telegram chat {chat_id}")
                 except Exception as e:
                     logger.error(f"Failed to send Telegram message: {e}")
-                    # Don't raise here, try Twitter anyway
 
             # Handle Twitter posting
             twitter_success = False
@@ -234,7 +233,6 @@ class AnnouncementBroadcaster:
             except Exception as e:
                 logger.error(f"Error posting pending tweet: {e}")
 
-    # Keep existing Telegram methods unchanged
     @classmethod
     async def chatid_command(cls, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handler for the /chatid command."""

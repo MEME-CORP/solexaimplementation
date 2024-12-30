@@ -5,7 +5,6 @@ from decimal import Decimal
 from typing import Optional, List, Tuple, Dict
 from datetime import datetime, timedelta
 from src.wallet_manager import WalletManager
-from src.challenge_manager import ChallengeManager
 from src.config import Config
 from src.announcement_broadcaster import AnnouncementBroadcaster
 from src.memory_processor import MemoryProcessor
@@ -18,7 +17,6 @@ class ATOManager:
     def __init__(self):
         """Initialize ATO Manager"""
         self.wallet_manager = WalletManager()
-        self.challenge_manager = ChallengeManager()
         self.broadcaster = AnnouncementBroadcaster()
         self.memory_processor = MemoryProcessor()
         self._agent_wallet = None
@@ -366,10 +364,11 @@ class ATOManager:
     async def _check_marketcap(self) -> Decimal:
         """Check current marketcap of token"""
         try:
-            # TODO: Replace with actual endpoint integration
-            # Placeholder for marketcap endpoint
-            # Example endpoint call:
-            # marketcap = await self.wallet_manager.get_token_marketcap(self._token_mint)
+            success, marketcap = await self.wallet_manager.get_token_marketcap(self._token_mint)
+            if success and marketcap is not None:
+                logger.info(f"Retrieved marketcap: {marketcap}")
+                return marketcap
+            logger.warning("Failed to get marketcap data")
             return Decimal('0')
         except Exception as e:
             logger.error(f"Error checking marketcap: {e}")
@@ -394,13 +393,8 @@ class ATOManager:
         )
         logger.info(f"Posted tokens received: {announcement}")
         
-        # Create and store the broadcast task
-        broadcast_task = asyncio.create_task(self.broadcaster.broadcast(announcement))
-        
-        # Store the task reference to prevent garbage collection
-        if not hasattr(self, '_broadcast_tasks'):
-            self._broadcast_tasks = []
-        self._broadcast_tasks.append(broadcast_task)
+        # Single broadcast task
+        asyncio.create_task(self.broadcaster.broadcast(announcement))
         
         # Store memory synchronously
         try:
@@ -413,37 +407,11 @@ class ATOManager:
     async def _activate_post_token_receipt(self):
         """Handle actions after tokens are received"""
         try:
-            # Activate challenge manager and get announcement
-            challenge_success = await self.challenge_manager.trigger_challenge()
-            
-            if challenge_success:
-                # Get and broadcast challenge announcement
-                challenge_announcement = self.challenge_manager.generate_challenge_announcement()
-                logger.info(f"Generated challenge announcement: {challenge_announcement}")
-                
-                # Create challenge announcement task
-                challenge_task = asyncio.create_task(
-                    self.broadcaster.broadcast(challenge_announcement)
-                )
-                
-                # Store the task
-                if not hasattr(self, '_broadcast_tasks'):
-                    self._broadcast_tasks = []
-                self._broadcast_tasks.append(challenge_task)
-                
-                # Wait for challenge announcement to complete
-                await challenge_task
-                
             # Get initial marketcap and post milestones
             initial_mc = await self._check_marketcap()
             
-            # Create milestone announcement task
-            milestone_task = asyncio.create_task(
-                self.broadcaster.broadcast(self._post_milestone_announcement(initial_mc))
-            )
-            
-            # Store the task
-            self._broadcast_tasks.append(milestone_task)
+            # Single broadcast for milestone announcement
+            await self.broadcaster.broadcast(self._post_milestone_announcement(initial_mc))
             
             # Start marketcap monitoring
             await self._monitor_marketcap()
@@ -527,9 +495,8 @@ class ATOManager:
         # Format for Twitter
         twitter_announcement = self._format_announcement_for_twitter(announcement)
         
-        # Use create_task with broadcaster
-        asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
-        return announcement
+        # Single broadcast
+        return twitter_announcement
 
     async def _monitor_marketcap(self):
         """Monitor marketcap and handle milestones"""
@@ -586,6 +553,6 @@ class ATOManager:
         # Format for Twitter
         twitter_announcement = self._format_announcement_for_twitter(announcement)
         
-        # Use create_task with broadcaster
+        # Single broadcast
         asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
         return announcement
