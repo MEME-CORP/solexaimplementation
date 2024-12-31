@@ -9,6 +9,8 @@ from src.config import Config
 from src.announcement_broadcaster import AnnouncementBroadcaster
 from src.memory_processor import MemoryProcessor
 import sys
+import json
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ATOManager')
@@ -38,6 +40,11 @@ class ATOManager:
         self._milestones = self._generate_extended_milestones()
         
         self._total_supply = Decimal('1000000000')  # 1 billion tokens
+        
+        # Add announcement tracking
+        self._announcements_file = Path("data/announcements.json")
+        self._announcements_file.parent.mkdir(parents=True, exist_ok=True)
+        self._announcement_history = self._load_announcement_history()
 
     def _generate_extended_milestones(self) -> List[Tuple[Decimal, Decimal, Decimal]]:
         """Generate all milestones including beyond 1M"""
@@ -400,17 +407,25 @@ class ATOManager:
     def _post_tokens_received(self, balance: Decimal):
         """Post announcement when tokens are received"""
         try:
+            # Check if announcement was already made
+            if self._announcement_history['tokens_received']:
+                logger.info("Tokens received announcement was already made, skipping...")
+                return None
+
             announcement = (
                 f"nyaa~! tokens received!! {balance} tokens awe now in my wawwet! >w<\n\n"
                 "thank u mr dev! now i can stawt the Agent Take Ovew!\n"
                 "wet's make this waunch go to the mooooon! uwu\n\n"            
             )
-            logger.info(f"Posted tokens received: {announcement}")
             
-            # Store announcement synchronously with proper error handling
+            # Store announcement synchronously
             storage_success = self._store_announcement_memory(announcement)
             if not storage_success:
                 logger.error("Failed to store tokens received announcement")
+            
+            # Update history and save
+            self._announcement_history['tokens_received'] = True
+            self._save_announcement_history()
             
             # Create broadcast task
             asyncio.create_task(self.broadcaster.broadcast(announcement))
@@ -419,7 +434,6 @@ class ATOManager:
             
         except Exception as e:
             logger.error(f"Error in _post_tokens_received: {e}")
-            logger.exception("Full traceback:")
             return "Error posting tokens received announcement"
 
     async def _activate_post_token_receipt(self):
@@ -494,13 +508,18 @@ class ATOManager:
 
     def _post_milestone_announcement(self, current_mc: Decimal):
         """Post milestone targets announcement"""
+        # Check if announcement was already made
+        if self._announcement_history['initial_milestones']:
+            logger.info("Initial milestones announcement was already made, skipping...")
+            return None
+        
         def format_milestone(mc: Decimal, burn: Decimal, buyback: Decimal) -> str:
             mc_k = mc / 1000
             return f"- {mc_k}k mc: burn {burn}% + {buyback} SOL buyback!"
 
         milestones_text = "\n".join([
             format_milestone(mc, burn, buyback) 
-            for mc, burn, buyback in self._milestones[:5]  # First 5 milestones
+            for mc, burn, buyback in self._milestones[:5]
         ])
 
         announcement = (
@@ -508,13 +527,12 @@ class ATOManager:
             f"{milestones_text}\n\n"
             "uwu"
         )
-        logger.info(f"Posted milestones: {announcement}")
         
-        # Format for Twitter
-        twitter_announcement = self._format_announcement_for_twitter(announcement)
+        # Update history and save
+        self._announcement_history['initial_milestones'] = True
+        self._save_announcement_history()
         
-        # Single broadcast
-        return twitter_announcement
+        return self._format_announcement_for_twitter(announcement)
 
     async def _monitor_marketcap(self):
         """Monitor marketcap and handle milestones"""
@@ -540,16 +558,35 @@ class ATOManager:
         milestone = self._milestones[self._current_milestone_index]
         mc, burn_percentage, buyback_amount = milestone
         
-        # Special cases for 1M and 10M
+        # Check if milestone was already executed
+        if mc in self._announcement_history['milestone_executions']:
+            logger.info(f"Milestone {mc} was already executed, skipping...")
+            self._current_milestone_index += 1
+            return
+        
+        # Execute milestone
         if mc == Decimal('1000000') or mc == Decimal('10000000'):
             await self._execute_special_milestone(burn_percentage, buyback_amount)
         else:
             await self._execute_standard_milestone(burn_percentage, buyback_amount)
         
+        # Update history and save
+        self._announcement_history['milestone_executions'].append(mc)
+        self._save_announcement_history()
+        
         self._current_milestone_index += 1
 
     def _post_marketcap_update(self, current_mc: Decimal):
         """Post regular marketcap update"""
+        # Check if we recently posted about this marketcap
+        mc_key = str(int(current_mc))  # Convert to string for JSON compatibility
+        last_update = self._announcement_history['marketcap_updates'].get(mc_key)
+        
+        # Only post update if we haven't posted about this MC in the last 6 hours
+        current_time = time.time()
+        if last_update and (current_time - last_update < 21600):  # 6 hours in seconds
+            return None
+
         if self._current_milestone_index < len(self._milestones):
             next_milestone = self._milestones[self._current_milestone_index]
             remaining = next_milestone[0] - current_mc
@@ -565,12 +602,42 @@ class ATOManager:
                 f"current marketcap: {current_mc/1000}k! >w<\n"
                 "we've hit all our miwestones! amazing job! uwu"
             )
-            
-        logger.info(f"Posted marketcap update: {announcement}")
         
-        # Format for Twitter
+        # Update history and save
+        self._announcement_history['marketcap_updates'][mc_key] = current_time
+        self._save_announcement_history()
+        
+        # Format and broadcast
         twitter_announcement = self._format_announcement_for_twitter(announcement)
-        
-        # Single broadcast
         asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
+        
         return announcement
+
+    def _load_announcement_history(self) -> dict:
+        """Load announcement history from JSON file"""
+        try:
+            if self._announcements_file.exists():
+                with open(self._announcements_file, 'r') as f:
+                    return json.load(f)
+            return {
+                'tokens_received': False,
+                'initial_milestones': False,
+                'milestone_executions': [],
+                'marketcap_updates': {}
+            }
+        except Exception as e:
+            logger.error(f"Error loading announcement history: {e}")
+            return {
+                'tokens_received': False,
+                'initial_milestones': False,
+                'milestone_executions': [],
+                'marketcap_updates': {}
+            }
+
+    def _save_announcement_history(self):
+        """Save announcement history to JSON file"""
+        try:
+            with open(self._announcements_file, 'w') as f:
+                json.dump(self._announcement_history, f, indent=2)
+        except Exception as e:
+            logger.error(f"Error saving announcement history: {e}")
