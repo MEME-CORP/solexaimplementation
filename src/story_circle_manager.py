@@ -20,6 +20,7 @@ CIRCLES_MEMORY_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'cir
 def load_yaml_prompt(filename):
     """Load a prompt from a YAML file"""
     try:
+        # Get absolute path to the prompts_config directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
         prompt_path = os.path.join(current_dir, 'prompts_config', filename)
         
@@ -27,7 +28,16 @@ def load_yaml_prompt(filename):
         
         if not os.path.exists(prompt_path):
             logger.error(f"Prompt file not found: {prompt_path}")
-            return None
+            # Try alternative path resolution
+            project_root = os.path.dirname(current_dir)
+            alt_path = os.path.join(project_root, 'src', 'prompts_config', filename)
+            
+            if os.path.exists(alt_path):
+                prompt_path = alt_path
+                logger.info(f"Found prompt file at alternative path: {alt_path}")
+            else:
+                logger.error(f"Prompt file not found at alternative path: {alt_path}")
+                return None
             
         with open(prompt_path, 'r', encoding='utf-8') as f:
             try:
@@ -70,6 +80,19 @@ def load_yaml_prompt(filename):
 class StoryCircleManager:
     def __init__(self):
         try:
+            # Check for system prompt file first
+            system_prompt_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), 
+                'prompts_config', 
+                'system_prompt.yaml'
+            )
+            
+            if not os.path.exists(system_prompt_path):
+                logger.error(f"System prompt file not found at: {system_prompt_path}")
+                raise FileNotFoundError(f"Required file system_prompt.yaml not found at {system_prompt_path}")
+            
+            logger.info(f"Found system prompt file at: {system_prompt_path}")
+            
             self.client = OpenAI(
                 api_key=Config.GLHF_API_KEY,
                 base_url=Config.OPENAI_BASE_URL

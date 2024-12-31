@@ -136,7 +136,21 @@ def run_ato_manager():
     finally:
         loop.close()
 
+def setup_paths():
+    """Setup correct paths for loading config files"""
+    # Add project root to Python path
+    project_root = Path(__file__).parent
+    sys.path.append(str(project_root))
+    
+    # Ensure prompts_config directory exists
+    prompts_config_path = project_root / 'src' / 'prompts_config'
+    if not prompts_config_path.exists():
+        prompts_config_path.mkdir(parents=True, exist_ok=True)
+        print(f"Created prompts_config directory at: {prompts_config_path}")
+
 def main():
+    setup_paths()
+    
     global twitter_thread, discord_thread, running
     parser = argparse.ArgumentParser()
     parser.add_argument('--bots', nargs='+', 
