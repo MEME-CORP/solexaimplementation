@@ -55,6 +55,11 @@ class DatabaseService:
             story_circle_id = story.data['id']
             logger.info(f"Retrieved story circle {story_circle_id}")
 
+            # Get narrative JSON and extract existing dynamic context
+            narrative_json = story.data.get('narrative', {})
+            existing_context = narrative_json.get('dynamic_context', {})
+            logger.debug(f"Retrieved existing context: {existing_context}")
+
             # Get phases for this story circle
             phases = self.client.table('story_phases')\
                 .select('*')\
@@ -77,16 +82,29 @@ class DatabaseService:
             # Get events and dialogues for current phase
             events_dialogues = self.get_events_dialogues(story_circle_id, current_phase_number)
             
-            # Structure the response with proper dynamic context
+            # Extract events and dialogues
             events = [ed['event'] for ed in events_dialogues]
             dialogues = [ed['inner_dialogue'] for ed in events_dialogues]
-            
-            dynamic_context = {
-                'current_event': events[0] if events else '',
-                'current_inner_dialogue': dialogues[0] if dialogues else '',
-                'next_event': events[1] if len(events) > 1 else ''
-            }
 
+            # Determine dynamic context based on existing data
+            if existing_context.get("current_event"):
+                # Keep existing dynamic context from narrative
+                dynamic_context = {
+                    "current_event": existing_context["current_event"],
+                    "current_inner_dialogue": existing_context.get("current_inner_dialogue", ""),
+                    "next_event": existing_context.get("next_event", "")
+                }
+                logger.info("Using existing dynamic context from narrative")
+            else:
+                # Initialize with first event if no existing context
+                dynamic_context = {
+                    "current_event": events[0] if events else "",
+                    "current_inner_dialogue": dialogues[0] if dialogues else "",
+                    "next_event": events[1] if len(events) > 1 else ""
+                }
+                logger.info("Initialized new dynamic context from first event")
+
+            # Construct and return story circle data
             return {
                 "id": story_circle_id,
                 "current_phase": current_phase['phase_name'] if current_phase else 'You',
@@ -107,6 +125,7 @@ class DatabaseService:
 
         except Exception as e:
             logger.error(f"Error fetching story circle: {e}")
+            logger.exception("Full traceback:")
             return None
 
     def _ensure_single_current_circle(self):

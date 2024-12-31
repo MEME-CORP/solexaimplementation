@@ -103,6 +103,9 @@ class TestStoryCircleIntegration:
             story_circle = self.story_manager.load_story_circle()
             logger.info(f"Loaded story circle: {json.dumps(story_circle, indent=2)}")
             
+            if not story_circle.get('events'):
+                story_circle = self.story_manager.update_story_circle()
+            
             assert story_circle is not None, "Story circle should not be None"
             assert 'current_phase' in story_circle, "Story circle should have a current phase"
             
@@ -228,17 +231,21 @@ class TestStoryCircleIntegration:
         try:
             logger.info("=== Testing Async Operations ===")
             
-            narrative = await self.story_manager.get_current_narrative()
+            # Get narrative and verify structure
+            narrative = self.story_manager.get_current_narrative()
             assert narrative is not None, "Narrative should not be None"
+            assert "narrative" in narrative, "Narrative should have narrative key"
+            assert "current_story_circle" in narrative["narrative"], "Narrative should have current_story_circle"
             
+            # Get events and verify
             story_circle = self.story_manager.load_story_circle()
-            events = await self.db.get_events_dialogues(
+            events = self.db.get_events_dialogues(
                 story_circle['id'],
                 story_circle['current_phase_number']
             )
             assert events is not None, "Events should not be None"
             
-            logger.info(f"Retrieved {len(events)} events asynchronously")
+            logger.info(f"Retrieved {len(events)} events")
             
             return narrative, events
             

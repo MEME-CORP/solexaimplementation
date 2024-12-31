@@ -349,9 +349,20 @@ class StoryCircleManager:
                     logger.error("Failed to generate new events")
                     return story_circle
                 return updated_circle
-            
-            # Find current event index
-            current_index = events.index(current_event) if current_event in events else -1
+
+            # -------------------------------------------------------------
+            # ADDED FIX: Normalize (strip) both current_event and events
+            # so we don't break indexing due to trailing spaces/Unicode.
+            # -------------------------------------------------------------
+            current_event_clean = current_event.strip()  # <--- fix
+            events_clean = [ev.strip() for ev in events]  # <--- fix
+
+            # Find current event index by normalized matching
+            try:
+                current_index = events_clean.index(current_event_clean)
+            except ValueError:
+                current_index = -1
+            # -------------------------------------------------------------
             
             # Check if we need to generate new events
             if current_index == len(events) - 1:
@@ -369,7 +380,7 @@ class StoryCircleManager:
                     return story_circle
             
             if current_index == -1:
-                logger.info("No current event found, generating new ones")
+                logger.info("No matching current event found, generating new ones")
                 updated_circle = self.update_story_circle()
                 if not updated_circle or not updated_circle.get('events'):
                     logger.error("Failed to generate new events")
@@ -411,11 +422,20 @@ class StoryCircleManager:
             
             # Get current events list for this phase
             events = story_circle.get('events', [])
-            current_event_index = events.index(event) if event in events else -1
-            
+            # Normalize the event for matching
+            event_clean = event.strip()  # <--- fix
+            events_clean = [ev.strip() for ev in events]  # <--- fix
+
+            current_event_index = -1
+            try:
+                current_event_index = events_clean.index(event_clean)
+            except ValueError:
+                pass
+
             # Only update description when all events are completed
-            if current_event_index == len(events) - 1:
+            if current_event_index == len(events_clean) - 1:
                 # Build complete phase description from all events
+                # (Optionally join the cleaned events)
                 phase_description = " ".join(events).strip()
                 
                 # Update in database
@@ -434,7 +454,10 @@ class StoryCircleManager:
                     logger.error("Failed to update phase description in database")
                     raise Exception("Phase description update failed")
             else:
-                logger.debug(f"Skipping phase description update - not all events completed yet ({current_event_index + 1}/{len(events)})")
+                logger.debug(
+                    f"Skipping phase description update - not all events completed yet "
+                    f"({current_event_index + 1}/{len(events_clean)})"
+                )
                 
         except Exception as e:
             logger.error(f"Error updating phase description: {e}")
@@ -631,33 +654,34 @@ class StoryCircleManager:
             logger.exception("Full traceback:")
             return None
 
-    async def get_current_narrative(self):
+    def get_current_narrative(self):
         """Get the current narrative state from database tables"""
         try:
             # Get current story circle
-            story_circle = await self.db.get_story_circle()
+            story_circle = self.db.get_story_circle()
             if not story_circle:
                 raise ValueError("No active story circle found")
 
             # Get phases for this story circle
-            phases = await self.db.get_story_phases(story_circle['id'])
+            phases = self.db.get_story_phases(story_circle['id'])
             
             # Get events and dialogues for the current phase
             current_phase = next((p for p in phases if p['is_current']), None)
             if not current_phase:
                 raise ValueError("No current phase found")
             
-            events_dialogues = await self.db.get_events_dialogues(
+            events_dialogues = self.db.get_events_dialogues(
                 story_circle['id'], 
                 current_phase['phase_number']
             )
 
-            # Construct narrative structure
+            # Construct narrative structure with safe access to description
             narrative = {
                 "current_story_circle": [
                     {
                         "phase": phase['phase_name'],
-                        "description": phase['description'] or ""
+                        # Safely access description with fallback to empty string
+                        "description": phase.get('phase_description', '') or phase.get('description', '')
                     }
                     for phase in phases
                 ],
@@ -748,7 +772,7 @@ class StoryCircleManager:
                     'current_inner_dialogue': ''
                 }
             
-            # Find matching dialogue - Updated to use inner_dialogue
+            # Find matching dialogue
             try:
                 current_dialogue = next(
                     (e["inner_dialogue"] for e in events_dialogues if e["event"] == current_event),
@@ -846,7 +870,6 @@ class StoryCircleManager:
             
             # 1. Set all phases of current circle to not current
             try:
-                # Add explicit WHERE clause for the current story circle
                 self.db.client.table('story_phases')\
                     .update({'is_current': False})\
                     .eq('story_circle_id', story_circle["id"])\
@@ -998,6 +1021,7 @@ class StoryCircleManager:
             logger.error(f"Error reconciling states: {e}")
             logger.exception("Full traceback:")
             raise
+
 
 # Create a singleton instance
 _manager = StoryCircleManager()

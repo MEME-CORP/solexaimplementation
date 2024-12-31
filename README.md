@@ -287,7 +287,7 @@ python migrations/story_circle_supabase_migration.py
 ### Run Tests
 To run the story progression tests:
 ```bash
-python -m pytest tests/test_story_progression.py -v
+python -m pytest tests/test_story_cricle_integration.py -v
 ```
 
 ### Database Management Flow
