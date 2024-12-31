@@ -94,18 +94,31 @@ class ATOManager:
         await self._start_token_monitoring()
         return True
         
-    def _store_announcement_memory(self, announcement: str):
-        """Helper method to store announcements as memories"""
+    def _store_announcement_memory(self, announcement: str) -> bool:
+        """Helper method to store announcements as memories synchronously"""
         try:
-            # Use synchronous storage
-            success = self.memory_processor.store_announcement_sync(announcement)
+            # Ensure announcement is properly formatted
+            if not announcement or not announcement.strip():
+                logger.error("Empty or invalid announcement")
+                return False
+            
+            formatted_announcement = announcement.strip()
+            
+            # Use synchronous storage with database persistence
+            success = self.memory_processor.store_announcement_sync(formatted_announcement)
+            
             if success:
-                logger.info("Stored announcement in memories")
+                logger.info(f"Successfully stored announcement in memories: {formatted_announcement[:100]}...")
+                return True
             else:
-                logger.error("Failed to store announcement")
+                logger.error("Failed to store announcement in database")
+                return False
+            
         except Exception as e:
             logger.error(f"Error storing announcement memory: {e}")
-            
+            logger.exception("Full traceback:")
+            return False
+
     def _post_wallet_announcement(self):
         """Post wallet announcement in character style"""
         announcement = (
@@ -386,23 +399,28 @@ class ATOManager:
 
     def _post_tokens_received(self, balance: Decimal):
         """Post announcement when tokens are received"""
-        announcement = (
-            f"nyaa~! tokens received!! {balance} tokens awe now in my wawwet! >w<\n\n"
-            "thank u mr dev! now i can stawt the Agent Take Ovew!\n"
-            "wet's make this waunch go to the mooooon! uwu\n\n"            
-        )
-        logger.info(f"Posted tokens received: {announcement}")
-        
-        # Single broadcast task
-        asyncio.create_task(self.broadcaster.broadcast(announcement))
-        
-        # Store memory synchronously
         try:
-            self._store_announcement_memory(announcement)
+            announcement = (
+                f"nyaa~! tokens received!! {balance} tokens awe now in my wawwet! >w<\n\n"
+                "thank u mr dev! now i can stawt the Agent Take Ovew!\n"
+                "wet's make this waunch go to the mooooon! uwu\n\n"            
+            )
+            logger.info(f"Posted tokens received: {announcement}")
+            
+            # Store announcement synchronously with proper error handling
+            storage_success = self._store_announcement_memory(announcement)
+            if not storage_success:
+                logger.error("Failed to store tokens received announcement")
+            
+            # Create broadcast task
+            asyncio.create_task(self.broadcaster.broadcast(announcement))
+            
+            return announcement
+            
         except Exception as e:
-            logger.error(f"Error storing announcement memory: {e}")
-        
-        return announcement
+            logger.error(f"Error in _post_tokens_received: {e}")
+            logger.exception("Full traceback:")
+            return "Error posting tokens received announcement"
 
     async def _activate_post_token_receipt(self):
         """Handle actions after tokens are received"""

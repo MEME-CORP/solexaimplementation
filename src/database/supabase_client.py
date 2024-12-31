@@ -4,7 +4,7 @@ from src.config import Config
 import logging
 import json
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import os
 import requests
 
@@ -829,9 +829,10 @@ class DatabaseService:
             logger.exception("Full traceback:")
             return None
 
-    def add_memory(self, memory: dict) -> bool:
+    def add_memory(self, memory: Union[dict, str]) -> bool:
         """
         Add a single memory to the database with proper ID sequencing.
+        Accepts either a dictionary with full memory data or a string content.
         Returns True if successful, False otherwise.
         """
         try:
@@ -847,10 +848,20 @@ class DatabaseService:
             if max_id_response.data and len(max_id_response.data) > 0:
                 next_id = max_id_response.data[0]['id'] + 1
                 
-            # Prepare memory with correct ID
+            # Convert string input to memory dict if needed
+            if isinstance(memory, str):
+                memory = {
+                    'memory': memory,
+                    'created_at': datetime.now().isoformat()
+                }
+                
+            # Ensure memory is a dict
+            if not isinstance(memory, dict):
+                logger.error("Invalid memory format")
+                return False
+                
+            # Add required fields
             memory['id'] = next_id
-            
-            # Add timestamp if not present
             if 'created_at' not in memory:
                 memory['created_at'] = datetime.now().isoformat()
                 
@@ -867,6 +878,7 @@ class DatabaseService:
             
         except Exception as e:
             logger.error(f"Error adding memory to database: {e}")
+            logger.exception("Full traceback:")
             return False
 
     def add_processed_tweet(self, tweet_id: str) -> None:
@@ -885,5 +897,29 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error adding processed tweet {tweet_id}: {e}")
             raise
+
+    def insert_memory(self, content: str) -> bool:
+        """Insert a new memory into the memories table"""
+        try:
+            # Format the memory data
+            memory_data = {
+                'memory': content,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # Use the existing add_memory method
+            success = self.add_memory(memory_data)
+            
+            if success:
+                logger.info(f"Successfully inserted memory: {content[:100]}...")
+                return True
+                
+            logger.error("Failed to insert memory")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error inserting memory: {e}")
+            logger.exception("Full traceback:")
+            return False
 
   

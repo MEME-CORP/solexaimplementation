@@ -7,6 +7,7 @@ import logging
 import os
 import yaml
 from src.database.supabase_client import DatabaseService
+from typing import List, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -33,279 +34,111 @@ client = OpenAI(
 
 class MemoryProcessor:
     def __init__(self):
-        self.client = OpenAI(
-            api_key=Config.GLHF_API_KEY,
-            base_url=Config.OPENAI_BASE_URL
-        )
+        """Initialize the memory processor"""
+        self.memories = []
+        self.processing_queue = asyncio.Queue()
         self.db = DatabaseService()
         
-        # Load prompt from YAML file
-        self.memory_analysis_prompt = load_yaml_prompt('memory_analysis_prompt.yaml')
-        if not self.memory_analysis_prompt:
-            raise ValueError("Failed to load memory analysis prompt from YAML file")
-
-    @staticmethod
-    def format_conversations(user_conversations):
-        """Format the day's conversations into a readable string"""
-        formatted = []
-        for user_id, messages in user_conversations.items():
-            # Handle both list and dict message formats
-            if isinstance(messages, list):
-                conversation = [
-                    f"{'Assistant' if msg['is_bot'] else 'User'}: {msg['content']}"
-                    for msg in messages
-                ]
-            else:
-                # Handle single message case
-                conversation = [f"Assistant: {messages['content']}"] if isinstance(messages, dict) else []
-            formatted.extend(conversation)
-        return "\n".join(formatted)
-
-    async def update_memories(self, analyzed_topics):
-        """Add only new and relevant memories to the database"""
+    async def store_announcement(self, announcement: str) -> bool:
+        """Asynchronously store and process an announcement"""
         try:
-            # Extract only the summary strings for relevant topics
-            new_memories = [
-                topic["summary"].strip()  # Just the string, no JSON wrapping
-                for topic in analyzed_topics
-                if not topic.get('exists', False) and topic.get('relevant', True)
-            ]
+            # Format the memory
+            memory = {
+                'timestamp': datetime.now().isoformat(),
+                'content': announcement,
+                'processed': False
+            }
             
-            if new_memories:
-                # Add memories to database
-                try:
-                    await self.db.add_memories(new_memories)
-                    logger.info(f"Added {len(new_memories)} new relevant memories")
-                    return True
-                except Exception as db_error:
-                    logger.error(f"Database error: {db_error}")
-                    return False
-            else:
-                logger.info("No new relevant memories to add")
+            # Store in database
+            success = self.db.insert_memory(announcement)
+            if not success:
+                logger.error("Failed to store memory in database")
                 return False
                 
-        except Exception as e:
-            logger.error(f"Error in update_memories: {e}")
-            return False
-
-    async def analyze_daily_conversations(self, user_conversations):
-        try:
-            existing_memories = await self.db.get_memories()
+            # Add to local memories list
+            self.memories.append(memory)
             
-            # Handle both single announcements and conversation lists
-            if isinstance(user_conversations, dict) and len(user_conversations) == 1:
-                # For single announcements, simplify the analysis
-                first_key = next(iter(user_conversations))
-                if isinstance(user_conversations[first_key], dict):
-                    # Single announcement case
-                    content = user_conversations[first_key].get('content', '')
-                    return {
-                        "topics": [{
-                            "topic": "announcement",
-                            "summary": content,
-                            "exists": False,
-                            "relevant": True,
-                            "reasoning": "Direct announcement from agent"
-                        }]
-                    }
+            # Add to processing queue
+            await self.processing_queue.put(memory)
             
-            # Format conversations for analysis (existing logic for normal conversations)
-            formatted_conversations = self.format_conversations(user_conversations)
+            logger.info(f"Successfully stored memory in database: {announcement[:100]}...")
+            return True
             
-            # Prepare prompt with existing memories using instance prompt
-            prompt = self.memory_analysis_prompt.format(
-                existing_memories=json.dumps(existing_memories, indent=2),
-                conversations=formatted_conversations
-            )
-            
-            # Get analysis using new OpenAI client format
-            response = self.client.chat.completions.create(
-                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": """You are a precise analysis tool that MUST respond with ONLY valid JSON format.
-                        Do not include any explanatory text before or after the JSON.
-                        The JSON must exactly match the requested format.
-                        Do not include markdown formatting or code blocks."""
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.0,
-                max_tokens=1000
-            )
-            
-            # Log the raw response for debugging
-            response_content = response.choices[0].message.content.strip()
-            logger.info(f"Raw API Response: {response_content}")
-            
-            # Try to clean the response if needed
-            cleaned_content = response_content.strip()
-            if cleaned_content.startswith("```json"):
-                cleaned_content = cleaned_content[7:]
-            if cleaned_content.endswith("```"):
-                cleaned_content = cleaned_content[:-3]
-            cleaned_content = cleaned_content.strip()
-            
-            # Parse response with better error handling
-            try:
-                analysis = json.loads(cleaned_content)
-            except json.JSONDecodeError as json_err:
-                logger.error(f"JSON Parse Error: {json_err}")
-                logger.error(f"Attempted to parse: {cleaned_content}")
-                # Provide a fallback analysis if parsing fails
-                analysis = {
-                    "topics": [
-                        {
-                            "topic": "conversation_parse_error",
-                            "summary": "had twouble understanding the convewsation today... maybe twy again tomowwow?",
-                            "exists": False,
-                            "relevant": False,
-                            "reasoning": "Error parsing conversation analysis"
-                        }
-                    ]
-                }
-            
-            return analysis
-            
-        except Exception as e:
-            logger.error(f"Error in analyze_daily_conversations: {e}")
-            raise e
-
-    async def process_daily_memories(self, user_conversations):
-        """Main function to process daily memories - should be called at night"""
-        try:
-            logger.info("Starting daily memory processing...")
-            
-            # First analyze the conversations
-            analysis = await self.analyze_daily_conversations(user_conversations)
-            
-            # Then update the database with only new and relevant memories
-            await self.update_memories(analysis['topics'])
-            
-            logger.info("Daily memory processing completed successfully")
-            return analysis
-        except Exception as e:
-            logger.error(f"Error in process_daily_memories: {e}")
-            raise e 
-
-    def _clean_memory_content(self, content: str) -> str:
-        """Clean and standardize memory content before storage"""
-        try:
-            # Remove extra whitespace and normalize line endings
-            cleaned = content.strip()
-            cleaned = ' '.join(cleaned.splitlines())
-            
-            # Remove multiple spaces
-            cleaned = ' '.join(cleaned.split())
-            
-            # Ensure content isn't too long (optional)
-            max_length = 1000  # Adjust as needed
-            if len(cleaned) > max_length:
-                cleaned = cleaned[:max_length] + "..."
-                
-            return cleaned
-            
-        except Exception as e:
-            logger.error(f"Error cleaning memory content: {e}")
-            return content  # Return original if cleaning fails
-
-    async def process_announcement(self, announcement: str):
-        """Process a single announcement and store it as a memory"""
-        try:
-            logger.info("Processing announcement through LLM analysis...")
-            
-            # Get existing memories - simplified error handling
-            try:
-                existing_memories = await self.db.get_memories()
-                memories_json = json.dumps(existing_memories if existing_memories else [], indent=2)
-            except Exception as db_error:
-                logger.error(f"Error getting existing memories: {db_error}")
-                memories_json = "[]"  # Continue with empty memories
-            
-            # Use the same memory analysis prompt
-            prompt = self.memory_analysis_prompt.format(
-                existing_memories=memories_json,
-                conversations=announcement
-            )
-            
-            # Get analysis using OpenAI client (keeping the working part unchanged)
-            response = self.client.chat.completions.create(
-                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": """You are a precise analysis tool that MUST respond with ONLY valid JSON format.
-                        Do not include any explanatory text before or after the JSON.
-                        The JSON must exactly match the requested format.
-                        Do not include markdown formatting or code blocks."""
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.0,
-                max_tokens=1000
-            )
-            
-            response_content = response.choices[0].message.content.strip()
-            logger.info(f"Raw API Response: {response_content}")
-            
-            # Process the response
-            try:
-                analysis = json.loads(response_content)
-                if analysis and 'topics' in analysis:
-                    success = await self.update_memories(analysis['topics'])
-                    if success:
-                        logger.info("Successfully processed and stored announcement")
-                        return True
-                    
-                return False
-                    
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON Parse Error: {e}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error processing announcement: {e}")
-            return False
-
-    def store_announcement(self, announcement: str) -> bool:
-        """
-        Process and store an announcement using the LLM pipeline.
-        Returns True if successful, False otherwise.
-        """
-        try:
-            logger.info("Processing and storing announcement")
-            
-            # Create asyncio event loop if needed
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            
-            # Process the announcement through the LLM pipeline
-            analysis = loop.run_until_complete(self.process_announcement(announcement))
-            
-            if analysis and 'topics' in analysis:
-                logger.info("Successfully processed and stored announcement")
-                return True
-            else:
-                logger.error("Failed to process announcement")
-                return False
-                
         except Exception as e:
             logger.error(f"Error storing announcement: {e}")
             return False
 
     def store_announcement_sync(self, announcement: str) -> bool:
-        """Synchronous version of store_announcement"""
+        """Synchronously store an announcement"""
         try:
-            # Process announcement synchronously
-            self.announcements.append({
+            # Format the memory
+            memory = {
+                'timestamp': datetime.now().isoformat(),
                 'content': announcement,
-                'timestamp': datetime.now().isoformat()
-            })
+                'processed': False
+            }
+            
+            # Store in database
+            success = self.db.insert_memory(announcement)
+            if not success:
+                logger.error("Failed to store memory in database")
+                return False
+                
+            # Add to local memories list
+            self.memories.append(memory)
+            
+            logger.info(f"Successfully stored memory in database: {announcement[:100]}...")
             return True
+            
         except Exception as e:
-            logger.error(f"Error storing announcement: {e}")
+            logger.error(f"Error storing announcement synchronously: {e}")
             return False
+
+    async def process_memories(self):
+        """Process memories from the queue"""
+        while True:
+            try:
+                # Get memory from queue
+                memory = await self.processing_queue.get()
+                
+                # Process the memory
+                await self._process_memory(memory)
+                
+                # Mark task as done
+                self.processing_queue.task_done()
+                
+            except Exception as e:
+                logger.error(f"Error processing memory: {e}")
+                continue
+
+    async def _process_memory(self, memory: dict):
+        """Process a single memory"""
+        try:
+            # Add processing logic here
+            memory['processed'] = True
+            logger.info(f"Processed memory: {memory['content'][:100]}...")
+            
+        except Exception as e:
+            logger.error(f"Error in memory processing: {e}")
+            raise
+
+    def get_memories(self) -> List[dict]:
+        """Get all stored memories from database"""
+        try:
+            memories = self.db.get_memories()
+            return memories if memories else []
+        except Exception as e:
+            logger.error(f"Error getting memories: {e}")
+            return []
+
+    def clear_memories(self):
+        """Clear all stored memories"""
+        try:
+            success = self.db.clear_memories()
+            if success:
+                self.memories = []
+                logger.info("Successfully cleared all memories")
+            else:
+                logger.error("Failed to clear memories from database")
+        except Exception as e:
+            logger.error(f"Error clearing memories: {e}")

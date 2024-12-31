@@ -97,18 +97,84 @@ class StoryCircleManager:
                 logger.error(f"story_circle_prompt loaded: {bool(self.story_circle_prompt)}")
                 logger.error(f"summary_prompt loaded: {bool(self.summary_prompt)}")
                 raise ValueError("Failed to load required prompts from YAML files. Check logs for details.")
+
+            # Initialize first story circle if none exists
+            self._initialize_first_story_circle()
                 
         except Exception as e:
             logger.error(f"Error initializing StoryCircleManager: {str(e)}")
             logger.exception("Full initialization error traceback:")
             raise
 
-    def load_story_circle(self):
-        """Load the current story circle from database"""
+    def _initialize_first_story_circle(self):
+        """Initialize the first story circle if none exists"""
         try:
-            return self.db.get_story_circle()
+            # Check if any story circle exists
+            story_circle = self.db.get_story_circle()
+            
+            if not story_circle:
+                logger.info("No story circle found - creating initial story circle")
+                
+                # Create new story circle
+                story_circle = self.db.create_story_circle()
+                
+                if not story_circle:
+                    logger.error("Failed to create initial story circle")
+                    return
+                
+                # Generate initial events
+                story_circle = self.update_story_circle()
+                
+                if story_circle and story_circle.get('events'):
+                    # Initialize dynamic context with first event
+                    story_circle['dynamic_context'] = {
+                        "current_event": story_circle['events'][0],
+                        "current_inner_dialogue": story_circle['dialogues'][0],
+                        "next_event": story_circle['events'][1] if len(story_circle['events']) > 1 else ""
+                    }
+                    
+                    # Save the initialized story circle
+                    self.db.update_story_circle_state(story_circle)
+                    logger.info("Successfully initialized first story circle with events")
+                else:
+                    logger.error("Failed to generate initial events for first story circle")
+            else:
+                logger.info("Existing story circle found - skipping initialization")
+                
+        except Exception as e:
+            logger.error(f"Error initializing first story circle: {e}")
+            logger.exception("Full traceback:")
+            raise
+
+    def load_story_circle(self):
+        """Load the current story circle from database or create new one if none exists"""
+        try:
+            # Try to get existing story circle
+            story_circle = self.db.get_story_circle()
+            
+            # If no story circle exists, create one
+            if not story_circle:
+                logger.info("No existing story circle found, creating new one")
+                story_circle = self.db.create_story_circle()
+                
+                # Generate initial events and context
+                story_circle = self.update_story_circle()
+                if story_circle and story_circle.get('events'):
+                    story_circle['dynamic_context'] = {
+                        "current_event": story_circle['events'][0],
+                        "current_inner_dialogue": story_circle['dialogues'][0],
+                        "next_event": story_circle['events'][1] if len(story_circle['events']) > 1 else ""
+                    }
+                    self.db.update_story_circle_state(story_circle)
+                    logger.info("Successfully initialized new story circle with events")
+                else:
+                    logger.error("Failed to generate initial events for new story circle")
+            
+            return story_circle
+            
         except Exception as e:
             logger.error(f"Error loading story circle: {e}")
+            logger.exception("Full traceback:")
             return None
 
     def load_circles_memory(self):
@@ -270,8 +336,7 @@ class StoryCircleManager:
                 
                 # Update phase description with all events
                 try:
-                    for event in events:
-                        self._update_phase_description(story_circle, event)
+                    self._update_phase_description(story_circle, current_event)
                     logger.info("Updated phase description with all events")
                     
                     # Complete current phase and progress to next
@@ -321,26 +386,33 @@ class StoryCircleManager:
             # Get current phase index
             current_phase_index = story_circle['current_phase_number'] - 1
             
-            # Get current description and append new event
-            current_description = story_circle['phases'][current_phase_index]['description']
-            updated_description = f"{current_description} {event}".strip()
+            # Get current events list for this phase
+            events = story_circle.get('events', [])
+            current_event_index = events.index(event) if event in events else -1
             
-            # Update in database
-            success = self.db.update_phase_description(
-                story_circle["id"],
-                story_circle["current_phase"],
-                updated_description
-            )
-            
-            if success:
-                # Also update in memory
-                story_circle['phases'][current_phase_index]['description'] = updated_description
-                logger.info(f"Updated phase description for {story_circle['current_phase']}")
-                logger.debug(f"New description: {updated_description}")
+            # Only update description when all events are completed
+            if current_event_index == len(events) - 1:
+                # Build complete phase description from all events
+                phase_description = " ".join(events).strip()
+                
+                # Update in database
+                success = self.db.update_phase_description(
+                    story_circle["id"],
+                    story_circle["current_phase"],
+                    phase_description
+                )
+                
+                if success:
+                    # Also update in memory
+                    story_circle['phases'][current_phase_index]['description'] = phase_description
+                    logger.info(f"Updated phase description for {story_circle['current_phase']}")
+                    logger.debug(f"New description: {phase_description}")
+                else:
+                    logger.error("Failed to update phase description in database")
+                    raise Exception("Phase description update failed")
             else:
-                logger.error("Failed to update phase description in database")
-                raise Exception("Phase description update failed")
-            
+                logger.debug(f"Skipping phase description update - not all events completed yet ({current_event_index + 1}/{len(events)})")
+                
         except Exception as e:
             logger.error(f"Error updating phase description: {e}")
             raise
@@ -352,7 +424,7 @@ class StoryCircleManager:
             
             # Get current phase info
             current_phase_index = story_circle['current_phase_number'] - 1
-            current_phase = story_circle['phases'][current_phase_index]
+            current_phase = story_circle['current_phase']
             events = story_circle.get('events', [])
             
             # Build complete phase description
@@ -394,7 +466,7 @@ class StoryCircleManager:
             
             logger.info(f"Updated phase status in database: {story_circle['current_phase']} -> {next_phase}")
             
-            # Update story circle object
+            # Update story circle object with next phase
             story_circle.update({
                 "current_phase": next_phase,
                 "current_phase_number": next_phase_number,
@@ -411,7 +483,7 @@ class StoryCircleManager:
             self.db.update_story_circle_state(story_circle)
             logger.info(f"Progressed to next phase: {next_phase}")
             
-            # Generate new events and ensure dynamic context is properly initialized
+            # Generate new events for the next phase
             updated_circle = self.update_story_circle()
             if updated_circle and updated_circle.get('events'):
                 updated_circle['dynamic_context'] = {
@@ -585,10 +657,15 @@ class StoryCircleManager:
 
     def _get_next_phase(self, current_phase):
         """Helper method to determine the next phase"""
+        # Update to match test's expected phase order exactly
         phases = ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
-        current_index = phases.index(current_phase)
-        next_index = (current_index + 1) % len(phases)
-        return phases[next_index]
+        try:
+            current_index = phases.index(current_phase)
+            next_index = (current_index + 1) % len(phases)
+            return phases[next_index]
+        except ValueError:
+            logger.error(f"Invalid phase name: {current_phase}")
+            return phases[0]  # Return to first phase as fallback
 
     def get_current_context(self):
         """Get the current story circle context"""
