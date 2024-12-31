@@ -240,7 +240,7 @@ class StoryCircleManager:
                     logger.error("Missing 'memories' key in summary")
                     return {
                         "memories": [
-                            "A story about Fwog's adventure (summary missing memories)",
+                            "A story about the character's adventure (summary missing memories)",
                             "A key moment was lost in translation",
                             "Character development remains a mystery"
                         ]
@@ -251,7 +251,7 @@ class StoryCircleManager:
                     logger.error("Invalid memories array structure")
                     return {
                         "memories": [
-                            "A story about Fwog's adventure (invalid memories structure)",
+                            "A story about the character's adventure (invalid memories structure)",
                             "A key moment was lost in translation",
                             "Character development remains a mystery"
                         ]
@@ -263,7 +263,7 @@ class StoryCircleManager:
                 logger.error(f"Failed to parse AI summary response: {e}\nRaw response: {response_text}")
                 return {
                     "memories": [
-                        "A story about Fwog's adventure (summary parsing failed)",
+                        "A story about the character's adventure (summary parsing failed)",
                         "A key moment was lost in translation",
                         "Character development remains a mystery"
                     ]
@@ -274,7 +274,7 @@ class StoryCircleManager:
             logger.exception("Full traceback:")
             return {
                 "memories": [
-                    "A story about Fwog's adventure (summary generation failed)",
+                    "A story about the character's adventure (summary generation failed)",
                     "A key moment was lost in translation",
                     "Character development remains a mystery"
                 ]
