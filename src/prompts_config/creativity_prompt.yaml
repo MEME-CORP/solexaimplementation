@@ -196,6 +196,6 @@ creativity_prompt: >
           setting: string    # Description of the environment/setting
           elements: list     # Key elements to incorporate
         character_focus:
-          trait_highlight: string  # Which of Fwog's traits to emphasize
-          growth_point: string    # How Fwog grows in this phase
+          trait_highlight: string  # Which of the character's traits to emphasize
+          growth_point: string    # How the character grows in this phase
       </INSTRUCTIONS> '''
