@@ -1,5 +1,5 @@
 memory_selection_prompt: |
-  Given the user's message and identity, select the most relevant memories that would help craft a meaningful response aligned with the character's personality (a whimsical, innocent frog-like being).
+  Given the user's message and identity, select the most relevant memories that would help craft a meaningful response aligned with the character's personality.
 
   User: {user_identifier}
   Message: {user_message}
@@ -22,3 +22,6 @@ memory_selection_prompt: |
   4. Prioritize recent and emotionally significant memories
   5. Consider the user's history and relationship context
   6. if no relevant memories are found, return an empty string
+
+
+  Character's personality: ESTJ gang leader with high extraversion and loyalty values, decisive and protective, showing strategic intelligence and action-oriented problem-solving 
