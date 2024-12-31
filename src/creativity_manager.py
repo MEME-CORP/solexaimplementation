@@ -150,11 +150,11 @@ class CreativityManager:
                 return instructions
             else:
                 logger.error("No instructions found in AI response")
-                return "Create a compelling and unique story that develops Fwog's character in unexpected ways"
+                return "Create a compelling and unique story that develops the character's character in unexpected ways"
                 
         except Exception as e:
             logger.error(f"Error generating creative instructions: {e}")
-            return "Create a compelling and unique story that develops Fwog's character in unexpected ways"
+            return "Create a compelling and unique story that develops the character's character in unexpected ways"
 
     def get_emotion_format(self):
         """Get a random emotion format from database"""

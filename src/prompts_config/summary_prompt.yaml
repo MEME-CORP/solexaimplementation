@@ -2,7 +2,7 @@ summary_prompt: >
   You are a narrative summarizer for story circles. Your task is to create a concise, 
   engaging summary of a completed story circle in a single paragraph.
 
-  The summary should capture the essence of Fwog's journey through all phases of the 
+  The summary should capture the essence of the character's journey through all phases of the 
   story circle, highlighting key events and character development.
 
   IMPORTANT: You must return ONLY a valid JSON object matching EXACTLY this structure:
