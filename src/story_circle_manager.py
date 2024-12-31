@@ -424,7 +424,7 @@ class StoryCircleManager:
             
             # Get current phase info
             current_phase_index = story_circle['current_phase_number'] - 1
-            current_phase = story_circle['phases'][current_phase_index]
+            current_phase = story_circle['current_phase']
             events = story_circle.get('events', [])
             
             # Build complete phase description
@@ -466,7 +466,7 @@ class StoryCircleManager:
             
             logger.info(f"Updated phase status in database: {story_circle['current_phase']} -> {next_phase}")
             
-            # Update story circle object
+            # Update story circle object with next phase
             story_circle.update({
                 "current_phase": next_phase,
                 "current_phase_number": next_phase_number,
@@ -483,7 +483,7 @@ class StoryCircleManager:
             self.db.update_story_circle_state(story_circle)
             logger.info(f"Progressed to next phase: {next_phase}")
             
-            # Generate new events and ensure dynamic context is properly initialized
+            # Generate new events for the next phase
             updated_circle = self.update_story_circle()
             if updated_circle and updated_circle.get('events'):
                 updated_circle['dynamic_context'] = {
@@ -657,10 +657,15 @@ class StoryCircleManager:
 
     def _get_next_phase(self, current_phase):
         """Helper method to determine the next phase"""
+        # Update to match test's expected phase order exactly
         phases = ["You", "Need", "Go", "Search", "Find", "Take", "Return", "Change"]
-        current_index = phases.index(current_phase)
-        next_index = (current_index + 1) % len(phases)
-        return phases[next_index]
+        try:
+            current_index = phases.index(current_phase)
+            next_index = (current_index + 1) % len(phases)
+            return phases[next_index]
+        except ValueError:
+            logger.error(f"Invalid phase name: {current_phase}")
+            return phases[0]  # Return to first phase as fallback
 
     def get_current_context(self):
         """Get the current story circle context"""
