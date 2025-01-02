@@ -18,6 +18,9 @@ creativity_prompt: >
          current marketcap: {current_marketcap:.0f}
          next marketcap milestone: {next_milestone:.0f}
 
+      Token symbol: 
+      {token_symbol}
+
       Use CREATIVE_STORM to generate creative solutions:
 
       CREATIVE_STORM
