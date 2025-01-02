@@ -11,6 +11,7 @@ from src.memory_processor import MemoryProcessor
 import sys
 import json
 from pathlib import Path
+from src.prompts import load_style_prompts
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ATOManager')
@@ -18,6 +19,14 @@ logger = logging.getLogger('ATOManager')
 class ATOManager:
     def __init__(self):
         """Initialize ATO Manager"""
+        # Add system prompt loading
+        self.system_prompts = load_style_prompts()
+        if not self.system_prompts or 'style1' not in self.system_prompts:
+            logger.error("Failed to load system prompt")
+            raise ValueError("System prompt configuration missing")
+            
+        self.system_prompt = self.system_prompts['style1']
+        
         self.wallet_manager = WalletManager()
         self.broadcaster = AnnouncementBroadcaster()
         self.memory_processor = MemoryProcessor()
@@ -68,38 +77,55 @@ class ATOManager:
 
     async def initialize(self):
         """Initialize agent wallet and start monitoring"""
-        # Check if we already have wallet credentials
-        existing_credentials = self.wallet_manager.get_wallet_credentials()
-        if existing_credentials and existing_credentials.get('public_key'):
-            logger.info("Using existing wallet credentials")
-            self._agent_wallet = existing_credentials['public_key']
+        try:
+            # Check if we already have wallet credentials
+            existing_credentials = self.wallet_manager.get_wallet_credentials()
+            if existing_credentials and existing_credentials.get('public_key'):
+                logger.info("Using existing wallet credentials")
+                self._agent_wallet = existing_credentials['public_key']
+                
+                # Only post wallet announcement if it hasn't been done before
+                if not self._announcement_history.get('wallet_announced', False):
+                    self._post_wallet_announcement()
+                    # Update history to mark wallet as announced
+                    self._announcement_history['wallet_announced'] = True
+                    self._save_announcement_history()
+                else:
+                    logger.info("Wallet announcement already made, skipping...")
+                
+                # Start token monitoring
+                await self._start_token_monitoring()
+                return True
+            
+            # If no existing credentials, generate new wallet
+            success, wallet_data = self.wallet_manager.generate_new_wallet()
+            if not success:
+                logger.error("Failed to generate agent wallet")
+                return False
+            
+            # Store the credentials properly
+            if not self.wallet_manager.set_wallet_credentials(
+                public_key=wallet_data['publicKey'],
+                private_key=wallet_data['privateKey'],
+                secret_key=wallet_data['privateKey']  # Using private key as secret key
+            ):
+                logger.error("Failed to store wallet credentials")
+                return False
+            
+            self._agent_wallet = wallet_data['publicKey']
+            
+            # Post initial wallet announcement and mark as announced
             self._post_wallet_announcement()
+            self._announcement_history['wallet_announced'] = True
+            self._save_announcement_history()
             
             # Start token monitoring
             await self._start_token_monitoring()
             return True
-        
-        # If no existing credentials, generate new wallet
-        success, wallet_data = self.wallet_manager.generate_new_wallet()
-        if not success:
-            logger.error("Failed to generate agent wallet")
-            return False
-        
-        # Store the credentials properly
-        if not self.wallet_manager.set_wallet_credentials(
-            public_key=wallet_data['publicKey'],
-            private_key=wallet_data['privateKey'],
-            secret_key=wallet_data['privateKey']  # Using private key as secret key
-        ):
-            logger.error("Failed to store wallet credentials")
-            return False
             
-        self._agent_wallet = wallet_data['publicKey']
-        self._post_wallet_announcement()
-        
-        # Start token monitoring
-        await self._start_token_monitoring()
-        return True
+        except Exception as e:
+            logger.error(f"Error in initialize: {e}")
+            return False
         
     def _store_announcement_memory(self, announcement: str) -> bool:
         """Helper method to store announcements as memories synchronously"""
@@ -620,6 +646,7 @@ class ATOManager:
                 with open(self._announcements_file, 'r') as f:
                     return json.load(f)
             return {
+                'wallet_announced': False,
                 'tokens_received': False,
                 'initial_milestones': False,
                 'milestone_executions': [],
@@ -628,6 +655,7 @@ class ATOManager:
         except Exception as e:
             logger.error(f"Error loading announcement history: {e}")
             return {
+                'wallet_announced': False,
                 'tokens_received': False,
                 'initial_milestones': False,
                 'milestone_executions': [],

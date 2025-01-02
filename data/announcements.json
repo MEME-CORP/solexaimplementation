@@ -1,8 +1,9 @@
 {
+  "wallet_announced": true,
   "tokens_received": true,
   "initial_milestones": true,
   "milestone_executions": [],
   "marketcap_updates": {
-    "5000": 1735667048.0272892
+    "5000": 1735856514.958736
   }
 }

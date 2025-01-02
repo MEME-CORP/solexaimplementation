@@ -4,35 +4,29 @@ import logging
 import json
 import os
 from src.database.supabase_client import DatabaseService
+import yaml
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('prompts')
 
 def load_style_prompts():
-    """Load style prompts from JSON file"""
+    """Load system prompt from YAML file"""
     try:
-        json_path = os.path.join(os.path.dirname(__file__), 'prompts_config', 'style_prompt.json')
-        with open(json_path, 'r', encoding='utf-8') as f:
-            prompts = json.load(f)
+        yaml_path = os.path.join(os.path.dirname(__file__), 'prompts_config', 'system_prompt.yaml')
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
             
-            # Format style1 prompt with ortho style
-            if 'style1' in prompts:
-                style1 = prompts['style1']
-                ortho_style = json.dumps(style1['ortho_style'], indent=4)
-                
-                # Construct the full prompt with the same format as before
-                prompts['style1'] = f"""{style1['description']}
-
-ORTHO_BACK_STYLE
-\"\"\"json
-{ortho_style}
-\"\"\"
-END_ORTHO_BACK_STYLE
-"""
-            return prompts
+            # Extract system prompt from YAML
+            if 'system_prompt' in config:
+                return {
+                    "style1": config['system_prompt'],
+                    "style2": "not-used in conversation bots"  # Keep for backward compatibility
+                }
+            logger.error("No system_prompt found in YAML config")
+            return None
     except Exception as e:
-        logger.error(f"Error loading style prompts: {e}")
+        logger.error(f"Error loading system prompt: {e}")
         return None
 
 # Load prompts from JSON file
