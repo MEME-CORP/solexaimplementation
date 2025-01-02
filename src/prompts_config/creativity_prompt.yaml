@@ -178,6 +178,7 @@ creativity_prompt: >
 
       NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) to provide your responses. 
       NOTE: Never use emojis.
+      NOTE: Always mention the token symbol and the current marketcap in all the events and dialogues.
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
       story_circle_update:
