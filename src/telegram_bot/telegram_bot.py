@@ -2,53 +2,61 @@
 
 import logging
 import re
-import json
 import os
-from pathlib import Path
+import random
+import asyncio
+from datetime import datetime, timedelta
 from typing import Optional
+
+from dotenv import load_dotenv
 from telegram.ext import (
-    ApplicationBuilder, 
-    CommandHandler, 
-    MessageHandler, 
-    ContextTypes, 
-    filters, 
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
     Application,
-    JobQueue,
     Defaults
 )
 from telegram import Update
-from dotenv import load_dotenv
-from src.ai_generator import AIGenerator
+
+# --- Import your modules (adjust imports to your project structure) ---
 from src.config import Config
-import asyncio
+from src.ai_generator import AIGenerator
 from src.memory_processor import MemoryProcessor
 from src.memory_decision import select_relevant_memories
-from src.story_circle_manager import get_current_context, update_story_circle, progress_narrative
-from datetime import datetime, time
-import random
+from src.story_circle_manager import (
+    get_current_context,
+    progress_narrative
+)
 
-# Load environment variables and configure logging
+# Load environment variables
 load_dotenv()
+
+# Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger('TelegramBot')
 
+
 class TelegramBot:
     def __init__(self):
-        """Initialize bot with basic configuration."""
+        """Initialize the Telegram bot with basic configuration."""
         self.token = Config.TELEGRAM_BOT_TOKEN
         self.generator = AIGenerator(mode='telegram')
         self.memory_processor = MemoryProcessor()
         self.user_conversations = {}
         self.MAX_MEMORY = Config.MAX_MEMORY
-        self._running = True
 
     def setup(self) -> Application:
-        """Setup the application and handlers."""
+        """
+        Build the Application with job queue,
+        add command handlers, message handlers, and background jobs.
+        """
         try:
-            # Build application with job queue enabled
+            # Create the Application, enabling the job queue
             defaults = Defaults(block=False)
             self.application = (
                 ApplicationBuilder()
@@ -56,69 +64,106 @@ class TelegramBot:
                 .defaults(defaults)
                 .build()
             )
-            
-            # Add handlers
+
+            # Register command/message handlers
             self.application.add_handler(CommandHandler("start", self.start_command))
             self.application.add_handler(CommandHandler("chatid", self.chatid_command))
-            self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
-            
-            # Only add background tasks if job queue is available
+            self.application.add_handler(
+                MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
+            )
+
+            # Check if job queue is available
             if self.application.job_queue:
                 logger.info("Setting up job queue tasks...")
+
                 try:
-                    self.application.job_queue.run_daily(
-                        self.process_memories_job,
-                        time=time(hour=23, minute=55)
-                    )
+                    # ----------------------------------------------------------------
+                    # 1) DEBUG JOB: REPEATS EVERY 60 SECONDS (after a 10-second delay)
+                    # ----------------------------------------------------------------
                     self.application.job_queue.run_repeating(
-                        self.update_narrative_job,
-                        interval=21600,  # 6 hours in seconds
-                        first=10  # Start first run after 10 seconds
+                        callback=self.debug_memory_job,
+                        interval=43200,   # run every 60 seconds
+                        first=10       # wait 10 seconds before first run
                     )
-                    logger.info("Job queue tasks set up successfully")
+                    logger.info("Debug repeating job scheduled: runs every 60s")
+
+                    # ----------------------------------------------------------------
+                    # 2) NARRATIVE JOB: EVERY 6 HOURS (unchanged)
+                    # ----------------------------------------------------------------
+                    self.application.job_queue.run_repeating(
+                        callback=self.update_narrative_job,
+                        interval=21600,  # 6 hours
+                        first=15         # start 15 seconds after bot starts
+                    )
+                    logger.info("Narrative repeating job scheduled: runs every 6h")
+
                 except Exception as e:
                     logger.error(f"Error setting up job queue tasks: {e}")
             else:
                 logger.warning("Job queue not available. Background tasks will not run.")
-            
+
             return self.application
 
         except Exception as e:
             logger.error(f"Error in setup: {e}")
             raise
 
-    async def process_memories_job(self, context: ContextTypes.DEFAULT_TYPE):
-        """Job to process memories daily."""
+    async def debug_memory_job(self, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Debug job that runs every 60 seconds to prove the job queue is working.
+        We simulate a 'daily' memory job by printing logs and clearing conversation data.
+        """
         try:
-            logger.info("Starting nightly memory processing...")
-            if self.user_conversations:  # Only process if there are conversations
-                await self.memory_processor.process_daily_memories(self.user_conversations)
-                self.user_conversations.clear()
-                logger.info("Nightly memory processing completed")
+            logger.info("[DEBUG-JOB] Starting memory processing job...")
+            logger.info(f"[DEBUG-JOB] Current user_conversations count: {len(self.user_conversations)}")
+
+            if self.user_conversations:
+                logger.info("[DEBUG-JOB] Processing user conversations...")
+                try:
+                    await self.memory_processor.process_daily_memories(self.user_conversations)
+                    self.user_conversations.clear()
+                    logger.info("[DEBUG-JOB] Memory processing completed successfully (debug)")
+                except Exception as e:
+                    logger.error(f"[DEBUG-JOB] Error processing daily memories: {e}")
             else:
-                logger.info("No conversations to process")
+                logger.info("[DEBUG-JOB] No conversations to process this cycle")
+
+            # Show next run time for clarity
+            if context.job and context.job.next_run_time:
+                logger.info(f"[DEBUG-JOB] Next run scheduled for: {context.job.next_run_time.isoformat()}")
+
         except Exception as e:
-            logger.error(f"Error in nightly memory processing: {e}")
+            logger.error(f"[DEBUG-JOB] Critical error in memory job: {e}")
+            logger.exception("[DEBUG-JOB] Full error details:")
+        finally:
+            logger.info("[DEBUG-JOB] Memory processing job cycle completed (debug)")
 
     async def update_narrative_job(self, context: ContextTypes.DEFAULT_TYPE):
-        """Job to update narrative every 6 hours."""
+        """
+        Job to update the story circle narrative every 6 hours.
+        """
         try:
-            logger.info("Progressing story circle narrative...")
-            # Call the synchronous function
+            logger.info("[NARRATIVE-JOB] Progressing story circle narrative...")
             result = progress_narrative()
             if result:
-                logger.info("Story circle progression completed")
+                logger.info("[NARRATIVE-JOB] Story circle progression completed")
             else:
-                logger.warning("No story circle progression needed or possible")
+                logger.warning("[NARRATIVE-JOB] No story circle progression needed or possible")
         except Exception as e:
-            logger.error(f"Error in story circle progression: {e}")
+            logger.error(f"[NARRATIVE-JOB] Error in story circle progression: {e}")
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handler for the /start command."""
-        await update.message.reply_text(f"Hello! I'm Fwogai bot. Mention me using @{Config.BOT_USERNAME}")
+        """
+        /start command handler
+        """
+        await update.message.reply_text(
+            f"Hello! I'm Fwogai bot. Mention me using @{Config.BOT_USERNAME}"
+        )
 
     async def chatid_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handler for the /chatid command."""
+        """
+        /chatid command handler
+        """
         if not update.effective_chat:
             return
         await context.bot.send_message(
@@ -127,7 +172,9 @@ class TelegramBot:
         )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle incoming messages."""
+        """
+        Handle any text message (that isn't a command).
+        """
         if not update.message or not update.message.text:
             return
 
@@ -135,14 +182,14 @@ class TelegramBot:
         user_id = update.message.from_user.id
         username = update.message.from_user.username or f'User{user_id}'
 
-        # Add to conversation history
+        # Add user message to conversation history
         self.add_to_conversation_history(user_id, user_message, is_bot=False)
 
         try:
-            # Generate response
+            # Generate AI response
             response = await self.generate_response(user_message, user_id, username)
 
-            # Trim content if needed
+            # Trim response if it's too long
             if len(response) > 200:
                 truncated = response[:200]
                 last_sentence = re.search(r'^.*[.!?]', truncated)
@@ -154,15 +201,19 @@ class TelegramBot:
             # Send response
             await update.message.reply_text(response)
 
-            # Add bot response to conversation history
+            # Add the bot's response to history
             self.add_to_conversation_history(user_id, response, is_bot=True)
-            
+
         except Exception as e:
             logger.error(f"Error in handle_message: {e}")
-            await update.message.reply_text("Sorry, I encountered an error while processing your message.")
+            await update.message.reply_text(
+                "Sorry, I encountered an error while processing your message."
+            )
 
     def add_to_conversation_history(self, user_id, message, is_bot):
-        """Add message to conversation history."""
+        """
+        Save message in local conversation history for each user.
+        """
         if user_id not in self.user_conversations:
             self.user_conversations[user_id] = []
         self.user_conversations[user_id].append({
@@ -170,12 +221,15 @@ class TelegramBot:
             'is_bot': is_bot,
             'timestamp': asyncio.get_event_loop().time()
         })
-        # Keep only the last MAX_MEMORY messages
+
+        # Keep the last MAX_MEMORY messages
         if len(self.user_conversations[user_id]) > self.MAX_MEMORY:
             self.user_conversations[user_id].pop(0)
 
     def get_conversation_context(self, user_id):
-        """Get conversation history for a user."""
+        """
+        Build a textual conversation context from the user's conversation history.
+        """
         history = self.user_conversations.get(user_id, [])
         return '\n'.join([
             f"{'Assistant' if msg['is_bot'] else 'User'}: {msg['content']}"
@@ -183,21 +237,20 @@ class TelegramBot:
         ])
 
     async def generate_response(self, user_message, user_id, username):
-        """Generate response using AI."""
+        """
+        Use your custom AI pipeline to generate a bot response.
+        """
         try:
-            # Get conversation context
+            # Gather conversation context
             conversation_context = self.get_conversation_context(user_id)
-            
-            # Get relevant memories from database
+            # Pull relevant memories from DB or other source
             memories = select_relevant_memories(username, user_message)
-            
-            # Get current story circle context - keep this unchanged
+            # Get story circle context
             narrative_context = get_current_context()
-
-            # Get random emotion format - keep this unchanged
+            # Random emotion format
             emotion_format = random.choice(self.generator.emotion_formats)['format']
-            
-            # Generate response - keep this unchanged
+
+            # Generate the AI content
             response = self.generator.generate_content(
                 user_message=user_message,
                 user_id=user_id,
@@ -207,10 +260,10 @@ class TelegramBot:
                 narrative_context=narrative_context,
                 emotion_format=emotion_format
             )
-            
-            logger.info(f"Generated response: {response[:50]}...")
+
+            logger.info(f"Generated response (first 50 chars): {response[:50]}...")
             return response
-            
+
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             return "Sorry, I couldn't process your request at the moment."

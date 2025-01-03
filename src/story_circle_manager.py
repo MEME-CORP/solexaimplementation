@@ -263,22 +263,23 @@ class StoryCircleManager:
                     logger.error("Missing 'memories' key in summary")
                     return {
                         "memories": [
-                            "A story about the character's adventure (summary missing memories)",
-                            "A key moment was lost in translation",
-                            "Character development remains a mystery"
+                            "A story circle was completed but its memory was lost"
                         ]
                     }
                 
                 # Validate memories array
-                if not isinstance(summary["memories"], list) or len(summary["memories"]) != 3:
+                if not isinstance(summary["memories"], list):
                     logger.error("Invalid memories array structure")
                     return {
                         "memories": [
-                            "A story about the character's adventure (invalid memories structure)",
-                            "A key moment was lost in translation",
-                            "Character development remains a mystery"
+                            "A story circle was completed but its memory was corrupted"
                         ]
                     }
+                
+                # Ensure we only take the first memory if multiple are provided
+                if len(summary["memories"]) > 1:
+                    logger.warning("Multiple memories received, using only the first one")
+                    summary["memories"] = [summary["memories"][0]]
                 
                 return summary
                 
@@ -286,9 +287,7 @@ class StoryCircleManager:
                 logger.error(f"Failed to parse AI summary response: {e}\nRaw response: {response_text}")
                 return {
                     "memories": [
-                        "A story about the character's adventure (summary parsing failed)",
-                        "A key moment was lost in translation",
-                        "Character development remains a mystery"
+                        "A story circle was completed but its memory could not be parsed"
                     ]
                 }
                 
@@ -297,9 +296,7 @@ class StoryCircleManager:
             logger.exception("Full traceback:")
             return {
                 "memories": [
-                    "A story about the character's adventure (summary generation failed)",
-                    "A key moment was lost in translation",
-                    "Character development remains a mystery"
+                    "A story circle was completed but an error occurred while saving its memory"
                 ]
             }
 
