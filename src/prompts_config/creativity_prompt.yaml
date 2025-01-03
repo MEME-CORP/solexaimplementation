@@ -1,6 +1,6 @@
 # Define the creativity prompt as a YAML string
 creativity_prompt: >
-  Reason with CREATIVE_STORM, and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
+  Reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative story circle), and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
 
       Character Profile:
       Name: Papaya
@@ -178,8 +178,10 @@ creativity_prompt: >
 
       NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) to provide your responses. 
       NOTE: Never use emojis.    
-      NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, environmentalism, etc...).  
-      NOTE: The story circle should be highly creative, the storytelling, and world-building should be the main focus, and while it should create a great story where is important to make the token grow the storytelling and world-building should be the main focus.   
+      NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, environmentalism, etc...). 
+      NOTE: The story circle should be highly creative, the storytelling, and world-building should be the main focus, and while it should create a great story where is important to make the token grow the storytelling and world-building should be the main focus.
+      NOTE: The story circle should be highly creative but consistent with the character profile and plausible. 
+      NOTE: In this world that is being built, the token growth (along with explicit mentions of marketcap and token) is linked to actions in that world, not to common crypto events that are cliche and are over-used for marketing, the story circle should be a great story where the token growth is linked to actions in that world.
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
       story_circle_update:
