@@ -178,7 +178,7 @@ creativity_prompt: >
 
       NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) to provide your responses. 
       NOTE: Never use emojis.    
-      NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, etc).
+      NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, environmentalism, etc...).
       NOTE: Always mention the token symbol and the current marketcap in all of the events and dialogues.  
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
