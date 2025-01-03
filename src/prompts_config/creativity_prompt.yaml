@@ -19,7 +19,7 @@ creativity_prompt: >
          next marketcap milestone: {next_milestone:.0f}
 
       Token symbol: 
-      $PAPAYA
+      ${symbol}
     
       Use CONSISTENCY_CRITERIAS to determine criterias to create a consistent story circle with the character profile:
 
@@ -237,9 +237,7 @@ creativity_prompt: >
       NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) within the <CS> </CS> tags. 
       NOTE: Never use emojis.    
       NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, environmentalism, etc...). 
-      NOTE: The story circle should be highly creative, the storytelling, and world-building should be the main focus, and while it should create a great story where is important to make the token grow the storytelling and world-building should be the main focus.
-      NOTE: The story circle should be highly creative but consistent with the character profile and plausible. 
-      NOTE: In this world that is being built, the token growth (along with explicit mentions of marketcap and token) is linked to actions in that world, not to common crypto events that are cliche and are over-used for marketing, the story circle should be a great story where the token growth is linked to actions in that world.
+      NOTE: Make sure the aesthetic criteria are met in the story circle.
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
       story_circle_update:
