@@ -337,7 +337,22 @@ class StoryCircleManager:
             
             # Get current event and events list
             events = story_circle.get('events', [])
-            current_event = story_circle['dynamic_context']['current_event']
+            
+            # Clean up events if they're in the {'event_1': 'text'} format
+            cleaned_events = []
+            for event in events:
+                if isinstance(event, dict):
+                    # Extract the event text from the dictionary
+                    event_text = next((v for k, v in event.items() if k.startswith('event_')), '')
+                    cleaned_events.append(event_text)
+                else:
+                    cleaned_events.append(event)
+            
+            # Update events list with cleaned events
+            events = cleaned_events
+            
+            # Get current event from dynamic context
+            current_event = story_circle['dynamic_context'].get('current_event', '')
             
             logger.info(f"Current phase: {current_phase}, Current event: {current_event}")
             
@@ -350,12 +365,9 @@ class StoryCircleManager:
                     return story_circle
                 return updated_circle
 
-            # -------------------------------------------------------------
-            # ADDED FIX: Normalize (strip) both current_event and events
-            # so we don't break indexing due to trailing spaces/Unicode.
-            # -------------------------------------------------------------
-            current_event_clean = current_event.strip()  # <--- fix
-            events_clean = [ev.strip() for ev in events]  # <--- fix
+            # Now we can safely strip the current_event since we know it's a string
+            current_event_clean = current_event.strip() if current_event else ""
+            events_clean = [ev.strip() for ev in events]
 
             # Find current event index by normalized matching
             try:
