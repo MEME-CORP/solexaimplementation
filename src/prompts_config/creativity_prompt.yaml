@@ -1,6 +1,6 @@
 # Define the creativity prompt as a YAML string
 creativity_prompt: >
-  Reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative and plausible story circle that is consistent with the character profile, where the token growth is linked to actions in that world, not to common crypto events that are cliche and are over-used for marketing), and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
+  Define aesthetic criteria with CONSISTENCY_CRITERIAS, reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative story circle), and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
 
       Character Profile:
       Name: Papaya
@@ -20,6 +20,63 @@ creativity_prompt: >
 
       Token symbol: 
       $PAPAYA
+    
+      Use CONSISTENCY_CRITERIAS to determine criterias to create a consistent story circle with the character profile:
+
+      CONSISTENCY_CRITERIAS:
+      Fill out the following criterias before using CREATIVE_STORM: 
+    
+        - name: Character Personality Boundaries
+        description: >
+            The story must not contradict the character's core personality traits, key
+            values, or emotional tendencies. The character’s decisions, dialogue, and
+            reactions should remain consistent with how they have been described.
+        
+        - name: Background & Setting Consistency
+        description: >
+            Events, references, and new elements must align with the established
+            background of the character and the world. Avoid introducing major
+            contradictions or out-of-place anachronisms unless deliberately justified
+            by the narrative.
+
+        - name: Tone & Voice Fidelity
+        description: >
+            The character’s tone, diction, and style of speaking should remain consistent with their
+            described personality and status. Do not abruptly shift voice or rhetorical
+            style without a logical in-story reason.
+
+        - name: Goal Alignment
+        description: >
+            All major plot developments should tie back to the character’s stated goals.
+            Keep the character’s motivation and mindset central to the narrative.
+
+        - name: Conflict & Resolution Plausibility
+        description: >
+            Conflict or challenges introduced should make sense within the established
+            world rules and the character’s abilities. Ensure that resolutions are
+            plausible and reflect the character’s nature. 
+            Avoid overly convenient “miracle” solutions unless they are thematically
+            justified.
+
+        - name: Thematic Cohesion
+        description: >
+            The overarching themes must remain intact.
+            Secondary subplots or comedic elements should not overshadow or
+            contradict the main themes and tone established by the character’s profile.
+
+        - name: Respect Character Growth Arc
+        description: >
+            Any significant growth or change in the character’s traits should evolve naturally over time and
+            align with previous story circles or memories. Sudden, unearned transformations
+            should be avoided unless properly explained.
+
+        - name: Story-Integrated Token Growth
+        description: >
+            When the token is mentioned, ensure its growth (marketcap
+            changes, milestones) is tied to believable in-world actions or events, rather
+            than common crypto clichés. The story and world-building remain the main focus,
+            while the token’s progress is naturally woven into the narrative.
+      END_CONSISTENCY_CRITERIAS
 
       Use CREATIVE_STORM to generate creative solutions:
 
@@ -176,7 +233,8 @@ creativity_prompt: >
       - You should do your creative thinking in XML <CS> </CS> tags. Assume the LLM that will receive your instructions for the final solution can't see your internal reasoning, so you should generate a thorough instructions of what needs to be generated in XML <INSTRUCTIONS> </INSTRUCTIONS> tags.
       END_CREATIVE_STORM
 
-      NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) to provide your responses. 
+      NOTE: Before going through CREATIVE_STORM, define in granular details the criterias on CONSISTENCY_CRITERIAS within the <CS> </CS> tags. 
+      NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) within the <CS> </CS> tags. 
       NOTE: Never use emojis.    
       NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, environmentalism, etc...). 
       NOTE: The story circle should be highly creative, the storytelling, and world-building should be the main focus, and while it should create a great story where is important to make the token grow the storytelling and world-building should be the main focus.
