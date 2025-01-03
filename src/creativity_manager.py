@@ -1,3 +1,7 @@
+# creativity_manager.py
+
+import asyncio
+import nest_asyncio  # <-- Make sure you have 'nest_asyncio' installed (pip install nest_asyncio)
 from openai import OpenAI
 import json
 import logging
@@ -9,13 +13,15 @@ import random
 import yaml
 import os.path
 from decimal import Decimal
+from typing import Optional, Tuple
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('creativity_manager')
 
+
 def load_yaml_prompt(filename):
-    """Load a prompt from a YAML file"""
+    """Load a prompt from a YAML file."""
     try:
         prompt_path = os.path.join(os.path.dirname(__file__), 'prompts_config', filename)
         with open(prompt_path, 'r', encoding='utf-8') as f:
@@ -24,6 +30,24 @@ def load_yaml_prompt(filename):
     except Exception as e:
         logger.error(f"Error loading prompt from {filename}: {e}")
         return None
+
+
+def run_sync(coroutine):
+    """
+    Helper that runs an async coroutine in a synchronous manner.
+    We apply 'nest_asyncio' so that if the main loop is already running,
+    we can re-enter it without error.
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        nest_asyncio.apply(loop)
+        return loop.run_until_complete(coroutine)
+    except RuntimeError:
+        # If there's no running loop at all, create a new one
+        new_loop = asyncio.new_event_loop()
+        nest_asyncio.apply(new_loop)
+        return new_loop.run_until_complete(coroutine)
+
 
 class CreativityManager:
     def __init__(self):
@@ -47,117 +71,143 @@ class CreativityManager:
             (Decimal('600000'), Decimal('0.5'), Decimal('1.0')),
             (Decimal('1000000'), Decimal('0.5'), Decimal('1.5'))
         ]
+        
+        # Optional caching of the last known marketcap
+        self._cached_marketcap: Optional[Decimal] = None
+        self._cached_next_milestone: Optional[Decimal] = None
 
     def _get_next_milestone(self, current_marketcap: Decimal) -> Decimal:
-        """Get the next milestone based on current marketcap"""
+        """Get the next milestone based on current marketcap."""
         for milestone, _, _ in self._milestones:
             if milestone > current_marketcap:
                 return milestone
-        return self._milestones[-1][0]  # Return highest milestone if we're past all others
+        return self._milestones[-1][0]  # Return the highest milestone if we're past all others
 
-    async def _get_market_data(self):
-        """Get current marketcap and next milestone"""
+    def _fetch_sync_marketcap(self) -> Tuple[bool, Optional[Decimal]]:
+        """
+        Actually await the wallet manager's async call so it behaves synchronously.
+        """
+        # The wallet_manager.get_token_marketcap is a coroutine, so we must run it in an event loop
+        return run_sync(self.wallet_manager.get_token_marketcap(Config.TOKEN_MINT_ADDRESS))
+
+    def _get_market_data(self) -> Tuple[Optional[Decimal], Optional[Decimal]]:
+        """
+        Synchronously retrieve the marketcap from the async wallet manager.
+        """
         try:
-            # First get price to check if it's a bonding curve token
-            price_success, _ = await self.wallet_manager.get_token_price(
-                Config.TOKEN_MINT_ADDRESS
-            )
-            
-            # Get marketcap (will return default value for bonding curve)
-            success, marketcap = await self.wallet_manager.get_token_marketcap(
-                Config.TOKEN_MINT_ADDRESS
-            )
+            # Instead of calling get_token_marketcap(...) directly, we do:
+            success, marketcap = self._fetch_sync_marketcap()
             
             if not success or marketcap is None:
-                logger.error("Failed to get marketcap data")
-                return None, None
-                
-            current_marketcap = marketcap
-            
-            # Verify marketcap is valid
-            if not isinstance(current_marketcap, Decimal):
-                logger.error("Invalid marketcap type")
-                return None, None
-                
-            # Get next milestone
-            next_milestone = self._get_next_milestone(current_marketcap)
-            
-            # Verify milestone is valid and greater than current marketcap
-            if not isinstance(next_milestone, Decimal) or next_milestone <= current_marketcap:
-                logger.error("Invalid milestone calculation")
+                logger.error("Failed to retrieve marketcap data (sync).")
                 return None, None
             
-            # Log marketcap source for debugging
-            if not price_success:
-                logger.info(f"Using default bonding curve marketcap: {current_marketcap}")
-            else:
-                logger.info(f"Using real market price marketcap: {current_marketcap}")
-                
-            return current_marketcap, next_milestone
+            if not isinstance(marketcap, Decimal):
+                logger.error("Marketcap is not a valid Decimal.")
+                return None, None
+
+            # Determine next milestone
+            next_milestone = self._get_next_milestone(marketcap)
+
+            # Cache the results
+            self._cached_marketcap = marketcap
+            self._cached_next_milestone = next_milestone
+            logger.info(f"Synchronously retrieved marketcap: {marketcap}")
             
+            return marketcap, next_milestone
+
         except Exception as e:
-            logger.error(f"Error getting market data: {e}")
+            logger.error(f"Error in _get_market_data: {e}")
             return None, None
 
-    async def generate_creative_instructions(self, circles_memory):
-        """Generate creative instructions for the next story circle update"""
+    def update_cached_market_data(self, marketcap: Decimal) -> None:
+        """
+        If ATO Manager retrieves a fresh marketcap, call this to sync it here.
+        """
         try:
-            # Get current story circle state from database
+            self._cached_marketcap = marketcap
+            self._cached_next_milestone = self._get_next_milestone(marketcap)
+            logger.info(f"Cached marketcap updated: {marketcap}")
+        except Exception as e:
+            logger.error(f"Error updating cached market data: {e}")
+
+    def generate_creative_instructions(self, circles_memory):
+        """
+        Synchronously generate creative instructions, including the marketcap data.
+        """
+        try:
+            # 1) Load current story circle from database
             current_story_circle = self.db.get_story_circle()
+            if not current_story_circle:
+                logger.warning("No story circle found in database.")
+                return "Create a simple story because no circle was found."
             
-            # Format the data to match expected structure
+            # 2) Prepare the current story circle data for the prompt
             formatted_story_circle = {
                 "narrative": {
-                    "current_story_circle": current_story_circle["phases"],
-                    "current_phase": current_story_circle["current_phase"],
-                    "events": current_story_circle["events"],
-                    "inner_dialogues": current_story_circle["dialogues"],
-                    "dynamic_context": current_story_circle["dynamic_context"]
+                    "current_story_circle": current_story_circle.get("phases", []),
+                    "current_phase": current_story_circle.get("current_phase", ""),
+                    "events": current_story_circle.get("events", []),
+                    "inner_dialogues": current_story_circle.get("dialogues", []),
+                    "dynamic_context": current_story_circle.get("dynamic_context", {})
                 }
             }
             
-            # Get real market data
-            current_marketcap, next_milestone = await self._get_market_data()
+            # 3) Retrieve marketcap synchronously
+            current_marketcap, next_milestone = self._get_market_data()
             
-            # Format the prompt with current data using the loaded YAML prompt
+            # If we still don't have marketcap info, produce fallback instructions
+            if not current_marketcap or not next_milestone:
+                logger.warning("Market data missing; using fallback instructions.")
+                return "Create a compelling and unique story that develops the character's personality in unexpected ways"
+            
+            # 4) Format the creativity prompt
             formatted_prompt = self.creativity_prompt.format(
                 current_story_circle=json.dumps(formatted_story_circle, indent=2, ensure_ascii=False),
                 previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False),
-                current_marketcap=float(current_marketcap),  # Convert to float for formatting
-                next_milestone=float(next_milestone)  # Convert to float for formatting
+                current_marketcap=float(current_marketcap),  # Convert Decimal to float
+                next_milestone=float(next_milestone)
             )
             
-            # Get the creativity instructions from the AI
+            # 5) Call the OpenAI Chat Completion endpoint
             response = self.client.chat.completions.create(
                 model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
                 messages=[
                     {"role": "system", "content": formatted_prompt},
-                    {"role": "user", "content": "Generate creative instructions for the next story circle update, first in the <CS> tags and then in the exact YAML format specified in the <INSTRUCTIONS> tags. Ensure that marketcap numbers are mentioned explicitly in the first event and dialogue. "}
+                    {
+                        "role": "user",
+                        "content": (
+                            "Generate creative instructions for the next story circle update, "
+                            "first in the <CS> tags and then in the exact YAML format specified in "
+                            "the <INSTRUCTIONS> tags. Ensure that marketcap numbers are mentioned "
+                            "explicitly in the first event and dialogue."
+                        )
+                    }
                 ],
                 temperature=0.0,
                 max_tokens=4000
             )
             
             response_text = response.choices[0].message.content.strip()
-            
-            # Extract instructions from the <INSTRUCTIONS> tags
+
+            # 6) Extract instructions from the <INSTRUCTIONS> tags
             import re
             instructions_match = re.search(r'<INSTRUCTIONS>(.*?)</INSTRUCTIONS>', response_text, re.DOTALL)
             
             if instructions_match:
                 instructions = instructions_match.group(1).strip()
-                logger.info(f"Generated creative instructions successfully")
+                logger.info("Creative instructions successfully generated.")
                 return instructions
             else:
-                logger.error("No instructions found in AI response")
+                logger.error("No <INSTRUCTIONS> block found in AI response.")
                 return "Create a compelling and unique story that develops the character's character in unexpected ways"
                 
         except Exception as e:
-            logger.error(f"Error generating creative instructions: {e}")
+            logger.error(f"Error in generate_creative_instructions: {e}")
             return "Create a compelling and unique story that develops the character's character in unexpected ways"
 
     def get_emotion_format(self):
-        """Get a random emotion format from database"""
+        """Get a random emotion format from database."""
         try:
             formats = self.db.get_emotion_formats()
             if not formats:
@@ -168,10 +218,9 @@ class CreativityManager:
             return {"format": "default response", "description": "Standard emotional response"}
 
     def get_length_format(self):
-        """Get a random length format from JSON file"""
+        """Get a random length format from JSON file."""
         try:
             file_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'length_formats.json')
-            
             with open(file_path, 'r') as f:
                 data = json.load(f)
                 formats = data.get('formats', [])
@@ -183,7 +232,7 @@ class CreativityManager:
             return {"format": "one short sentence", "description": "Single concise sentence"}
 
     def get_random_topic(self):
-        """Get a random topic from database"""
+        """Get a random topic from database."""
         try:
             topics = self.db.get_topics()
             if not topics:
@@ -191,4 +240,4 @@ class CreativityManager:
             return random.choice(topics)
         except Exception as e:
             logger.error(f"Error getting topic: {e}")
-            return {"topic": "pond life"} 
+            return {"topic": "pond life"}

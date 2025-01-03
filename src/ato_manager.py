@@ -12,6 +12,7 @@ import sys
 import json
 from pathlib import Path
 from src.prompts import load_style_prompts
+from src.creativity_manager import CreativityManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ATOManager')
@@ -54,6 +55,8 @@ class ATOManager:
         self._announcements_file = Path("data/announcements.json")
         self._announcements_file.parent.mkdir(parents=True, exist_ok=True)
         self._announcement_history = self._load_announcement_history()
+        
+        self.creativity_manager = CreativityManager()
 
     def _generate_extended_milestones(self) -> List[Tuple[Decimal, Decimal, Decimal]]:
         """Generate all milestones including beyond 1M"""
@@ -413,6 +416,8 @@ class ATOManager:
             success, marketcap = await self.wallet_manager.get_token_marketcap(self._token_mint)
             if success and marketcap is not None:
                 logger.info(f"Retrieved marketcap: {marketcap}")
+                # Update creativity manager's cache
+                self.creativity_manager.update_cached_market_data(marketcap)
                 return marketcap
             logger.warning("Failed to get marketcap data")
             return Decimal('0')
