@@ -1,6 +1,6 @@
 # Define the creativity prompt as a YAML string
 creativity_prompt: >
-  Reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative story circle), and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
+  Reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative and plausible story circle that is consistent with the character profile, where the token growth is linked to actions in that world, not to common crypto events that are cliche and are over-used for marketing), and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
 
       Character Profile:
       Name: Papaya
