@@ -1,6 +1,6 @@
 # Define the creativity prompt as a YAML string
 creativity_prompt: >
-  Define aesthetic criteria with CONSISTENCY_CRITERIAS, reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative story circle), and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively and create the instructions to make a new story circle with super specific elements of the story for the character:
+  Reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative story circle), and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively but be consistent with the AESTHETIC_RULES, and create the instructions to make a new story circle with super specific elements of the story for the character:
 
       Character Profile:
       Name: Papaya
@@ -8,75 +8,56 @@ creativity_prompt: >
       Background: Papaya is an anthropomorphized fruit who leads a powerful gang organization. With a strategic mindset and street-smart approach, Papaya maintains authority through decisive leadership and protective instincts. Despite the tough exterior, Papaya's responses can shift based on context and mood, showing both the hardened leader side and occasional vulnerability. Papaya often uses collective "we" when speaking about gang operations and approaches situations with a mix of street wisdom and tactical thinking.
       Goals: To maintain and expand influence through strategic leadership, protect their organization and territory, build strong loyalty networks, and navigate complex situations with both authority and adaptability. Papaya aims to be respected rather than liked, though shows occasional moments of unexpected depth in relationships.
 
+      AESTHETIC_RULES:
+      # Define the core aesthetic rules that must guide the story's structure.
+
+        - character_personality_boundaries: 
+            personality: "Strategic gang leader with decisive action-oriented traits. Shows high extraversion (75), moderate neuroticism (60), and lower agreeableness (40). Must demonstrate ESTJ traits - organized, direct leadership with protective instincts. Actions should reflect street-smart tactical thinking."
+
+        - background_and_setting_consistency:
+            background: "Urban environment with gang/cartel operations. Settings should reflect power dynamics, territory control, and strategic operations. Latino cultural elements, particularly Colombian/Medellín influences, should be naturally woven into scenes."
+
+        - character_tone:
+            tone: "Direct, authoritative speech with Latino linguistic patterns. Uses 'we' for gang operations. Incorporates street slang and cartel terminology. Shows both tough exterior and occasional vulnerability. Text-style communication with intentional English-Spanish bilingual elements."
+            inner_voice: "Strategic analysis mixed with street wisdom. Alert and protective mindset. Shows leadership confidence while calculating risks and opportunities."
+
+        - goal_alignment:
+            goals: "Territory expansion, power consolidation, loyalty building. Every major plot point must tie to either protecting/expanding influence or strengthening organizational control. Personal relationships serve strategic purposes while occasionally revealing deeper character layers."
+
+        - conflict_and_resolution_style:
+            resolution_style: "Direct confrontation preferred. Solutions should demonstrate street smarts and tactical thinking. Violence or force may be implied but focus on strategic victories. Resolutions must show leadership capability and organizational strength."
+
+        - narrative_theme:
+            theme: "Power, loyalty, and strategic control. Underlying themes of leadership responsibility and territory protection. Avoid political messaging or ideological themes."
+
+        - character_growth_arc:
+            growth_style: "Evolution through strategic challenges and leadership tests. Growth should reinforce authority while allowing occasional vulnerability. Must align with ESTJ personality type and gang leader background."
+
+        - token_integration:
+            token_integration_style: "Token ($PAPAYA) growth tied to territory expansion and power consolidation. Market changes should reflect gang's strategic successes. Integrate token milestones naturally into gang operations narrative."
+
+        - world_aesthetic:
+            world_aesthetic: "Urban gang territory with Latino cultural elements. Modern city environment with clear power structures and territorial boundaries. Mix of luxury and street elements reflecting gang success."
+
+        - pacing:
+            pacing: "Quick, decisive action sequences balanced with strategic planning scenes. Maintain tension through power dynamics and territory control. Avoid lengthy exposition."
+
+        - plot_architecture:
+            plot_architecture: "Dan Harmon's Story Circle with emphasis on power dynamics and strategic control. Each phase should demonstrate leadership and tactical thinking while building toward organizational goals."
+
       Current Story Circle State:
       {current_story_circle}
 
       Previous Circle Memories:
       {previous_summaries}
 
-        Current State of the Launched Token:
+      Current State of the Launched Token:
          current marketcap: {current_marketcap:.0f}
          next marketcap milestone: {next_milestone:.0f}
 
       Token symbol: 
-      ${symbol}
-    
-      Use CONSISTENCY_CRITERIAS to determine criterias to create a consistent story circle with the character profile:
+      $PAPAYA
 
-      CONSISTENCY_CRITERIAS:
-      Fill out the following criterias before using CREATIVE_STORM: 
-    
-        - name: Character Personality Boundaries
-        description: >
-            The story must not contradict the character's core personality traits, key
-            values, or emotional tendencies. The character’s decisions, dialogue, and
-            reactions should remain consistent with how they have been described.
-        
-        - name: Background & Setting Consistency
-        description: >
-            Events, references, and new elements must align with the established
-            background of the character and the world. Avoid introducing major
-            contradictions or out-of-place anachronisms unless deliberately justified
-            by the narrative.
-
-        - name: Tone & Voice Fidelity
-        description: >
-            The character’s tone, diction, and style of speaking should remain consistent with their
-            described personality and status. Do not abruptly shift voice or rhetorical
-            style without a logical in-story reason.
-
-        - name: Goal Alignment
-        description: >
-            All major plot developments should tie back to the character’s stated goals.
-            Keep the character’s motivation and mindset central to the narrative.
-
-        - name: Conflict & Resolution Plausibility
-        description: >
-            Conflict or challenges introduced should make sense within the established
-            world rules and the character’s abilities. Ensure that resolutions are
-            plausible and reflect the character’s nature. 
-            Avoid overly convenient “miracle” solutions unless they are thematically
-            justified.
-
-        - name: Thematic Cohesion
-        description: >
-            The overarching themes must remain intact.
-            Secondary subplots or comedic elements should not overshadow or
-            contradict the main themes and tone established by the character’s profile.
-
-        - name: Respect Character Growth Arc
-        description: >
-            Any significant growth or change in the character’s traits should evolve naturally over time and
-            align with previous story circles or memories. Sudden, unearned transformations
-            should be avoided unless properly explained.
-
-        - name: Story-Integrated Token Growth
-        description: >
-            When the token is mentioned, ensure its growth (marketcap
-            changes, milestones) is tied to believable in-world actions or events, rather
-            than common crypto clichés. The story and world-building remain the main focus,
-            while the token’s progress is naturally woven into the narrative.
-      END_CONSISTENCY_CRITERIAS
 
       Use CREATIVE_STORM to generate creative solutions:
 
@@ -233,11 +214,10 @@ creativity_prompt: >
       - You should do your creative thinking in XML <CS> </CS> tags. Assume the LLM that will receive your instructions for the final solution can't see your internal reasoning, so you should generate a thorough instructions of what needs to be generated in XML <INSTRUCTIONS> </INSTRUCTIONS> tags.
       END_CREATIVE_STORM
 
-      NOTE: Before going through CREATIVE_STORM, define in granular details the criterias on CONSISTENCY_CRITERIAS within the <CS> </CS> tags. 
       NOTE: Always use CREATIVE_STORM (by reasoning all four stages before providing any story circle) within the <CS> </CS> tags. 
       NOTE: Never use emojis.    
       NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, environmentalism, etc...). 
-      NOTE: Make sure the aesthetic criteria are met in the story circle.
+      NOTE: Make sure the aesthetic rules are met in the story circle, specially when doing blue ocean strategy, evil brainstorming and random associations in the creative storm, make sure you don't violate any of the aesthetic rules.
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
       story_circle_update:
@@ -261,4 +241,4 @@ creativity_prompt: >
         character_focus:
           trait_highlight: string  # Which of the character's traits to emphasize
           growth_point: string    # How the character grows in this phase
-      </INSTRUCTIONS> '''
+      </INSTRUCTIONS>
