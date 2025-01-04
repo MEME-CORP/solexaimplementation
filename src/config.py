@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from supabase import create_client
+import logging
 
 # Load environment variables from .env file
 load_dotenv()
@@ -46,6 +47,8 @@ class Config:
 
     # Blockchain Configuration
     TOKEN_MINT_ADDRESS = os.getenv('TOKEN_MINT_ADDRESS', 'DEFAULT_MINT_ADDRESS')
+    logging.info(f"Config loaded TOKEN_MINT_ADDRESS: {TOKEN_MINT_ADDRESS}")
+
     DEV_WALLET_ADDRESS = os.getenv('DEV_WALLET_ADDRESS', 'DEFAULT_DEV_WALLET')
 
     # S3 Storage Configuration

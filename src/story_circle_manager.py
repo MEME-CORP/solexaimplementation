@@ -350,6 +350,10 @@ class StoryCircleManager:
             
             # Get current event from dynamic context
             current_event = story_circle['dynamic_context'].get('current_event', '')
+            if isinstance(current_event, dict):
+                # Clean current event if it's a dictionary
+                current_event = next((v for k, v in current_event.items() if k.startswith('event_')), '')
+                story_circle['dynamic_context']['current_event'] = current_event
             
             logger.info(f"Current phase: {current_phase}, Current event: {current_event}")
             
@@ -939,19 +943,29 @@ class StoryCircleManager:
         try:
             narrative = ai_response.get('narrative', {})
             
+            # Clean up events if they're dictionaries
+            events = narrative.get('events', [])
+            cleaned_events = []
+            for event in events:
+                if isinstance(event, dict):
+                    event_text = next((v for k, v in event.items() if k.startswith('event_')), '')
+                    cleaned_events.append(event_text)
+                else:
+                    cleaned_events.append(event)
+            
             # Preserve existing story circle structure
             transformed = {
                 'id': story_circle['id'],
                 'is_current': story_circle['is_current'],
-                'current_phase': story_circle['current_phase'],  # Keep existing phase
-                'current_phase_number': story_circle['current_phase_number'],  # Keep existing phase number
-                'phases': story_circle['phases'],  # Preserve existing phases
-                'events': narrative.get('events', []),
+                'current_phase': story_circle['current_phase'],
+                'current_phase_number': story_circle['current_phase_number'],
+                'phases': story_circle['phases'],
+                'events': cleaned_events,  # Use cleaned events
                 'dialogues': narrative.get('inner_dialogues', []),
                 'dynamic_context': {
-                    'current_event': narrative.get('events', [])[0] if narrative.get('events') else '',
+                    'current_event': cleaned_events[0] if cleaned_events else '',
                     'current_inner_dialogue': narrative.get('inner_dialogues', [])[0] if narrative.get('inner_dialogues') else '',
-                    'next_event': narrative.get('events', [])[1] if len(narrative.get('events', [])) > 1 else ''
+                    'next_event': cleaned_events[1] if len(cleaned_events) > 1 else ''
                 }
             }
             
