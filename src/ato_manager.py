@@ -522,7 +522,7 @@ class ATOManager:
             
             announcement = (
                 f"we hit da milestone, no games\n"
-                f"- Token Burn: {'we did it' if burn_success else 'missed'} - {burn_percentage}% supply gone\n"
+                f"- Token Burn: {'we did it' if burn_success else 'missed'} - {burn_percentage*1000000000} supply gone\n"
                 f"- Buyback: {'locked down' if buyback_success else 'failed'} - {buyback_amount} SOL moved\n\n"
                 "operation continues... we dont stop"
             )
@@ -615,7 +615,7 @@ class ATOManager:
                 # Post current marketcap update
                 self._post_marketcap_update(current_mc)
                 
-                await asyncio.sleep(1200)  # Check every 20 minutes
+                await asyncio.sleep(120)  # Check every 20 minutes
         except Exception as e:
             logger.error(f"Error in marketcap monitoring: {e}")
 
@@ -653,13 +653,14 @@ class ATOManager:
 
         if self._current_milestone_index < len(self._milestones):
             next_milestone = self._milestones[self._current_milestone_index]
-            remaining = next_milestone[0] - current_mc
+            # Calculate remaining, but set to 0 if we've reached or exceeded the milestone
+            remaining = max(Decimal('0'), next_milestone[0] - current_mc)
             
-            # Create base announcement
+            # Create base announcement with formatted numbers
             base_announcement = (
-                f"current market status: {current_mc/1000}k, no cap\n"
-                f"next move target: {next_milestone[0]/1000}k\n"
-                f"we still need: {remaining/1000}k 2 make dis happen\n"
+                f"current market status: {int(current_mc)}, no cap\n"
+                f"next move target: {int(next_milestone[0])}\n"
+                f"we still need: {int(remaining)} to make dis happen\n"
                 "operation locked & loaded... we dont play"
             )
 
