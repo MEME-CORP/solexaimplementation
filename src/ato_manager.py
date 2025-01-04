@@ -47,13 +47,18 @@ class ATOManager:
         self._max_retries = 3
         self._retry_delay = 2
         
-        # Initial milestones up to 1M
+        # Initial milestones up to 100M
         self._base_milestones = [
             (Decimal('75000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
             (Decimal('150000'), Decimal('0.00000001'), Decimal('0.001')),
             (Decimal('300000'), Decimal('0.00000001'), Decimal('0.001')),
             (Decimal('600000'), Decimal('0.00000001'), Decimal('0.001')),
-            (Decimal('1000000'), Decimal('0.00000001'), Decimal('0.001'))  # Special case - split burn
+            (Decimal('1000000'), Decimal('0.00000001'), Decimal('0.001')),  # 1M milestone
+            (Decimal('5000000'), Decimal('0.00000001'), Decimal('0.001')),          # 5M milestone
+            (Decimal('10000000'), Decimal('0.00000001'), Decimal('0.001')),         # 10M milestone
+            (Decimal('20000000'), Decimal('0.00000001'), Decimal('0.001')),         # 20M milestone
+            (Decimal('50000000'), Decimal('0.00000001'), Decimal('0.001')),         # 50M milestone
+            (Decimal('100000000'), Decimal('0.00000001'), Decimal('0.001'))         # 100M milestone
         ]
         
         # Generate extended milestones beyond 1M
