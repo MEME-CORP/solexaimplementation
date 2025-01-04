@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from src.prompts import load_style_prompts
 from src.creativity_manager import CreativityManager
+from src.ai_announcements import AIAnnouncements
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ATOManager')
@@ -27,6 +28,9 @@ class ATOManager:
             raise ValueError("System prompt configuration missing")
             
         self.system_prompt = self.system_prompts['style1']
+        
+        # Initialize AI announcements
+        self.ai_announcements = AIAnnouncements()
         
         self.wallet_manager = WalletManager()
         self.broadcaster = AnnouncementBroadcaster()
@@ -57,6 +61,7 @@ class ATOManager:
         self._announcement_history = self._load_announcement_history()
         
         self.creativity_manager = CreativityManager()
+        self.narrative = {}
 
     def _generate_extended_milestones(self) -> List[Tuple[Decimal, Decimal, Decimal]]:
         """Generate all milestones including beyond 1M"""
@@ -629,12 +634,28 @@ class ATOManager:
             next_milestone = self._milestones[self._current_milestone_index]
             remaining = next_milestone[0] - current_mc
             
-            announcement = (
+            # Create base announcement
+            base_announcement = (
                 f"current market status: {current_mc/1000}k, no cap\n"
                 f"next move target: {next_milestone[0]/1000}k\n"
                 f"we still need: {remaining/1000}k 2 make dis happen\n"
                 "operation locked & loaded... we dont play"
             )
+
+            try:
+                # Get narrative context
+                current_event = self.narrative['dynamic_context']['current_event']
+                inner_dialogue = self.narrative['dynamic_context']['current_inner_dialogue']
+
+                # Generate narrative-aware announcement
+                announcement = self.ai_announcements.generate_marketcap_announcement(
+                    base_announcement,
+                    current_event,
+                    inner_dialogue
+                )
+            except Exception as e:
+                logger.error(f"Error generating narrative announcement: {e}")
+                announcement = base_announcement  # Fallback to base announcement
         else:
             announcement = (
                 f"current marketcap: {current_mc/1000}k! >w<\n"
