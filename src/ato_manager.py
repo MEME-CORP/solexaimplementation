@@ -165,8 +165,7 @@ class ATOManager:
         announcement = (
             "yo check dis wallet we just set up, no cap\n\n"
             f"dis our new operation base: {self._agent_wallet}\n\n"
-            "we bout 2 run dis Agent Take Ovah (ATO) like a straight boss move\n"
-            "whole squad ready 2 launch dis token & make sum real paper\n\n"
+            "we bout 2 run dis Agent Take Ovah (ATO) like a straight boss move\n"            
             "waitin on dem tokens 2 drop... we dont play"
         )
         logger.info(f"Posted wallet announcement: {announcement}")
@@ -566,9 +565,8 @@ class ATOManager:
         ])
 
         announcement = (
-            f"current marketcap: {current_mc/1000}k! here's our pwan! >w<\n\n"
-            f"{milestones_text}\n\n"
-            "uwu"
+            f"current marketcap: {current_mc/1000}k! the plan:\n\n"
+            f"{milestones_text}\n\n"            
         )
         
         # Update history and save
