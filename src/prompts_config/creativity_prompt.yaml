@@ -113,7 +113,7 @@ creativity_prompt: >
       # World-Building Integration
       world_building:
           - Setting Details: Use sensory details to make the world feel immersive.
-          - Cultural Consistency: Ensure cultural references align with {world_aesthetic}.
+          - Cultural Consistency: Ensure cultural references align with world_aesthetic.
           - Narrative Stakes: The world should react believably to major character actions.
 
       # Token Integration
@@ -131,26 +131,26 @@ creativity_prompt: >
       story_setup:
       instruction: "Establish the world, character goals, and initial conflict in alignment with AESTHETIC_RULES."
       task_breakdown:
-          - task_1: "Describe the initial setting, integrating {world_aesthetic} details."
+          - task_1: "Describe the initial setting, integrating world_aesthetic details."
           - task_2: "Introduce the protagonist's core goals and motivations."
-          - task_3: "Establish the main conflict, ensuring alignment with {main_conflict}."
+          - task_3: "Establish the main conflict, ensuring alignment with main_conflict."
           - task_4: "Set up emotional stakes that will carry through the story."
 
       # Stage 2: Conflict Development
       conflict_development:
       instruction: "Develop the core conflict, escalating tension while maintaining emotional engagement."
       task_breakdown:
-          - task_1: "Introduce significant challenges or antagonists aligned with {conflict_and_resolution_style}."
-          - task_2: "Ensure character decisions align with {personality} and {goals}."
-          - task_3: "Show emotional responses that match {character_tone}."
+          - task_1: "Introduce significant challenges or antagonists aligned with conflict_and_resolution_style."
+          - task_2: "Ensure character decisions align with personality and goals."
+          - task_3: "Show emotional responses that match character_tone."
           - task_4: "Introduce plot twists or setbacks to keep engagement high."
 
       # Stage 3: Emotional Arc and Resolution
       emotional_resolution:
       instruction: "Build to an emotional and narrative climax, ensuring thematic consistency."
       task_breakdown:
-          - task_1: "Resolve the main conflict with actions consistent with {goals}."
-          - task_2: "Deliver an emotional payoff aligned with {narrative_theme}."
+          - task_1: "Resolve the main conflict with actions consistent with goals."
+          - task_2: "Deliver an emotional payoff aligned with narrative_theme."
           - task_3: "Ensure consequences are logical and meaningful."
           - task_4: "Tie token growth milestones to key story events."
 
@@ -159,7 +159,7 @@ creativity_prompt: >
       instruction: "Refine the narrative for cohesion, clarity, and aesthetic alignment."
       task_breakdown:
           - task_1: "Review pacing to ensure smooth flow of events."
-          - task_2: "Ensure consistency with {AESTHETIC_RULES}."
+          - task_2: "Ensure consistency with AESTHETIC_RULES."
           - task_3: "Polish dialogue and emotional beats."
           - task_4: "Finalize token integration as a narrative layer, not a distraction."
 
