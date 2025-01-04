@@ -6,7 +6,7 @@ import time
 from typing import Optional, Tuple, Dict, List
 from pathlib import Path
 from decimal import Decimal
-import aiohttp  # Add to imports
+import aiohttp
 import asyncio
 
 # Configure logging
@@ -29,7 +29,6 @@ class WalletManager:
 
     def generate_new_wallet(self) -> Tuple[bool, Optional[dict]]:
         """Generate a new wallet using the API or return existing credentials"""
-        # First check if we already have valid credentials
         existing_creds = self.get_wallet_credentials()
         if existing_creds and existing_creds.get('public_key') and existing_creds.get('private_key'):
             logger.info(f"Using existing wallet: {existing_creds['public_key']}")
@@ -38,14 +37,12 @@ class WalletManager:
                 'privateKey': existing_creds['private_key']
             }
         
-        # If no valid credentials exist, proceed with generating new wallet
         max_retries = 3
         retry_delay = 2
         
         for attempt in range(max_retries):
             try:
                 logger.info(f"Generating wallet (attempt {attempt + 1}/{max_retries})...")
-                
                 response = requests.post(
                     f"{self.api_url}/generate-wallet",
                     headers={"Content-Type": "application/json"},
@@ -58,46 +55,41 @@ class WalletManager:
                         wallet_data = data['wallet']
                         if all(k in wallet_data for k in ['publicKey', 'privateKey']):
                             logger.info(f"Successfully generated wallet: {wallet_data['publicKey']}")
-                            
-                            # Store credentials immediately after successful generation
                             if self.set_wallet_credentials(
                                 public_key=wallet_data['publicKey'],
                                 private_key=wallet_data['privateKey'],
-                                secret_key=wallet_data['privateKey']  # Using private key as secret key
+                                secret_key=wallet_data['privateKey']  # Using private as secret
                             ):
                                 logger.info("Successfully stored wallet credentials")
                             else:
                                 logger.error("Failed to store wallet credentials")
-                                
                             return True, wallet_data
                         logger.error("Wallet data missing required keys")
                 
                 elif response.status_code == 502:
                     logger.warning(f"Server error (502) on attempt {attempt + 1}")
                     if attempt < max_retries - 1:
-                        time.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+                        time.sleep(retry_delay * (attempt + 1))
                         continue
                 
                 logger.error(f"API request failed with status {response.status_code}")
                 if response.text:
                     logger.error(f"Response body: {response.text[:200]}")
-                
+
             except requests.Timeout:
                 logger.error(f"Request timeout on attempt {attempt + 1}")
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay * (attempt + 1))
                     continue
-                    
             except requests.RequestException as e:
                 logger.error(f"Request error on attempt {attempt + 1}: {str(e)}")
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay * (attempt + 1))
                     continue
-                    
             except Exception as e:
                 logger.error(f"Unexpected error: {str(e)}")
                 return False, None
-                
+
         return False, None
 
     def transfer_sol(self, from_wallet: str, to_wallet: str, amount: Decimal) -> Tuple[bool, Optional[str]]:
@@ -114,7 +106,7 @@ class WalletManager:
                 "fromPrivateKey": creds['private_key'],
                 "fromPublicKey": from_wallet,
                 "toAddress": to_wallet,
-                "amount": float(amount)  # Convert Decimal to float for JSON
+                "amount": float(amount)
             }
             
             response = requests.post(
@@ -129,14 +121,15 @@ class WalletManager:
                 if data.get('status') == 'success':
                     logger.info(f"Successfully transferred {amount} SOL to {to_wallet}")
                     return True, data.get('signature')
-                logger.error(f"API error: {data.get('message')}")
+                else:
+                    logger.error(f"API error: {data.get('message')}")
             else:
                 logger.error(f"Transfer failed with status {response.status_code}")
                 if response.text:
                     logger.error(f"Response: {response.text[:200]}")
-                    
+
             return False, None
-            
+
         except Exception as e:
             logger.error(f"Error in transfer_sol: {str(e)}")
             return False, None
@@ -148,7 +141,6 @@ class WalletManager:
                 "publicKey": wallet_address,
                 "mintAddress": mint_address
             }
-            
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     f"{self.api_url}/check-balance",
@@ -165,19 +157,17 @@ class WalletManager:
                                     'lamports': data['solBalance']['lamports']
                                 }
                             }
-                            
                             if data.get('tokenBalance') and not data['tokenBalance'].get('error'):
                                 result['token'] = {
                                     'balance': Decimal(str(data['tokenBalance']['balance'])),
                                     'decimals': data['tokenBalance']['decimals'],
                                     'mint': data['tokenBalance']['mint']
                                 }
-                                
                             return True, result
-                            
+                    
                     logger.error(f"Balance check failed: {response.status}")
                     return False, None
-                    
+
         except Exception as e:
             logger.error(f"Error checking balance: {str(e)}")
             return False, None
@@ -191,7 +181,6 @@ class WalletManager:
                 headers={"Content-Type": "application/json"},
                 timeout=self.request_timeout
             )
-            
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
@@ -200,9 +189,7 @@ class WalletManager:
                         'decimals': data['decimals'],
                         'rawAmount': data['rawAmount']
                     }
-                    
             return False, None
-            
         except Exception as e:
             logger.error(f"Error checking mint balance: {str(e)}")
             return False, None
@@ -218,21 +205,17 @@ class WalletManager:
                 "beforeTime": before_time,
                 "afterTime": after_time
             }
-            
             response = requests.post(
                 f"{self.api_url}/check-transfers",
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=self.request_timeout
             )
-            
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
                     return True, data.get('transfers', [])
-                    
             return False, None
-            
         except Exception as e:
             logger.error(f"Error checking transfers: {str(e)}")
             return False, None
@@ -244,111 +227,116 @@ class WalletManager:
                 "mintAddress": mint_address,
                 "holderAddress": holder_address
             }
-            
             response = requests.post(
                 f"{self.api_url}/holder-percentage",
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=self.request_timeout
             )
-            
             if response.status_code == 200:
                 data = response.json()
                 if data.get('status') == 'success':
                     return True, data.get('data')
-                    
             return False, None
-            
         except Exception as e:
             logger.error(f"Error getting holder percentage: {str(e)}")
             return False, None
 
     async def burn_tokens(self, from_private_key: str, from_public_key: str,
-                   mint_address: str, amount: Decimal, decimals: int) -> Tuple[bool, Optional[str]]:
-        """Burn tokens using new /burn-tokens endpoint"""
+                          mint_address: str, amount: Decimal, decimals: int) -> Tuple[bool, Optional[str]]:
+        """
+        Burn tokens using /burn-tokens endpoint, 
+        ensuring at most 1 transaction is sent per second.
+        """
         try:
             if amount <= Decimal('0'):
                 raise ValueError("Burn amount must be greater than 0")
-                
-            # Format payload exactly as in working code
+            
             payload = {
                 "fromPrivateKey": from_private_key,
                 "fromPublicKey": from_public_key,
                 "mintAddress": mint_address,
-                "amount": str(amount),  # Convert Decimal to string to preserve precision
+                "amount": str(amount),
                 "decimals": decimals
             }
             
-            # Initial delay before request
-            await asyncio.sleep(2)
-            
-            # Use aiohttp with same format as working code
-            timeout = aiohttp.ClientTimeout(total=60)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            # Wait 1 second before sending the burn request (rate-limit approach)
+            await asyncio.sleep(61)
+
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
+                for attempt in range(3):
+                    try:
+                        logger.info(f"Sending burn request (attempt {attempt+1}) for {amount} tokens...")
+                        async with session.post(
+                            f"{self.api_url}/burn-tokens",
+                            json=payload,
+                            headers={"Content-Type": "application/json"}
+                        ) as response:
+                            if response.status == 200:
+                                data = await response.json()
+                                if data.get('status') == 'success':
+                                    logger.info(f"Successfully burned {amount} tokens (attempt {attempt+1})")
+                                    return True, data.get('signature')
+                                else:
+                                    logger.error(f"Burn API error: {data.get('message')}")
+                            else:
+                                error_text = await response.text()
+                                logger.error(f"Burn request failed with status {response.status}: {error_text}")
+                    except asyncio.TimeoutError:
+                        logger.error(f"Timeout while burning tokens (attempt {attempt+1})")
+                    except aiohttp.ClientError as e:
+                        logger.error(f"Network error while burning tokens: {e}")
+                    
+                    # Wait 1 second between attempts
+                    await asyncio.sleep(1)
+                    
+            return False, None
+        except Exception as e:
+            logger.error(f"Error burning tokens: {e}")
+            return False, None
+
+    async def buy_tokens(self, private_key: str, token_address: str, 
+                         amount_usd: Decimal = Decimal('0.1')) -> Tuple[bool, Optional[Dict]]:
+        """
+        Buy tokens using Jupiter swap.
+        
+        - If `amount_usd` < 0.001, force it to 0.001 to avoid 'Bad Request' from Jupiter.
+        - Check your environment variables and server logs if you still get 'Bad Request'.
+        """
+        try:
+            if amount_usd < Decimal('0.001'):
+                logger.warning(f"Requested amount {amount_usd} is too small. Forcing to 0.001 USD.")
+                amount_usd = Decimal('0.001')
+
+            payload = {
+                "privateKey": private_key,
+                "tokenAddress": token_address,
+                "amountUSD": float(amount_usd)
+            }
+
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
                 try:
+                    await asyncio.sleep(2)
                     async with session.post(
-                        f"{self.api_url}/burn-tokens",
+                        f"{self.api_url}/buy-tokens",
                         json=payload,
                         headers={"Content-Type": "application/json"}
                     ) as response:
                         if response.status == 200:
                             data = await response.json()
                             if data.get('status') == 'success':
-                                # Add delay after successful request
-                                await asyncio.sleep(5)
-                                logger.info(f"Successfully burned {amount} tokens")
-                                return True, data.get('signature')
+                                logger.info(f"Successfully bought tokens via Jupiter swap (amount={amount_usd} USD)")
+                                return True, data.get('data')
+                            else:
+                                logger.error(f"Buy error from server: {data.get('message')}")
                         else:
                             error_text = await response.text()
-                            logger.error(f"Burn request failed with status {response.status}: {error_text}")
-                            
-                except asyncio.TimeoutError:
-                    logger.error("Timeout while burning tokens")
-                except aiohttp.ClientError as e:
-                    logger.error(f"Network error while burning tokens: {e}")
-                    
-            return False, None
-            
-        except Exception as e:
-            logger.error(f"Error burning tokens: {e}")
-            return False, None
-
-    async def buy_tokens(self, private_key: str, token_address: str, 
-                  amount_usd: Decimal = Decimal('0.1')) -> Tuple[bool, Optional[Dict]]:
-        """Buy tokens using Jupiter swap"""
-        try:
-            payload = {
-                "privateKey": private_key,
-                "tokenAddress": token_address,
-                "amountUSD": float(amount_usd)
-            }
-            
-            # Increased timeout to 60 seconds
-            timeout = aiohttp.ClientTimeout(total=60)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                try:
-                    # Initial delay before request
-                    await asyncio.sleep(2)
-                    
-                    async with session.post(
-                        f"{self.api_url}/buy-tokens",
-                        json=payload,
-                        headers={"Content-Type": "application/json"},
-                        raise_for_status=True
-                    ) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            if data.get('status') == 'success':
-                                # Add delay after successful request
-                                await asyncio.sleep(5)
-                                return True, data.get('data')
+                            logger.error(f"Buy request failed: {response.status}, {error_text}")
                 except asyncio.TimeoutError:
                     logger.error("Timeout while buying tokens")
                 except aiohttp.ClientError as e:
                     logger.error(f"Network error while buying tokens: {e}")
-                    
             return False, None
-            
         except Exception as e:
             logger.error(f"Error buying tokens: {e}")
             return False, None
@@ -362,13 +350,10 @@ class WalletManager:
                     if response.status != 200:
                         logger.error(f"Error getting token price: {response.status}")
                         return False, None
-                        
                     data = await response.json()
-                    
                     if not data.get('data') or not data['data'].get(mint_address):
                         logger.error("No price data available for token")
                         return False, None
-                        
                     token_data = data['data'][mint_address]
                     return True, {
                         'price': Decimal(str(token_data['price'])),
@@ -376,7 +361,6 @@ class WalletManager:
                         'extra_info': token_data.get('extraInfo'),
                         'last_updated': token_data.get('lastUpdated')
                     }
-                    
         except Exception as e:
             logger.error(f"Error in get_token_price: {e}")
             return False, None
@@ -384,26 +368,21 @@ class WalletManager:
     async def get_token_marketcap(self, mint_address: str) -> Tuple[bool, Optional[Decimal]]:
         """Calculate token marketcap based on price and total supply"""
         try:
-            TOTAL_SUPPLY = Decimal('1000000000')  # 1 billion total supply
-            DEFAULT_BONDING_CURVE_MC = Decimal('5000')  # Default marketcap for bonding curve tokens
-            
-            # Get token price
+            TOTAL_SUPPLY = Decimal('1000000000')
+            DEFAULT_BONDING_CURVE_MC = Decimal('5000')
             success, price_data = await self.get_token_price(mint_address)
-            
-            # If price data is not available (bonding curve case), return default value
             if not success or not price_data:
                 logger.info(f"Token {mint_address} appears to be on bonding curve, using default marketcap: {DEFAULT_BONDING_CURVE_MC}")
                 return True, DEFAULT_BONDING_CURVE_MC
-                
-            # Calculate marketcap
             marketcap = price_data['price'] * TOTAL_SUPPLY
             return True, marketcap
-            
         except Exception as e:
             logger.error(f"Error calculating marketcap: {e}")
             return False, None
 
-    # Keep existing helper methods
+    # -------------------------
+    # Private helper methods
+    # -------------------------
     def _load_wallet_credentials(self) -> dict:
         """Load wallet credentials from file"""
         try:
@@ -419,7 +398,6 @@ class WalletManager:
                 with open(self.wallet_file, 'w') as f:
                     json.dump(credentials, f, indent=4)
                 return credentials
-                
         except Exception as e:
             logger.error(f"Error loading wallet credentials: {e}")
             return {}
@@ -437,23 +415,16 @@ class WalletManager:
     def set_wallet_credentials(self, public_key: str, private_key: str, secret_key: str) -> bool:
         """Set wallet credentials and ensure they are saved to file"""
         try:
-            # Update credentials in memory
             self.wallet_credentials = {
                 "public_key": public_key,
                 "private_key": private_key,
                 "secret_key": secret_key
             }
-            
-            # Ensure data directory exists
             self.data_dir.mkdir(exist_ok=True)
-            
-            # Save to file with proper formatting
             with open(self.wallet_file, 'w') as f:
                 json.dump(self.wallet_credentials, f, indent=4)
-                
             logger.info(f"Successfully saved wallet credentials to {self.wallet_file}")
             return True
-            
         except Exception as e:
             logger.error(f"Error setting wallet credentials: {e}")
             return False
