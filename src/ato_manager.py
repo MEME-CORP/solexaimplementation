@@ -39,7 +39,7 @@ class ATOManager:
         
         # Initial milestones up to 1M
         self._base_milestones = [
-            (Decimal('75000'), Decimal('0.5'), Decimal('0.2')),  # (mc, burn%, sol_buyback)
+            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.00001')),  # (mc, burn%, sol_buyback)
             (Decimal('150000'), Decimal('0.5'), Decimal('0.4')),
             (Decimal('300000'), Decimal('0.5'), Decimal('0.8')),
             (Decimal('600000'), Decimal('0.5'), Decimal('1.0')),
@@ -486,8 +486,14 @@ class ATOManager:
     async def _execute_standard_milestone(self, burn_percentage: Decimal, buyback_amount: Decimal):
         """Execute standard milestone"""
         try:
+            # Add delay between operations
+            await asyncio.sleep(5)
+            
             # Execute burn
             burn_success = await self._burn_tokens(burn_percentage)
+            
+            # Add delay between burn and buyback
+            await asyncio.sleep(10)
             
             # Execute buyback
             buyback_success = await self._execute_buyback(buyback_amount)

@@ -7,6 +7,7 @@ from typing import Optional, Tuple, Dict, List
 from pathlib import Path
 from decimal import Decimal
 import aiohttp  # Add to imports
+import asyncio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -262,37 +263,57 @@ class WalletManager:
             logger.error(f"Error getting holder percentage: {str(e)}")
             return False, None
 
-    def burn_tokens(self, from_private_key: str, from_public_key: str,
+    async def burn_tokens(self, from_private_key: str, from_public_key: str,
                    mint_address: str, amount: Decimal, decimals: int) -> Tuple[bool, Optional[str]]:
-        """Burn tokens from a wallet"""
+        """Burn tokens using new /burn-tokens endpoint"""
         try:
+            if amount <= Decimal('0'):
+                raise ValueError("Burn amount must be greater than 0")
+                
+            # Format payload exactly as in working code
             payload = {
                 "fromPrivateKey": from_private_key,
                 "fromPublicKey": from_public_key,
                 "mintAddress": mint_address,
-                "amount": float(amount),
+                "amount": str(amount),  # Convert Decimal to string to preserve precision
                 "decimals": decimals
             }
             
-            response = requests.post(
-                f"{self.api_url}/burn-tokens",
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=self.request_timeout
-            )
+            # Initial delay before request
+            await asyncio.sleep(2)
             
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    return True, data.get('signature')
+            # Use aiohttp with same format as working code
+            timeout = aiohttp.ClientTimeout(total=60)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                try:
+                    async with session.post(
+                        f"{self.api_url}/burn-tokens",
+                        json=payload,
+                        headers={"Content-Type": "application/json"}
+                    ) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            if data.get('status') == 'success':
+                                # Add delay after successful request
+                                await asyncio.sleep(5)
+                                logger.info(f"Successfully burned {amount} tokens")
+                                return True, data.get('signature')
+                        else:
+                            error_text = await response.text()
+                            logger.error(f"Burn request failed with status {response.status}: {error_text}")
+                            
+                except asyncio.TimeoutError:
+                    logger.error("Timeout while burning tokens")
+                except aiohttp.ClientError as e:
+                    logger.error(f"Network error while burning tokens: {e}")
                     
             return False, None
             
         except Exception as e:
-            logger.error(f"Error burning tokens: {str(e)}")
+            logger.error(f"Error burning tokens: {e}")
             return False, None
 
-    def buy_tokens(self, private_key: str, token_address: str, 
+    async def buy_tokens(self, private_key: str, token_address: str, 
                   amount_usd: Decimal = Decimal('0.1')) -> Tuple[bool, Optional[Dict]]:
         """Buy tokens using Jupiter swap"""
         try:
@@ -302,22 +323,34 @@ class WalletManager:
                 "amountUSD": float(amount_usd)
             }
             
-            response = requests.post(
-                f"{self.api_url}/buy-tokens",
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=self.request_timeout
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                if data.get('status') == 'success':
-                    return True, data.get('data')
+            # Increased timeout to 60 seconds
+            timeout = aiohttp.ClientTimeout(total=60)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                try:
+                    # Initial delay before request
+                    await asyncio.sleep(2)
+                    
+                    async with session.post(
+                        f"{self.api_url}/buy-tokens",
+                        json=payload,
+                        headers={"Content-Type": "application/json"},
+                        raise_for_status=True
+                    ) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            if data.get('status') == 'success':
+                                # Add delay after successful request
+                                await asyncio.sleep(5)
+                                return True, data.get('data')
+                except asyncio.TimeoutError:
+                    logger.error("Timeout while buying tokens")
+                except aiohttp.ClientError as e:
+                    logger.error(f"Network error while buying tokens: {e}")
                     
             return False, None
             
         except Exception as e:
-            logger.error(f"Error buying tokens: {str(e)}")
+            logger.error(f"Error buying tokens: {e}")
             return False, None
 
     async def get_token_price(self, mint_address: str) -> Tuple[bool, Optional[dict]]:
