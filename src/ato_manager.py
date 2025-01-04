@@ -122,11 +122,11 @@ class ATOManager:
     def _post_wallet_announcement(self):
         """Post wallet announcement in character style"""
         announcement = (
-            "hewwo fwiends!! >w< \n\n"
-            f"i just cweated my speciaw agent wawwet: {self._agent_wallet}\n\n"
-            "mr dev, pwease send the tokens hewe so we can stawt the Agent Take Ovew (ATO)!\n"
-            "i'ww make suwe to pump this waunch to the moon! uwu\n\n"
-            "waiting fow tokens..."
+            "yo check dis wallet we just set up, no cap\n\n"
+            f"dis our new operation base: {self._agent_wallet}\n\n"
+            "we bout 2 run dis Agent Take Ovah (ATO) like a straight boss move\n"
+            "whole squad ready 2 launch dis token & make sum real paper\n\n"
+            "waitin on dem tokens 2 drop... we dont play"
         )
         logger.info(f"Posted wallet announcement: {announcement}")
         
@@ -401,9 +401,10 @@ class ATOManager:
         """Post announcement when tokens are received"""
         try:
             announcement = (
-                f"nyaa~! tokens received!! {balance} tokens awe now in my wawwet! >w<\n\n"
-                "thank u mr dev! now i can stawt the Agent Take Ovew!\n"
-                "wet's make this waunch go to the mooooon! uwu\n\n"            
+                f"yo we just scored {balance} tokens, no cap\n\n"
+                "dev team came thru wit da goods\n"
+                "we bout 2 run dis Agent Take Ovah (ATO) like real bosses\n\n"
+                "whole operation's locked & loaded... watch us move"
             )
             logger.info(f"Posted tokens received: {announcement}")
             
@@ -448,10 +449,10 @@ class ATOManager:
             buyback_success = await self._execute_buyback(buyback_amount)
             
             announcement = (
-                f"miwestone weached! time to dewiver! >w<\n"
-                f"- {'✅' if burn_success else '❌'} burning {burn_percentage}% of suppwy\n"
-                f"- {'✅' if buyback_success else '❌'} making {buyback_amount} SOL buyback!\n\n"
-                "wet's keep pushing! uwu"
+                f"we hit da milestone, no games\n"
+                f"- Token Burn: {'we did it' if burn_success else 'missed'} - {burn_percentage}% supply gone\n"
+                f"- Buyback: {'locked down' if buyback_success else 'failed'} - {buyback_amount} SOL moved\n\n"
+                "operation continues... we dont stop"
             )
             logger.info(announcement)
             return announcement
@@ -479,11 +480,11 @@ class ATOManager:
             buyback_success = await self._execute_buyback(buyback_amount)
             
             announcement = (
-                f"nyaa~! speciaw miwestone weached! >w<\n"
-                f"- {'✅' if burn_success else '❌'} burning {half_burn}% of suppwy\n"
-                f"- {'✅' if dev_success else '❌'} sending {half_burn}% to dev\n"
-                f"- {'✅' if buyback_success else '❌'} making {buyback_amount} SOL buyback!\n\n"
-                "good job evewyone! uwu"
+                f"special move activated, real talk\n"
+                f"- Token Burn: {'executed' if burn_success else 'blocked'} - {half_burn}% supply dropped\n"
+                f"- Dev Cut: {'transferred' if dev_success else 'intercepted'} - {half_burn}% 2 da team\n"
+                f"- Buyback: {'secured' if buyback_success else 'interrupted'} - {buyback_amount} SOL in play\n\n"
+                "strategic maneuver complete... we stay winning"
             )
             logger.info(announcement)
             return announcement
@@ -555,10 +556,10 @@ class ATOManager:
             remaining = next_milestone[0] - current_mc
             
             announcement = (
-                f"current marketcap: {current_mc/1000}k! >w<\n"
-                f"next miwestone: {next_milestone[0]/1000}k\n"
-                f"remaining: {remaining/1000}k to go!\n"
-                "*tail wags with excitement*"
+                f"current market status: {current_mc/1000}k, no cap\n"
+                f"next move target: {next_milestone[0]/1000}k\n"
+                f"we still need: {remaining/1000}k 2 make dis happen\n"
+                "operation locked & loaded... we dont play"
             )
         else:
             announcement = (
