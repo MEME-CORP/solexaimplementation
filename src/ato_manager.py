@@ -39,11 +39,11 @@ class ATOManager:
         
         # Initial milestones up to 1M
         self._base_milestones = [
-            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.00001')),  # (mc, burn%, sol_buyback)
-            (Decimal('150000'), Decimal('0.5'), Decimal('0.4')),
-            (Decimal('300000'), Decimal('0.5'), Decimal('0.8')),
-            (Decimal('600000'), Decimal('0.5'), Decimal('1.0')),
-            (Decimal('1000000'), Decimal('0.5'), Decimal('1.5'))  # Special case - split burn
+            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.000001')),  # (mc, burn%, sol_buyback)
+            (Decimal('150000'), Decimal('0.00000001'), Decimal('0.000001')),
+            (Decimal('300000'), Decimal('0.00000001'), Decimal('0.000001')),
+            (Decimal('600000'), Decimal('0.00000001'), Decimal('0.000001')),
+            (Decimal('1000000'), Decimal('0.00000001'), Decimal('0.000001'))  # Special case - split burn
         ]
         
         # Generate extended milestones beyond 1M
@@ -484,18 +484,24 @@ class ATOManager:
             raise
 
     async def _execute_standard_milestone(self, burn_percentage: Decimal, buyback_amount: Decimal):
-        """Execute standard milestone"""
+        """Execute standard milestone with improved burn verification"""
         try:
             # Add delay between operations
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)  # Increased initial delay
             
-            # Execute burn
-            burn_success = await self._burn_tokens(burn_percentage)
+            # Execute burn with verification
+            burn_success = False
+            burn_attempts = 3
+            for attempt in range(burn_attempts):
+                burn_success = await self._burn_tokens(burn_percentage)
+                if burn_success:
+                    break
+                await asyncio.sleep(10 * (attempt + 1))  # Exponential backoff between attempts
             
-            # Add delay between burn and buyback
-            await asyncio.sleep(10)
+            # Add longer delay between burn and buyback
+            await asyncio.sleep(15)  # Increased from 10 to 15 seconds
             
-            # Execute buyback
+            # Execute buyback (keeping existing logic as it works)
             buyback_success = await self._execute_buyback(buyback_amount)
             
             announcement = (
