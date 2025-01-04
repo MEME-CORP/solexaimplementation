@@ -72,6 +72,9 @@ class AnnouncementBroadcaster:
     @classmethod
     async def broadcast(cls, message: str):
         """Broadcast message to all registered bots"""
+        if not message or not message.strip():
+            logger.warning("Attempted to broadcast empty message - skipping")
+            return False
         try:
             # First try instance chat_id, then config
             chat_id = cls._chat_id or getattr(Config, 'TELEGRAM_CHAT_ID', None)

@@ -19,6 +19,8 @@ from telegram.ext import (
     Defaults
 )
 from telegram import Update
+from telegram.error import NetworkError
+import time
 
 # --- Import your modules (adjust imports to your project structure) ---
 from src.config import Config
@@ -49,6 +51,19 @@ class TelegramBot:
         self.memory_processor = MemoryProcessor()
         self.user_conversations = {}
         self.MAX_MEMORY = Config.MAX_MEMORY
+        self.application = None  # Initialize application as None
+
+    async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle errors caused by updates."""
+        logger.warning('Update "%s" caused error "%s"', update, context.error)
+        
+        if isinstance(context.error, NetworkError):
+            logger.info("Network error occurred, waiting before retry...")
+            await asyncio.sleep(1)  # Use asyncio.sleep instead of time.sleep
+            return True
+            
+        logger.error("Update %s caused error %s", update, context.error, exc_info=context.error)
+        return False
 
     def setup(self) -> Application:
         """
@@ -69,6 +84,9 @@ class TelegramBot:
                 .write_timeout(30.0)      # Increase write timeout
                 .build()
             )
+
+            # Add error handler
+            self.application.add_error_handler(self.error_handler)
 
             # Register command/message handlers
             self.application.add_handler(CommandHandler("start", self.start_command))

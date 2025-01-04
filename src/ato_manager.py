@@ -18,6 +18,12 @@ from src.ai_announcements import AIAnnouncements
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ATOManager')
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return super(DecimalEncoder, self).default(obj)
+
 class ATOManager:
     def __init__(self):
         """Initialize ATO Manager"""
@@ -43,11 +49,11 @@ class ATOManager:
         
         # Initial milestones up to 1M
         self._base_milestones = [
-            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.000001')),  # (mc, burn%, sol_buyback)
-            (Decimal('150000'), Decimal('0.00000001'), Decimal('0.000001')),
-            (Decimal('300000'), Decimal('0.00000001'), Decimal('0.000001')),
-            (Decimal('600000'), Decimal('0.00000001'), Decimal('0.000001')),
-            (Decimal('1000000'), Decimal('0.00000001'), Decimal('0.000001'))  # Special case - split burn
+            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
+            (Decimal('150000'), Decimal('0.00000001'), Decimal('0.001')),
+            (Decimal('300000'), Decimal('0.00000001'), Decimal('0.001')),
+            (Decimal('600000'), Decimal('0.00000001'), Decimal('0.001')),
+            (Decimal('1000000'), Decimal('0.00000001'), Decimal('0.001'))  # Special case - split burn
         ]
         
         # Generate extended milestones beyond 1M
@@ -516,6 +522,10 @@ class ATOManager:
                 "operation continues... we dont stop"
             )
             logger.info(announcement)
+            
+            # Add broadcast task for the announcement
+            await self.broadcaster.broadcast(announcement)
+            
             return announcement
             
         except Exception as e:
@@ -548,6 +558,10 @@ class ATOManager:
                 "strategic maneuver complete... we stay winning"
             )
             logger.info(announcement)
+            
+            # Add broadcast task for the announcement
+            await self.broadcaster.broadcast(announcement)
+            
             return announcement
             
         except Exception as e:
@@ -626,12 +640,10 @@ class ATOManager:
     def _post_marketcap_update(self, current_mc: Decimal):
         """Post regular marketcap update"""
         # Check if we recently posted about this marketcap
-        mc_key = str(int(current_mc))  # Convert to string for JSON compatibility
+        mc_key = str(int(current_mc))
         last_update = self._announcement_history['marketcap_updates'].get(mc_key)
         
-        # Only post update if we haven't posted about this MC in the last 6 hours
-        current_time = time.time()
-        if last_update and (current_time - last_update < 21600):  # 6 hours in seconds
+        if last_update and (time.time() - last_update < 21600):  # 6 hours in seconds
             return None
 
         if self._current_milestone_index < len(self._milestones):
@@ -647,31 +659,48 @@ class ATOManager:
             )
 
             try:
-                # Get narrative context
-                current_event = self.narrative['dynamic_context']['current_event']
-                inner_dialogue = self.narrative['dynamic_context']['current_inner_dialogue']
+                # Get narrative context directly from narrative object
+                if hasattr(self, 'narrative') and isinstance(self.narrative, dict):
+                    context = self.narrative.get('dynamic_context', {})
+                    current_event = context.get('current_event', '')
+                    inner_dialogue = context.get('current_inner_dialogue', '')
 
-                # Generate narrative-aware announcement
-                announcement = self.ai_announcements.generate_marketcap_announcement(
-                    base_announcement,
-                    current_event,
-                    inner_dialogue
-                )
+                    logger.debug(f"Current event: {current_event}")
+                    logger.debug(f"Inner dialogue: {inner_dialogue}")
+
+                    # Generate announcement using direct approach from test
+                    if current_event and inner_dialogue:
+                        logger.info("Generating AI announcement with narrative context...")
+                        announcement = self.ai_announcements.generate_marketcap_announcement(
+                            base_announcement,
+                            current_event,
+                            inner_dialogue
+                        )
+                        if not announcement or announcement.strip() == "":
+                            logger.warning("LLM returned empty announcement, falling back to base")
+                            announcement = base_announcement
+                        else:
+                            logger.info("Successfully generated AI announcement")
+                    else:
+                        logger.warning("Missing narrative context, using base announcement")
+                        announcement = base_announcement
+                else:
+                    logger.warning("No narrative object available, using base announcement")
+                    announcement = base_announcement
             except Exception as e:
-                logger.error(f"Error generating narrative announcement: {e}")
-                announcement = base_announcement  # Fallback to base announcement
+                logger.error(f"Error in narrative processing: {str(e)}", exc_info=True)
+                announcement = base_announcement
         else:
             announcement = (
                 f"current marketcap: {current_mc/1000}k! >w<\n"
                 "we've hit all our miwestones! amazing job! uwu"
             )
         
-        # Update history and save
-        self._announcement_history['marketcap_updates'][mc_key] = current_time
+        self._announcement_history['marketcap_updates'][mc_key] = time.time()
         self._save_announcement_history()
         
-        # Format and broadcast
         twitter_announcement = self._format_announcement_for_twitter(announcement)
+        logger.info(f"Broadcasting final announcement: {twitter_announcement}")
         asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
         
         return announcement
@@ -703,6 +732,6 @@ class ATOManager:
         """Save announcement history to JSON file"""
         try:
             with open(self._announcements_file, 'w') as f:
-                json.dump(self._announcement_history, f, indent=2)
+                json.dump(self._announcement_history, f, indent=2, cls=DecimalEncoder)
         except Exception as e:
             logger.error(f"Error saving announcement history: {e}")
