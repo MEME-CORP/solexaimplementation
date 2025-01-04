@@ -56,12 +56,17 @@ class TelegramBot:
         add command handlers, message handlers, and background jobs.
         """
         try:
-            # Create the Application, enabling the job queue
+            # Create the Application with adjusted connection pool settings
             defaults = Defaults(block=False)
             self.application = (
                 ApplicationBuilder()
                 .token(self.token)
                 .defaults(defaults)
+                .connection_pool_size(8)  # Increase from default 4
+                .connect_timeout(30.0)    # Increase connection timeout
+                .pool_timeout(20.0)       # Increase pool timeout
+                .read_timeout(30.0)       # Increase read timeout
+                .write_timeout(30.0)      # Increase write timeout
                 .build()
             )
 
