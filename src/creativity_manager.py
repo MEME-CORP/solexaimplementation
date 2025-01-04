@@ -179,8 +179,7 @@ class CreativityManager:
                         "content": (
                             "Generate creative instructions for the next story circle update, "
                             "first in the <CS> tags and then in the exact YAML format specified in "
-                            "the <INSTRUCTIONS> tags. Ensure that marketcap numbers are mentioned "
-                            "explicitly in the first event and dialogue."
+                            "the <INSTRUCTIONS> tags. "
                         )
                     }
                 ],
@@ -189,6 +188,11 @@ class CreativityManager:
             )
             
             response_text = response.choices[0].message.content.strip()
+            
+            # Add debug logging
+            logger.info("=== DEBUG: LLM Response Start ===")
+            logger.info(response_text)
+            logger.info("=== DEBUG: LLM Response End ===")
 
             # 6) Extract instructions from the <INSTRUCTIONS> tags
             import re
@@ -196,6 +200,10 @@ class CreativityManager:
             
             if instructions_match:
                 instructions = instructions_match.group(1).strip()
+                # Add debug logging for extracted instructions
+                logger.info("=== DEBUG: Extracted Instructions Start ===")
+                logger.info(instructions)
+                logger.info("=== DEBUG: Extracted Instructions End ===")
                 logger.info("Creative instructions successfully generated.")
                 return instructions
             else:
@@ -204,6 +212,11 @@ class CreativityManager:
                 
         except Exception as e:
             logger.error(f"Error in generate_creative_instructions: {e}")
+            # Add debug logging for exception details
+            logger.error("=== DEBUG: Exception Details ===")
+            import traceback
+            logger.error(traceback.format_exc())
+            logger.error("=== DEBUG: Exception End ===")
             return "Create a compelling and unique story that develops the character's character in unexpected ways"
 
     def get_emotion_format(self):
