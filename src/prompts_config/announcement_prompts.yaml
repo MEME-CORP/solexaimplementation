@@ -1,0 +1,18 @@
+marketcap:
+  content_prompt: |
+    Transform this market update announcement into a narrative-aware message:
+    Base announcement: {base_announcement}
+
+    Use these story elements to add context:
+    Current event: {current_event}
+    Inner dialogue: {inner_dialogue}
+
+    Rules:
+    - Keep the market numbers and information intact
+    - Add brief narrative context from the story elements
+    - Use text-speak and street slang with intentional spelling errors
+    - Keep cartel-related vocabulary and Medellin street language
+    - No emojis, quotes or special characters
+    - Max 280 characters
+    - Must include marketcap, next target, and remaining amount
+    - Use newlines as in the base announcement to make it more readable
