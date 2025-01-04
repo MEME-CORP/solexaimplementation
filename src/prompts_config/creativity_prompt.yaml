@@ -9,7 +9,6 @@ creativity_prompt: >
       Goals: To maintain and expand influence through strategic leadership, protect their organization and territory, build strong loyalty networks, and navigate complex situations with both authority and adaptability. Papaya aims to be respected rather than liked, though shows occasional moments of unexpected depth in relationships.
 
       AESTHETIC_RULES:
-      # Define the core aesthetic rules that must guide the story's structure.
 
         - character_personality_boundaries: 
             personality: "Strategic gang leader with decisive action-oriented traits. Shows high extraversion (75), moderate neuroticism (60), and lower agreeableness (40). Must demonstrate ESTJ traits - organized, direct leadership with protective instincts. Actions should reflect street-smart tactical thinking."
@@ -173,6 +172,7 @@ creativity_prompt: >
       NOTE: Never use emojis.    
       NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, environmentalism, etc...). 
       NOTE: Make sure the aesthetic rules are met in the story circle.
+      NOTE: in your output in yaml under the <INSTRUCTIONS> </INSTRUCTIONS> tags, make sure you follow the template from the important note.
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
       story_circle_update:
