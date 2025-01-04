@@ -520,10 +520,13 @@ class ATOManager:
             # Execute buyback (keeping existing logic as it works)
             buyback_success = await self._execute_buyback(buyback_amount)
             
+            # Calculate burn amount by multiplying by 1000 and format to 5 decimal places
+            burn_amount_display = f"{float(burn_percentage * 1000):.5f}"
+            
             announcement = (
                 f"we hit da milestone, no games\n"
-                f"- Token Burn: {'we did it' if burn_success else 'missed'} - {burn_percentage*1000000000} supply gone\n"
-                f"- Buyback: {'locked down' if buyback_success else 'failed'} - {buyback_amount} SOL moved\n\n"
+                f"- Token Burn: {'we did it' if burn_success else 'missed'} {burn_amount_display} tokens gone\n"
+                f"- Buyback: {'locked down' if buyback_success else 'failed'} {buyback_amount} SOL used for buyback\n\n"
                 "operation continues... we dont stop"
             )
             logger.info(announcement)
@@ -653,14 +656,13 @@ class ATOManager:
 
         if self._current_milestone_index < len(self._milestones):
             next_milestone = self._milestones[self._current_milestone_index]
-            # Calculate remaining, but set to 0 if we've reached or exceeded the milestone
             remaining = max(Decimal('0'), next_milestone[0] - current_mc)
             
             # Create base announcement with formatted numbers
             base_announcement = (
-                f"current market status: {int(current_mc)}, no cap\n"
-                f"next move target: {int(next_milestone[0])}\n"
-                f"we still need: {int(remaining)} to make dis happen\n"
+                f"current market status: {self._format_number_with_dots(int(current_mc))}, no cap\n"
+                f"next move target: {self._format_number_with_dots(int(next_milestone[0]))}\n"
+                f"we still need: {self._format_number_with_dots(int(remaining))} to make dis happen\n"
                 "operation locked & loaded... we dont play"
             )
 
@@ -741,3 +743,7 @@ class ATOManager:
                 json.dump(self._announcement_history, f, indent=2, cls=DecimalEncoder)
         except Exception as e:
             logger.error(f"Error saving announcement history: {e}")
+
+    def _format_number_with_dots(self, number: int) -> str:
+        """Format large numbers with dots for better readability"""
+        return f"{number:,}".replace(",", ".")
