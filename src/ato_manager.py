@@ -156,7 +156,7 @@ class ATOManager:
             
             formatted_announcement = announcement.strip()
             
-            # Use synchronous storage with database persistence
+            # Use synchronous storage with proper memory format
             success = self.memory_processor.store_announcement_sync(formatted_announcement)
             
             if success:
@@ -181,10 +181,17 @@ class ATOManager:
         )
         logger.info(f"Posted wallet announcement: {announcement}")
         
-        # Use create_task for broadcasting but store memory synchronously
-        asyncio.create_task(self.broadcaster.broadcast(announcement))
-        self._store_announcement_memory(announcement)  # Direct call, no create_task
-        return announcement
+        try:
+            # Store memory synchronously first
+            if not self._store_announcement_memory(announcement):
+                logger.error("Failed to store announcement in database")
+            
+            # Then broadcast
+            asyncio.create_task(self.broadcaster.broadcast(announcement))
+            return announcement
+        except Exception as e:
+            logger.error(f"Error in wallet announcement: {e}")
+            return None
         
     async def _start_token_monitoring(self):
         """Monitor token balance until tokens are received"""

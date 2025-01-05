@@ -80,23 +80,22 @@ class MemoryProcessor:
     def store_announcement_sync(self, announcement: str) -> bool:
         """Synchronously store an announcement"""
         try:
-            # Format the memory
-            memory = {
-                'timestamp': datetime.now().isoformat(),
-                'content': announcement,
-                'processed': False
+            # Format the memory data properly
+            memory_data = {
+                'memory': announcement,  # Changed from 'content' to 'memory' to match schema
+                'created_at': datetime.now().isoformat()
             }
             
-            # Store in database
-            success = self.db.insert_memory(announcement)
+            # Store in database using the correct format
+            success = self.db.insert_memory(memory_data)
             if not success:
                 logger.error("Failed to store memory in database")
                 return False
                 
             # Add to local memories list
-            self.memories.append(memory)
+            self.memories.append(memory_data)
             
-            logger.info(f"Successfully stored memory in database: {announcement[:100]}...")
+            logger.info(f"Successfully stored announcement in database: {announcement[:100]}...")
             return True
             
         except Exception as e:

@@ -920,7 +920,7 @@ class DatabaseService:
     def insert_memory(self, memory_data: dict) -> bool:
         """Insert a memory into the database with proper validation"""
         try:
-            # Ensure required fields
+            # Ensure required fields with proper names
             required_fields = {
                 'memory': str,
                 'created_at': str
@@ -935,7 +935,7 @@ class DatabaseService:
                     logger.error(f"Invalid type for field {field}")
                     return False
             
-            # Remove any fields that aren't in the schema
+            # Clean memory data to match schema
             clean_memory_data = {
                 'memory': memory_data['memory'],
                 'created_at': memory_data['created_at']
