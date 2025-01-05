@@ -222,7 +222,7 @@ class ATOManager:
                         break
                 
                 logger.info("No tokens yet, waiting before next check...")
-                await asyncio.sleep(1 if 'pytest' in sys.modules or 'unittest' in sys.modules else 120)
+                await asyncio.sleep(1 if 'pytest' in sys.modules or 'unittest' in sys.modules else 1200)
                 
         except Exception as e:
             logger.error(f"Error in token monitoring: {e}")
