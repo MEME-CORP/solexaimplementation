@@ -50,15 +50,15 @@ class ATOManager:
         # Initial milestones up to 100M
         self._base_milestones = [
             (Decimal('75000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
-            (Decimal('150000'), Decimal('0.00000001'), Decimal('0.001')),
-            (Decimal('300000'), Decimal('0.00000001'), Decimal('0.001')),
-            (Decimal('600000'), Decimal('0.00000001'), Decimal('0.001')),
-            (Decimal('1000000'), Decimal('0.00000001'), Decimal('0.001')),  # 1M milestone
-            (Decimal('5000000'), Decimal('0.00000001'), Decimal('0.001')),          # 5M milestone
-            (Decimal('10000000'), Decimal('0.00000001'), Decimal('0.001')),         # 10M milestone
-            (Decimal('20000000'), Decimal('0.00000001'), Decimal('0.001')),         # 20M milestone
-            (Decimal('50000000'), Decimal('0.00000001'), Decimal('0.001')),         # 50M milestone
-            (Decimal('100000000'), Decimal('0.00000001'), Decimal('0.001'))         # 100M milestone
+            (Decimal('150000'), Decimal('0.0000001'), Decimal('0.001')),
+            (Decimal('300000'), Decimal('0.000001'), Decimal('0.001')),
+            (Decimal('600000'), Decimal('0.00001'), Decimal('0.001')),
+            (Decimal('1000000'), Decimal('0.0001'), Decimal('0.001')),  # 1M milestone
+            (Decimal('5000000'), Decimal('0.001'), Decimal('0.001')),          # 5M milestone
+            (Decimal('10000000'), Decimal('0.01'), Decimal('0.001')),         # 10M milestone
+            (Decimal('20000000'), Decimal('0.1'), Decimal('0.001')),         # 20M milestone
+            (Decimal('50000000'), Decimal('1'), Decimal('0.001')),         # 50M milestone
+            (Decimal('100000000'), Decimal('2'), Decimal('0.001'))         # 100M milestone
         ]
         
         # Generate extended milestones beyond 1M
@@ -628,20 +628,27 @@ class ATOManager:
         mc, burn_percentage, buyback_amount = milestone
         
         # Check if milestone was already executed
-        if mc in self._announcement_history['milestone_executions']:
+        mc_str = str(mc)  # Convert to string for consistent comparison
+        if mc_str in [str(x) for x in self._announcement_history['milestone_executions']]:
             logger.info(f"Milestone {mc} was already executed, skipping...")
             self._current_milestone_index += 1
             return
         
         # Execute milestone
+        announcement = None
         if mc == Decimal('1000000') or mc == Decimal('10000000'):
-            await self._execute_special_milestone(burn_percentage, buyback_amount)
+            announcement = await self._execute_special_milestone(burn_percentage, buyback_amount)
         else:
-            await self._execute_standard_milestone(burn_percentage, buyback_amount)
+            announcement = await self._execute_standard_milestone(burn_percentage, buyback_amount)
         
-        # Update history and save
-        self._announcement_history['milestone_executions'].append(mc)
-        self._save_announcement_history()
+        # Only update history if announcement was made successfully
+        if announcement and "oopsie" not in announcement.lower():
+            # Update history and save
+            self._announcement_history['milestone_executions'].append(str(mc))
+            self._save_announcement_history()
+            logger.info(f"Added milestone {mc} to execution history")
+        else:
+            logger.error(f"Milestone {mc} execution failed or returned error message")
         
         self._current_milestone_index += 1
 
@@ -653,6 +660,15 @@ class ATOManager:
         
         if last_update and (time.time() - last_update < 21600):  # 6 hours in seconds
             return None
+
+        # Store current marketcap in memories table
+        try:
+            # Format marketcap memory
+            marketcap_memory = f"Current marketcap: {current_mc}"
+            self.memory_processor.store_marketcap_sync(marketcap_memory)
+            logger.info(f"Successfully stored marketcap in memories: {marketcap_memory}")
+        except Exception as e:
+            logger.error(f"Failed to store marketcap in memories: {e}")
 
         if self._current_milestone_index < len(self._milestones):
             next_milestone = self._milestones[self._current_milestone_index]
@@ -718,7 +734,12 @@ class ATOManager:
         try:
             if self._announcements_file.exists():
                 with open(self._announcements_file, 'r') as f:
-                    return json.load(f)
+                    history = json.load(f)
+                    # Convert milestone executions to Decimal for consistency
+                    history['milestone_executions'] = [
+                        Decimal(str(x)) for x in history.get('milestone_executions', [])
+                    ]
+                    return history
             return {
                 'wallet_announced': False,
                 'tokens_received': False,
@@ -737,10 +758,23 @@ class ATOManager:
             }
 
     def _save_announcement_history(self):
-        """Save announcement history to JSON file"""
+        """Save announcement history to JSON file with proper encoding"""
         try:
+            # Convert all Decimal values to strings before saving
+            history_copy = {
+                'wallet_announced': self._announcement_history['wallet_announced'],
+                'tokens_received': self._announcement_history['tokens_received'],
+                'initial_milestones': self._announcement_history['initial_milestones'],
+                'milestone_executions': [str(x) for x in self._announcement_history['milestone_executions']],
+                'marketcap_updates': {
+                    k: v for k, v in self._announcement_history['marketcap_updates'].items()
+                }
+            }
+            
             with open(self._announcements_file, 'w') as f:
-                json.dump(self._announcement_history, f, indent=2, cls=DecimalEncoder)
+                json.dump(history_copy, f, indent=2)
+            
+            logger.info(f"Saved announcement history with {len(history_copy['milestone_executions'])} milestone executions")
         except Exception as e:
             logger.error(f"Error saving announcement history: {e}")
 
