@@ -222,7 +222,7 @@ class ATOManager:
                         break
                 
                 logger.info("No tokens yet, waiting before next check...")
-                await asyncio.sleep(1 if 'pytest' in sys.modules or 'unittest' in sys.modules else 1200)
+                await asyncio.sleep(1 if 'pytest' in sys.modules or 'unittest' in sys.modules else 60)
                 
         except Exception as e:
             logger.error(f"Error in token monitoring: {e}")
@@ -591,8 +591,9 @@ class ATOManager:
             return None
         
         def format_milestone(mc: Decimal, burn: Decimal, buyback: Decimal) -> str:
-            mc_k = mc / 1000
-            return f"- {mc_k}k mc: burn {burn}% + {buyback} SOL buyback!"
+            # Use the same dot formatting for consistency
+            mc_formatted = self._format_number_with_dots(int(mc))
+            return f"- {mc_formatted}: burn {burn}% + {buyback} SOL buyback!"
 
         milestones_text = "\n".join([
             format_milestone(mc, burn, buyback) 
@@ -600,7 +601,7 @@ class ATOManager:
         ])
 
         announcement = (
-            f"current marketcap: {current_mc/1000}k! the plan:\n\n"
+            f"current market status: {self._format_number_with_dots(int(current_mc))}\n\n"
             f"{milestones_text}\n\n"            
         )
         
