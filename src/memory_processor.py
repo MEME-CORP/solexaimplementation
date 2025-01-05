@@ -257,3 +257,41 @@ class MemoryProcessor:
         except Exception as e:
             logger.error(f"Error processing daily memories: {e}")
             raise
+
+    def store_marketcap_sync(self, marketcap_memory: str) -> bool:
+        """Store marketcap in memories table, replacing any existing marketcap memory"""
+        try:
+            # First, find and delete any existing marketcap memories
+            # We'll search for memories that start with "Current marketcap:"
+            existing_memories = self.db.client.table('memories')\
+                .select('*')\
+                .like('memory', 'Current marketcap:%')\
+                .execute()
+            
+            if existing_memories.data:
+                for mem in existing_memories.data:
+                    self.db.client.table('memories')\
+                        .delete()\
+                        .eq('id', mem['id'])\
+                        .execute()
+            
+            # Format memory data according to the actual table schema
+            memory_data = {
+                'memory': marketcap_memory,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # Use the standard insert_memory method
+            success = self.db.insert_memory(memory_data)
+            
+            if success:
+                logger.info(f"Successfully stored marketcap memory: {marketcap_memory}")
+                return True
+            
+            logger.error("Failed to store marketcap memory")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error storing marketcap memory: {e}")
+            logger.exception("Full traceback:")  # Added full traceback for better debugging
+            return False

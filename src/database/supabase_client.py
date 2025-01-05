@@ -917,23 +917,39 @@ class DatabaseService:
             logger.error(f"Error adding processed tweet {tweet_id}: {e}")
             raise
 
-    def insert_memory(self, content: str) -> bool:
-        """Insert a new memory into the memories table"""
+    def insert_memory(self, memory_data: dict) -> bool:
+        """Insert a memory into the database with proper validation"""
         try:
-            # Format the memory data
-            memory_data = {
-                'memory': content,
-                'created_at': datetime.now().isoformat()
+            # Ensure required fields
+            required_fields = {
+                'memory': str,
+                'created_at': str
             }
             
-            # Use the existing add_memory method
-            success = self.add_memory(memory_data)
+            # Validate fields
+            for field, field_type in required_fields.items():
+                if field not in memory_data:
+                    logger.error(f"Missing required field: {field}")
+                    return False
+                if not isinstance(memory_data[field], field_type):
+                    logger.error(f"Invalid type for field {field}")
+                    return False
             
-            if success:
-                logger.info(f"Successfully inserted memory: {content[:100]}...")
+            # Remove any fields that aren't in the schema
+            clean_memory_data = {
+                'memory': memory_data['memory'],
+                'created_at': memory_data['created_at']
+            }
+            
+            # Insert memory
+            response = self.client.table('memories')\
+                .insert(clean_memory_data)\
+                .execute()
+            
+            if response.data:
+                logger.info(f"Successfully inserted memory: {clean_memory_data['memory'][:100]}")
                 return True
                 
-            logger.error("Failed to insert memory")
             return False
             
         except Exception as e:

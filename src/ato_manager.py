@@ -670,14 +670,21 @@ class ATOManager:
         except Exception as e:
             logger.error(f"Failed to store marketcap in memories: {e}")
 
-        if self._current_milestone_index < len(self._milestones):
-            next_milestone = self._milestones[self._current_milestone_index]
-            remaining = max(Decimal('0'), next_milestone[0] - current_mc)
+        # Get next unachieved milestone
+        next_milestone = None
+        for milestone, burn, buyback in self._milestones:
+            if str(milestone) not in [str(x) for x in self._announcement_history['milestone_executions']]:
+                next_milestone = milestone
+                break
+        
+        # Only create announcement if there's an unachieved milestone
+        if next_milestone:
+            remaining = max(Decimal('0'), next_milestone - current_mc)
             
             # Create base announcement with formatted numbers
             base_announcement = (
                 f"current market status: {self._format_number_with_dots(int(current_mc))}, no cap\n"
-                f"next move target: {self._format_number_with_dots(int(next_milestone[0]))}\n"
+                f"next move target: {self._format_number_with_dots(int(next_milestone))}\n"
                 f"we still need: {self._format_number_with_dots(int(remaining))} to make dis happen\n"
                 "operation locked & loaded... we dont play"
             )
@@ -692,7 +699,6 @@ class ATOManager:
                     logger.debug(f"Current event: {current_event}")
                     logger.debug(f"Inner dialogue: {inner_dialogue}")
 
-                    # Generate announcement using direct approach from test
                     if current_event and inner_dialogue:
                         logger.info("Generating AI announcement with narrative context...")
                         announcement = self.ai_announcements.generate_marketcap_announcement(
@@ -715,10 +721,8 @@ class ATOManager:
                 logger.error(f"Error in narrative processing: {str(e)}", exc_info=True)
                 announcement = base_announcement
         else:
-            announcement = (
-                f"current marketcap: {current_mc/1000}k! >w<\n"
-                "we've hit all our miwestones! amazing job! uwu"
-            )
+            # If all milestones are achieved, just post current marketcap
+            announcement = f"current marketcap: {self._format_number_with_dots(int(current_mc))}"
         
         self._announcement_history['marketcap_updates'][mc_key] = time.time()
         self._save_announcement_history()
