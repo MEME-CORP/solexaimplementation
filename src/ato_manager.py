@@ -698,14 +698,12 @@ class ATOManager:
             )
 
             try:
-                # Get narrative context directly from narrative object
+                # Get narrative context from narrative object
                 if hasattr(self, 'narrative') and isinstance(self.narrative, dict):
                     context = self.narrative.get('dynamic_context', {})
                     current_event = context.get('current_event', '')
-                    inner_dialogue = context.get('current_inner_dialogue', '')
-
-                    logger.debug(f"Current event: {current_event}")
-                    logger.debug(f"Inner dialogue: {inner_dialogue}")
+                    # CHANGED HERE: accept either "inner_dialogue" or "current_inner_dialogue"
+                    inner_dialogue = context.get('inner_dialogue', '') or context.get('current_inner_dialogue', '')
 
                     if current_event and inner_dialogue:
                         logger.info("Generating AI announcement with narrative context...")
@@ -714,11 +712,11 @@ class ATOManager:
                             current_event,
                             inner_dialogue
                         )
-                        if not announcement or announcement.strip() == "":
+                        if announcement and announcement.strip():
+                            logger.info("Successfully generated AI announcement")
+                        else:
                             logger.warning("LLM returned empty announcement, falling back to base")
                             announcement = base_announcement
-                        else:
-                            logger.info("Successfully generated AI announcement")
                     else:
                         logger.warning("Missing narrative context, using base announcement")
                         announcement = base_announcement

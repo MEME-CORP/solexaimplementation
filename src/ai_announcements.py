@@ -46,6 +46,11 @@ class AIAnnouncements:
                 logger.error("No prompts available for announcement generation")
                 return base_announcement
 
+            # Validate inputs
+            if not current_event or not inner_dialogue:
+                logger.warning("Missing narrative context elements")
+                return base_announcement
+
             prompt = self.prompts['marketcap']['content_prompt'].format(
                 base_announcement=base_announcement,
                 current_event=current_event,
@@ -84,4 +89,4 @@ class AIAnnouncements:
 
         except Exception as e:
             logger.error(f"Error generating announcement: {str(e)}", exc_info=True)
-            return base_announcement  # Fallback to original announcement 
+            return base_announcement  # Fallback to original announcement
