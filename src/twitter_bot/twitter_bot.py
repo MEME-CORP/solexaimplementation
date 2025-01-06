@@ -96,7 +96,7 @@ class TwitterBot:
             # Set timers
             last_tweet_time = time.time()
             last_notification_check = time.time()
-            tweet_interval = random.randint(3600, 7200)  # 5-30 minutes
+            tweet_interval = random.randint(1800, 3600)  # 5-30 minutes
             notification_interval = 300  # 5 minutes
 
             logger.info(f"Next tweet in {tweet_interval/60:.1f} minutes")
