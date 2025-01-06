@@ -18,6 +18,12 @@ from src.ai_announcements import AIAnnouncements
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ATOManager')
 
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return str(obj)
+        return super(DecimalEncoder, self).default(obj)
+
 class ATOManager:
     def __init__(self):
         """Initialize ATO Manager"""
@@ -41,13 +47,18 @@ class ATOManager:
         self._max_retries = 3
         self._retry_delay = 2
         
-        # Initial milestones up to 1M
+        # Initial milestones up to 100M
         self._base_milestones = [
-            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.00001')),  # (mc, burn%, sol_buyback)
-            (Decimal('150000'), Decimal('0.5'), Decimal('0.4')),
-            (Decimal('300000'), Decimal('0.5'), Decimal('0.8')),
-            (Decimal('600000'), Decimal('0.5'), Decimal('1.0')),
-            (Decimal('1000000'), Decimal('0.5'), Decimal('1.5'))  # Special case - split burn
+            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
+            (Decimal('150000'), Decimal('0.0000001'), Decimal('0.001')),
+            (Decimal('300000'), Decimal('0.000001'), Decimal('0.001')),
+            (Decimal('600000'), Decimal('0.00001'), Decimal('0.001')),
+            (Decimal('1000000'), Decimal('0.0001'), Decimal('0.001')),  # 1M milestone
+            (Decimal('5000000'), Decimal('0.001'), Decimal('0.001')),          # 5M milestone
+            (Decimal('10000000'), Decimal('0.01'), Decimal('0.001')),         # 10M milestone
+            (Decimal('20000000'), Decimal('0.1'), Decimal('0.001')),         # 20M milestone
+            (Decimal('50000000'), Decimal('1'), Decimal('0.001')),         # 50M milestone
+            (Decimal('100000000'), Decimal('2'), Decimal('0.001'))         # 100M milestone
         ]
         
         # Generate extended milestones beyond 1M
@@ -145,7 +156,7 @@ class ATOManager:
             
             formatted_announcement = announcement.strip()
             
-            # Use synchronous storage with database persistence
+            # Use synchronous storage with proper memory format
             success = self.memory_processor.store_announcement_sync(formatted_announcement)
             
             if success:
@@ -170,10 +181,17 @@ class ATOManager:
         )
         logger.info(f"Posted wallet announcement: {announcement}")
         
-        # Use create_task for broadcasting but store memory synchronously
-        asyncio.create_task(self.broadcaster.broadcast(announcement))
-        self._store_announcement_memory(announcement)  # Direct call, no create_task
-        return announcement
+        try:
+            # Store memory synchronously first
+            if not self._store_announcement_memory(announcement):
+                logger.error("Failed to store announcement in database")
+            
+            # Then broadcast
+            asyncio.create_task(self.broadcaster.broadcast(announcement))
+            return announcement
+        except Exception as e:
+            logger.error(f"Error in wallet announcement: {e}")
+            return None
         
     async def _start_token_monitoring(self):
         """Monitor token balance until tokens are received"""
@@ -204,7 +222,7 @@ class ATOManager:
                         break
                 
                 logger.info("No tokens yet, waiting before next check...")
-                await asyncio.sleep(1 if 'pytest' in sys.modules or 'unittest' in sys.modules else 120)
+                await asyncio.sleep(1 if 'pytest' in sys.modules or 'unittest' in sys.modules else 60)
                 
         except Exception as e:
             logger.error(f"Error in token monitoring: {e}")
@@ -489,27 +507,40 @@ class ATOManager:
             raise
 
     async def _execute_standard_milestone(self, burn_percentage: Decimal, buyback_amount: Decimal):
-        """Execute standard milestone"""
+        """Execute standard milestone with improved burn verification"""
         try:
             # Add delay between operations
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)  # Increased initial delay
             
-            # Execute burn
-            burn_success = await self._burn_tokens(burn_percentage)
+            # Execute burn with verification
+            burn_success = False
+            burn_attempts = 3
+            for attempt in range(burn_attempts):
+                burn_success = await self._burn_tokens(burn_percentage)
+                if burn_success:
+                    break
+                await asyncio.sleep(10 * (attempt + 1))  # Exponential backoff between attempts
             
-            # Add delay between burn and buyback
-            await asyncio.sleep(10)
+            # Add longer delay between burn and buyback
+            await asyncio.sleep(15)  # Increased from 10 to 15 seconds
             
-            # Execute buyback
+            # Execute buyback (keeping existing logic as it works)
             buyback_success = await self._execute_buyback(buyback_amount)
+            
+            # Calculate burn amount by multiplying by 1000 and format to 5 decimal places
+            burn_amount_display = f"{float(burn_percentage * 1000):.5f}"
             
             announcement = (
                 f"we hit da milestone, no games\n"
-                f"- Token Burn: {'we did it' if burn_success else 'missed'} - {burn_percentage}% supply gone\n"
-                f"- Buyback: {'locked down' if buyback_success else 'failed'} - {buyback_amount} SOL moved\n\n"
+                f"- Token Burn: {'we did it' if burn_success else 'missed'} {burn_amount_display} tokens gone\n"
+                f"- Buyback: {'locked down' if buyback_success else 'failed'} {buyback_amount} SOL used for buyback\n\n"
                 "operation continues... we dont stop"
             )
             logger.info(announcement)
+            
+            # Add broadcast task for the announcement
+            await self.broadcaster.broadcast(announcement)
+            
             return announcement
             
         except Exception as e:
@@ -542,6 +573,10 @@ class ATOManager:
                 "strategic maneuver complete... we stay winning"
             )
             logger.info(announcement)
+            
+            # Add broadcast task for the announcement
+            await self.broadcaster.broadcast(announcement)
+            
             return announcement
             
         except Exception as e:
@@ -556,8 +591,9 @@ class ATOManager:
             return None
         
         def format_milestone(mc: Decimal, burn: Decimal, buyback: Decimal) -> str:
-            mc_k = mc / 1000
-            return f"- {mc_k}k mc: burn {burn}% + {buyback} SOL buyback!"
+            # Use the same dot formatting for consistency
+            mc_formatted = self._format_number_with_dots(int(mc))
+            return f"- {mc_formatted}: burn {burn}% + {buyback} SOL buyback!"
 
         milestones_text = "\n".join([
             format_milestone(mc, burn, buyback) 
@@ -565,7 +601,7 @@ class ATOManager:
         ])
 
         announcement = (
-            f"current marketcap: {current_mc/1000}k! the plan:\n\n"
+            f"current market status: {self._format_number_with_dots(int(current_mc))}\n\n"
             f"{milestones_text}\n\n"            
         )
         
@@ -590,7 +626,7 @@ class ATOManager:
                 # Post current marketcap update
                 self._post_marketcap_update(current_mc)
                 
-                await asyncio.sleep(1200)  # Check every 20 minutes
+                await asyncio.sleep(120)  # Check every 20 minutes
         except Exception as e:
             logger.error(f"Error in marketcap monitoring: {e}")
 
@@ -600,73 +636,105 @@ class ATOManager:
         mc, burn_percentage, buyback_amount = milestone
         
         # Check if milestone was already executed
-        if mc in self._announcement_history['milestone_executions']:
+        mc_str = str(mc)  # Convert to string for consistent comparison
+        if mc_str in [str(x) for x in self._announcement_history['milestone_executions']]:
             logger.info(f"Milestone {mc} was already executed, skipping...")
             self._current_milestone_index += 1
             return
         
         # Execute milestone
+        announcement = None
         if mc == Decimal('1000000') or mc == Decimal('10000000'):
-            await self._execute_special_milestone(burn_percentage, buyback_amount)
+            announcement = await self._execute_special_milestone(burn_percentage, buyback_amount)
         else:
-            await self._execute_standard_milestone(burn_percentage, buyback_amount)
+            announcement = await self._execute_standard_milestone(burn_percentage, buyback_amount)
         
-        # Update history and save
-        self._announcement_history['milestone_executions'].append(mc)
-        self._save_announcement_history()
+        # Only update history if announcement was made successfully
+        if announcement and "oopsie" not in announcement.lower():
+            # Update history and save
+            self._announcement_history['milestone_executions'].append(str(mc))
+            self._save_announcement_history()
+            logger.info(f"Added milestone {mc} to execution history")
+        else:
+            logger.error(f"Milestone {mc} execution failed or returned error message")
         
         self._current_milestone_index += 1
 
     def _post_marketcap_update(self, current_mc: Decimal):
         """Post regular marketcap update"""
         # Check if we recently posted about this marketcap
-        mc_key = str(int(current_mc))  # Convert to string for JSON compatibility
+        mc_key = str(int(current_mc))
         last_update = self._announcement_history['marketcap_updates'].get(mc_key)
         
-        # Only post update if we haven't posted about this MC in the last 6 hours
-        current_time = time.time()
-        if last_update and (current_time - last_update < 21600):  # 6 hours in seconds
+        if last_update and (time.time() - last_update < 21600):  # 6 hours in seconds
             return None
 
-        if self._current_milestone_index < len(self._milestones):
-            next_milestone = self._milestones[self._current_milestone_index]
-            remaining = next_milestone[0] - current_mc
+        # Store current marketcap in memories table
+        try:
+            # Format marketcap memory
+            marketcap_memory = f"Current marketcap: {current_mc}"
+            self.memory_processor.store_marketcap_sync(marketcap_memory)
+            logger.info(f"Successfully stored marketcap in memories: {marketcap_memory}")
+        except Exception as e:
+            logger.error(f"Failed to store marketcap in memories: {e}")
+
+        # Get next unachieved milestone
+        next_milestone = None
+        for milestone, burn, buyback in self._milestones:
+            if str(milestone) not in [str(x) for x in self._announcement_history['milestone_executions']]:
+                next_milestone = milestone
+                break
+        
+        # Only create announcement if there's an unachieved milestone
+        if next_milestone:
+            remaining = max(Decimal('0'), next_milestone - current_mc)
             
-            # Create base announcement
+            # Create base announcement with formatted numbers
             base_announcement = (
-                f"current market status: {current_mc/1000}k, no cap\n"
-                f"next move target: {next_milestone[0]/1000}k\n"
-                f"we still need: {remaining/1000}k 2 make dis happen\n"
+                f"current market status: {self._format_number_with_dots(int(current_mc))}, no cap\n"
+                f"next move target: {self._format_number_with_dots(int(next_milestone))}\n"
+                f"we still need: {self._format_number_with_dots(int(remaining))} to make dis happen\n"
                 "operation locked & loaded... we dont play"
             )
 
             try:
-                logger.info("Generating AI announcement...")
-                # Generate narrative-aware announcement - context will be fetched from database
-                announcement = self.ai_announcements.generate_marketcap_announcement(base_announcement)
-                
-                if not announcement or announcement.strip() == "":
-                    logger.warning("LLM returned empty announcement, falling back to base")
-                    announcement = base_announcement
+                # Get narrative context from narrative object
+                if hasattr(self, 'narrative') and isinstance(self.narrative, dict):
+                    context = self.narrative.get('dynamic_context', {})
+                    current_event = context.get('current_event', '')
+                    # CHANGED HERE: accept either "inner_dialogue" or "current_inner_dialogue"
+                    inner_dialogue = context.get('inner_dialogue', '') or context.get('current_inner_dialogue', '')
+
+                    if current_event and inner_dialogue:
+                        logger.info("Generating AI announcement with narrative context...")
+                        announcement = self.ai_announcements.generate_marketcap_announcement(
+                            base_announcement,
+                            current_event,
+                            inner_dialogue
+                        )
+                        if announcement and announcement.strip():
+                            logger.info("Successfully generated AI announcement")
+                        else:
+                            logger.warning("LLM returned empty announcement, falling back to base")
+                            announcement = base_announcement
+                    else:
+                        logger.warning("Missing narrative context, using base announcement")
+                        announcement = base_announcement
                 else:
-                    logger.info("Successfully generated AI announcement")
-                    
+                    logger.warning("No narrative object available, using base announcement")
+                    announcement = base_announcement
             except Exception as e:
                 logger.error(f"Error in narrative processing: {str(e)}", exc_info=True)
-                logger.warning("Using base announcement as fallback")
-                announcement = base_announcement  # Fallback to base announcement
+                announcement = base_announcement
         else:
-            announcement = (
-                f"current marketcap: {current_mc/1000}k! >w<\n"
-                "we've hit all our miwestones! amazing job! uwu"
-            )
+            # If all milestones are achieved, just post current marketcap
+            announcement = f"current marketcap: {self._format_number_with_dots(int(current_mc))}"
         
-        # Update history and save
-        self._announcement_history['marketcap_updates'][mc_key] = current_time
+        self._announcement_history['marketcap_updates'][mc_key] = time.time()
         self._save_announcement_history()
         
-        # Format and broadcast
         twitter_announcement = self._format_announcement_for_twitter(announcement)
+        logger.info(f"Broadcasting final announcement: {twitter_announcement}")
         asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
         
         return announcement
@@ -676,7 +744,12 @@ class ATOManager:
         try:
             if self._announcements_file.exists():
                 with open(self._announcements_file, 'r') as f:
-                    return json.load(f)
+                    history = json.load(f)
+                    # Convert milestone executions to Decimal for consistency
+                    history['milestone_executions'] = [
+                        Decimal(str(x)) for x in history.get('milestone_executions', [])
+                    ]
+                    return history
             return {
                 'wallet_announced': False,
                 'tokens_received': False,
@@ -695,9 +768,26 @@ class ATOManager:
             }
 
     def _save_announcement_history(self):
-        """Save announcement history to JSON file"""
+        """Save announcement history to JSON file with proper encoding"""
         try:
+            # Convert all Decimal values to strings before saving
+            history_copy = {
+                'wallet_announced': self._announcement_history['wallet_announced'],
+                'tokens_received': self._announcement_history['tokens_received'],
+                'initial_milestones': self._announcement_history['initial_milestones'],
+                'milestone_executions': [str(x) for x in self._announcement_history['milestone_executions']],
+                'marketcap_updates': {
+                    k: v for k, v in self._announcement_history['marketcap_updates'].items()
+                }
+            }
+            
             with open(self._announcements_file, 'w') as f:
-                json.dump(self._announcement_history, f, indent=2)
+                json.dump(history_copy, f, indent=2)
+            
+            logger.info(f"Saved announcement history with {len(history_copy['milestone_executions'])} milestone executions")
         except Exception as e:
             logger.error(f"Error saving announcement history: {e}")
+
+    def _format_number_with_dots(self, number: int) -> str:
+        """Format large numbers with dots for better readability"""
+        return f"{number:,}".replace(",", ".")
