@@ -652,7 +652,7 @@ class ATOManager:
                     logger.info("Successfully generated AI announcement")
                     
             except Exception as e:
-                logger.error(f"Error generating narrative announcement: {e}")
+                logger.error(f"Error in narrative processing: {str(e)}", exc_info=True)
                 logger.warning("Using base announcement as fallback")
                 announcement = base_announcement  # Fallback to base announcement
         else:
