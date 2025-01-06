@@ -172,7 +172,7 @@ creativity_prompt: >
       NOTE: Never use emojis.    
       NOTE: Take into account the character profile to generate a creative narrative, make sure you don't push any ideological messages (like wokeism, feminism, religious fanatism, political fanatism, environmentalism, etc...). 
       NOTE: Make sure the aesthetic rules are met in the story circle.
-      NOTE: Make sure that you mention the token symbol, the current marketcap and the next milestone twice in each phase of the story circle.
+      NOTE: Make sure that you mention the token symbol, the current marketcap and the next milestone twice in the events and/or inner dialogues of the story circle update yaml.
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
       story_circle_update:
