@@ -49,6 +49,11 @@ class AIAnnouncements:
     def generate_marketcap_announcement(self, base_announcement: str, current_event: str = '', inner_dialogue: str = '') -> str:
         """Generate narrative-aware marketcap announcement"""
         try:
+            # Check prompts first
+            if not self.prompts:
+                logger.error("No prompts available for announcement generation")
+                return base_announcement
+
             # If no context provided, get it from database
             if not current_event or not inner_dialogue:
                 current_event, inner_dialogue = self._get_narrative_context()

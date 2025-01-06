@@ -641,10 +641,19 @@ class ATOManager:
             )
 
             try:
+                logger.info("Generating AI announcement...")
                 # Generate narrative-aware announcement - context will be fetched from database
                 announcement = self.ai_announcements.generate_marketcap_announcement(base_announcement)
+                
+                if not announcement or announcement.strip() == "":
+                    logger.warning("LLM returned empty announcement, falling back to base")
+                    announcement = base_announcement
+                else:
+                    logger.info("Successfully generated AI announcement")
+                    
             except Exception as e:
                 logger.error(f"Error generating narrative announcement: {e}")
+                logger.warning("Using base announcement as fallback")
                 announcement = base_announcement  # Fallback to base announcement
         else:
             announcement = (
