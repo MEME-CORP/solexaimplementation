@@ -171,7 +171,7 @@ def run_story_circle_progression():
             print(f"Error in story circle progression: {e}")
             
         # Wait 60 seconds before next progression
-        time.sleep(1800)
+        time.sleep(3600)
     
     print("Story circle progression loop stopped")
 

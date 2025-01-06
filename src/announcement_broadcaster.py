@@ -7,6 +7,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
 from src.config import Config
 from selenium.webdriver.common.by import By
 import time
+import re
 
 logger = logging.getLogger('AnnouncementBroadcaster')
 
@@ -72,6 +73,9 @@ class AnnouncementBroadcaster:
     @classmethod
     async def broadcast(cls, message: str):
         """Broadcast message to all registered bots"""
+        if not message or not message.strip():
+            logger.warning("Attempted to broadcast empty message - skipping")
+            return False
         try:
             # First try instance chat_id, then config
             chat_id = cls._chat_id or getattr(Config, 'TELEGRAM_CHAT_ID', None)
@@ -92,7 +96,30 @@ class AnnouncementBroadcaster:
                     telegram_success = True
                     logger.info(f"Successfully sent announcement to Telegram chat {chat_id}")
                 except Exception as e:
-                    logger.error(f"Failed to send Telegram message: {e}")
+                    # Check for group migration error
+                    error_str = str(e)
+                    if "Group migrated to supergroup" in error_str:
+                        # Extract new chat ID
+                        new_id_match = re.search(r'New chat id: (-\d+)', error_str)
+                        if new_id_match:
+                            new_chat_id = new_id_match.group(1)
+                            # Update chat ID
+                            cls.set_chat_id(new_chat_id)
+                            # Retry with new chat ID
+                            try:
+                                await cls._instance._telegram_app.bot.send_message(
+                                    chat_id=new_chat_id,
+                                    text=message,
+                                    disable_web_page_preview=True
+                                )
+                                telegram_success = True
+                                logger.info(f"Successfully sent announcement to migrated chat {new_chat_id}")
+                            except Exception as retry_e:
+                                logger.error(f"Failed to send Telegram message to migrated chat: {retry_e}")
+                        else:
+                            logger.error("Could not extract new chat ID from migration error")
+                    else:
+                        logger.error(f"Failed to send Telegram message: {e}")
 
             # Handle Twitter posting
             twitter_success = False

@@ -80,23 +80,22 @@ class MemoryProcessor:
     def store_announcement_sync(self, announcement: str) -> bool:
         """Synchronously store an announcement"""
         try:
-            # Format the memory
-            memory = {
-                'timestamp': datetime.now().isoformat(),
-                'content': announcement,
-                'processed': False
+            # Format the memory data properly
+            memory_data = {
+                'memory': announcement,  # Changed from 'content' to 'memory' to match schema
+                'created_at': datetime.now().isoformat()
             }
             
-            # Store in database
-            success = self.db.insert_memory(announcement)
+            # Store in database using the correct format
+            success = self.db.insert_memory(memory_data)
             if not success:
                 logger.error("Failed to store memory in database")
                 return False
                 
             # Add to local memories list
-            self.memories.append(memory)
+            self.memories.append(memory_data)
             
-            logger.info(f"Successfully stored memory in database: {announcement[:100]}...")
+            logger.info(f"Successfully stored announcement in database: {announcement[:100]}...")
             return True
             
         except Exception as e:
@@ -257,3 +256,41 @@ class MemoryProcessor:
         except Exception as e:
             logger.error(f"Error processing daily memories: {e}")
             raise
+
+    def store_marketcap_sync(self, marketcap_memory: str) -> bool:
+        """Store marketcap in memories table, replacing any existing marketcap memory"""
+        try:
+            # First, find and delete any existing marketcap memories
+            # We'll search for memories that start with "Current marketcap:"
+            existing_memories = self.db.client.table('memories')\
+                .select('*')\
+                .like('memory', 'Current marketcap:%')\
+                .execute()
+            
+            if existing_memories.data:
+                for mem in existing_memories.data:
+                    self.db.client.table('memories')\
+                        .delete()\
+                        .eq('id', mem['id'])\
+                        .execute()
+            
+            # Format memory data according to the actual table schema
+            memory_data = {
+                'memory': marketcap_memory,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # Use the standard insert_memory method
+            success = self.db.insert_memory(memory_data)
+            
+            if success:
+                logger.info(f"Successfully stored marketcap memory: {marketcap_memory}")
+                return True
+            
+            logger.error("Failed to store marketcap memory")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error storing marketcap memory: {e}")
+            logger.exception("Full traceback:")  # Added full traceback for better debugging
+            return False

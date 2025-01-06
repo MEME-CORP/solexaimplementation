@@ -25,7 +25,7 @@ class Config:
     )
 
     # Bot Configuration
-    BOT_USERNAME = os.getenv('BOT_USERNAME', 'fwogaibot')
+    BOT_USERNAME = os.getenv('BOT_USERNAME', 'papayaelbot')
     DISCORD_BOT_USERNAME = os.getenv('DISCORD_BOT_USERNAME', 'Fwog-AI')
 
     # Model Configuration 1
@@ -65,5 +65,5 @@ class Config:
 
     # Telegram Configuration
     TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-    TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '-1002496779456')  # Default chat ID with env override capability
+    TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '-4644520029')  # Default chat ID with env override capability
     
