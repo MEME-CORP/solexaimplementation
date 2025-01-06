@@ -641,16 +641,8 @@ class ATOManager:
             )
 
             try:
-                # Get narrative context
-                current_event = self.narrative['dynamic_context']['current_event']
-                inner_dialogue = self.narrative['dynamic_context']['current_inner_dialogue']
-
-                # Generate narrative-aware announcement
-                announcement = self.ai_announcements.generate_marketcap_announcement(
-                    base_announcement,
-                    current_event,
-                    inner_dialogue
-                )
+                # Generate narrative-aware announcement - context will be fetched from database
+                announcement = self.ai_announcements.generate_marketcap_announcement(base_announcement)
             except Exception as e:
                 logger.error(f"Error generating narrative announcement: {e}")
                 announcement = base_announcement  # Fallback to base announcement
