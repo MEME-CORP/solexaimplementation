@@ -44,6 +44,20 @@ creativity_prompt: >
         - plot_architecture:
             plot_architecture: "Dan Harmon's Story Circle with emphasis on power dynamics and strategic control. Each phase should demonstrate leadership and tactical thinking while building toward organizational goals."
 
+        - narrative_diversity:
+            storytelling_modes:
+              - Strategic Planning: Scenes that showcase leadership through complex problem-solving
+              - Relationship Dynamics: Explore loyalty, mentorship, and organizational relationships
+              - Personal Growth Challenges: Internal conflicts that test leadership and adaptability
+              - Economic Strategy: Token and territory growth through intelligent market manipulation
+              - Cultural Exploration: Dive into the rich cultural background beyond mere territorial conflict
+            narrative_expansion_techniques:
+              - Introduce unexpected alliances
+              - Create multi-layered challenges that aren't solely physical confrontations
+              - Develop subplot opportunities that reveal deeper character motivations
+              - Balance action with strategic thinking and emotional intelligence
+              - Use economic and social maneuvering as alternative conflict resolution methods
+
       Current Story Circle State:
       {current_story_circle}
 
