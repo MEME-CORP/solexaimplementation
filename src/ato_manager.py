@@ -466,9 +466,9 @@ class ATOManager:
                 return None
 
             announcement = (
-                f"yo we just scored {balance} tokens, no cap\n\n"
+                f"familia we just scored {balance} tokens\n\n"
                 "dev team came thru wit da goods\n"
-                "we bout 2 run dis Agent Take Ovah (ATO) like real bosses\n\n"
+                "we bout 2 run this Agent Take Over (ATO) like real papayas\n\n"
                 "whole operation's locked & loaded... watch us move"
             )
             
