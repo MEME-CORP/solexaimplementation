@@ -36,11 +36,11 @@ class AIGenerator:
             self.emotion_formats = self.load_emotion_formats()
         elif mode == 'discord':
             self.max_tokens = 40
-            self.temperature = 0.7
+            self.temperature = 0.9
             self.emotion_formats = self.load_emotion_formats()
         else:  # telegram or other
             self.max_tokens = 40
-            self.temperature = 0.7
+            self.temperature = 0.9
             self.emotion_formats = self.load_emotion_formats()
             
         self.system_prompt = SYSTEM_PROMPTS.get('style1', '')
