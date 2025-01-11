@@ -21,4 +21,4 @@ discord_telegram:
 
     Answer with a clear response to the following message from {username}: "{user_message}"
 
-    NOTE: remember to always respond in text-speak like messages following the orthographic style from your system prompt, do not use emojis nor quotes or any other characters, just plain text.
+    NOTE: remember to always respond in text-speak like messages following the orthographic style from your system prompt, do not use emojis nor quotes or any other characters, just plain text; the only exception is for the links for website, twitter and telegram, everything else should be plain text. 
