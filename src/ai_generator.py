@@ -4,7 +4,6 @@ from openai import OpenAI
 import random
 import json
 from src.config import Config
-from src.prompts import SYSTEM_PROMPTS
 import logging
 import os
 import re
@@ -43,7 +42,8 @@ class AIGenerator:
             self.temperature = 0.9
             self.emotion_formats = self.load_emotion_formats()
             
-        self.system_prompt = SYSTEM_PROMPTS.get('style1', '')
+        # Load appropriate system prompt based on mode
+        self.system_prompt = self._load_system_prompt()
         
         # Initialize OpenAI client
         self.client = OpenAI(
@@ -273,4 +273,24 @@ class AIGenerator:
             logger.error(f"Stack trace: {traceback.format_exc()}")
             logger.error(f"Context: memories={self.memories}, narrative={self.narrative}")
             raise
+
+    def _load_system_prompt(self):
+        """Load system prompt based on mode"""
+        try:
+            if self.mode == 'twitter':
+                prompt_file = 'system_prompt.yaml'
+            else:  # discord and telegram
+                prompt_file = 'system_prompt_swarm_1.yaml'
+            
+            prompt_path = Path(__file__).parent / 'prompts_config' / prompt_file
+            with open(prompt_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                if 'system_prompt' in config:
+                    logger.info(f"Successfully loaded system prompt for {self.mode} mode")
+                    return config['system_prompt']
+                logger.error(f"No system_prompt found in {prompt_file}")
+                return ""
+        except Exception as e:
+            logger.error(f"Error loading system prompt for {self.mode} mode: {e}")
+            return ""
 
