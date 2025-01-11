@@ -39,7 +39,7 @@ class AIGenerator:
             self.temperature = 0.9
             self.emotion_formats = self.load_emotion_formats()
         else:  # telegram or other
-            self.max_tokens = 40
+            self.max_tokens = 70
             self.temperature = 0.9
             self.emotion_formats = self.load_emotion_formats()
             
