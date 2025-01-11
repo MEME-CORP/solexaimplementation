@@ -626,7 +626,7 @@ class ATOManager:
                 # Post current marketcap update
                 self._post_marketcap_update(current_mc)
                 
-                await asyncio.sleep(3600)  # Check every 20 minutes
+                await asyncio.sleep(7200)  # Check every 20 minutes
         except Exception as e:
             logger.error(f"Error in marketcap monitoring: {e}")
 
