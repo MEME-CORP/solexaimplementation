@@ -183,8 +183,8 @@ class AIGenerator:
         if self.mode == 'twitter':
             prompt_template = self.bot_prompts.get('twitter', {}).get('content_prompt', '')
             tweet_content = (
-                kwargs.get('user_message', '')[9:].strip() if kwargs.get('user_message', '').startswith('reply to:')
-                else "your current event and inner dialogue, narrate the event in detail"
+                f"user_message: {kwargs.get('user_message', '')[9:].strip()} - based on your current events and dialogues" if kwargs.get('user_message', '').startswith('reply to:')
+                else "based on your current events and dialogues, narrate the events/dialogues in detail"
             )
             emotion_format = random.choice(self.emotion_formats)['format']
             length_format = random.choice(self.length_formats)['format']
