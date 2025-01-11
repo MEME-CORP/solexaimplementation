@@ -100,6 +100,7 @@ class StoryCircleManager:
             self.creativity_manager = CreativityManager()
             self.db = DatabaseService()
             
+            
             # Load prompts with better error handling
             logger.info("Initializing StoryCircleManager - Loading prompts...")
             
@@ -1044,6 +1045,28 @@ class StoryCircleManager:
             logger.error(f"Error reconciling states: {e}")
             logger.exception("Full traceback:")
             raise
+
+    def _format_phase_context(self, story_circle):
+        """Format all events and dialogues for the current phase into readable strings"""
+        try:
+            # Format events as numbered list
+            events_text = "\n".join(f"{i+1}. {event}" 
+                                  for i, event in enumerate(story_circle.get('events', [])))
+            
+            # Format dialogues as numbered list
+            dialogues_text = "\n".join(f"{i+1}. {dialogue}" 
+                                     for i, dialogue in enumerate(story_circle.get('dialogues', [])))
+            
+            return {
+                'phase_events': events_text or "No events yet",
+                'phase_dialogues': dialogues_text or "No dialogues yet"
+            }
+        except Exception as e:
+            logger.error(f"Error formatting phase context: {e}")
+            return {
+                'phase_events': "Error retrieving events",
+                'phase_dialogues': "Error retrieving dialogues"
+            }
 
 
 # Create a singleton instance

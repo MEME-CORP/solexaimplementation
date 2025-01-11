@@ -11,8 +11,8 @@ twitter:
 
     memories: {memory_context}
     previous conversations: {conversation_context}
-    current event: {current_event}
-    inner dialogue: {inner_dialogue}
+    current phase events: {phase_events}
+    current phase inner dialogues: {phase_dialogues}
 
 discord_telegram:
   content_prompt: |

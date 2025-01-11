@@ -168,6 +168,17 @@ class AIGenerator:
         current_event = narrative_context.get('current_event', '') if narrative_context else ''
         inner_dialogue = narrative_context.get('current_inner_dialogue', '') if narrative_context else ''
         
+        # Extract phase events and dialogues from narrative
+        narrative = kwargs.get('narrative_context', self.narrative)
+        if narrative and isinstance(narrative, dict):
+            events = narrative.get('events', [])
+            dialogues = narrative.get('dialogues', [])
+            phase_events = "\n".join(f"{i+1}. {event}" for i, event in enumerate(events)) if events else "No events yet"
+            phase_dialogues = "\n".join(f"{i+1}. {dialogue}" for i, dialogue in enumerate(dialogues)) if dialogues else "No dialogues yet"
+        else:
+            phase_events = "No events yet"
+            phase_dialogues = "No dialogues yet"
+
         # Get the appropriate prompt template based on mode
         if self.mode == 'twitter':
             prompt_template = self.bot_prompts.get('twitter', {}).get('content_prompt', '')
@@ -184,6 +195,8 @@ class AIGenerator:
                 emotion_format=emotion_format,
                 memory_context=memory_context,
                 conversation_context=kwargs.get('conversation_context', ''),
+                phase_events=phase_events,
+                phase_dialogues=phase_dialogues,
                 current_event=current_event,
                 inner_dialogue=inner_dialogue
             )
@@ -198,6 +211,8 @@ class AIGenerator:
                 user_message=kwargs.get('user_message', ''),
                 emotion_format=emotion_format,
                 memory_context=memory_context,
+                phase_events=phase_events,
+                phase_dialogues=phase_dialogues,
                 current_event=current_event,
                 inner_dialogue=inner_dialogue
             )
