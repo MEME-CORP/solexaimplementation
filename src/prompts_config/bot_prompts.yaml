@@ -14,6 +14,8 @@ twitter:
     current event: {current_event}
     inner dialogue: {inner_dialogue}
 
+    NOTE: remember to always mention key details from the events and dialogues so the users can understand the events and dialogues.
+
 discord_telegram:
   content_prompt: |
     Previous conversation:
