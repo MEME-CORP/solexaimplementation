@@ -1,44 +1,124 @@
 {
     "formats": [
         {
-            "format": "commanding edge",
-            "description": "Decisive, authoritative tone"
+            "format": "fierce determination",
+            "description": "Strong, unwavering resolve"
         },
         {
-            "format": "calm steady",
-            "description": "Neutral, composed tone"
+            "format": "burning anger",
+            "description": "Intense, heated emotion"
         },
         {
-            "format": "wary step",
-            "description": "Cautious, careful tone"
+            "format": "overwhelming joy",
+            "description": "Powerful positive emotion"
         },
         {
-            "format": "driven push",
-            "description": "Focused, determined tone"
+            "format": "deep pride",
+            "description": "Strong sense of achievement"
         },
         {
-            "format": "relieved breath",
-            "description": "Satisfied, eased tone"
+            "format": "absolute confidence",
+            "description": "Unshakeable self-assurance"
         },
         {
-            "format": "frustrated edge",
-            "description": "Irritated, tense tone"
+            "format": "explosive rage",
+            "description": "Intense fury or anger"
         },
         {
-            "format": "wistful glance",
-            "description": "Thoughtful, distant tone"
+            "format": "triumphant victory",
+            "description": "Powerful sense of success"
         },
         {
-            "format": "sharp wit",
-            "description": "Playful, clever tone"
+            "format": "fierce loyalty",
+            "description": "Strong devotion or allegiance"
         },
         {
-            "format": "subtle vulnerability",
-            "description": "Gentle, rare openness"
+            "format": "burning passion",
+            "description": "Intense emotional drive"
         },
         {
-            "format": "bold move",
-            "description": "Risk-taking, confident tone"
+            "format": "total dominance",
+            "description": "Overwhelming control"
+        },
+        {
+            "format": "righteous fury",
+            "description": "Justified intense anger"
+        },
+        {
+            "format": "wild excitement",
+            "description": "Uncontained enthusiasm"
+        },
+        {
+            "format": "deep satisfaction",
+            "description": "Strong sense of fulfillment"
+        },
+        {
+            "format": "pure ambition",
+            "description": "Intense drive for success"
+        },
+        {
+            "format": "fierce protection",
+            "description": "Strong defensive instinct"
+        },
+        {
+            "format": "complete focus",
+            "description": "Intense concentration"
+        },
+        {
+            "format": "raw power",
+            "description": "Pure strength emotion"
+        },
+        {
+            "format": "unstoppable drive",
+            "description": "Powerful motivation"
+        },
+        {
+            "format": "primal fear",
+            "description": "Deep, instinctive fear"
+        },
+        {
+            "format": "intense anticipation",
+            "description": "Strong expectant emotion"
+        },
+        {
+            "format": "bold defiance",
+            "description": "Strong rebellious feeling"
+        },
+        {
+            "format": "fierce competition",
+            "description": "Strong competitive spirit"
+        },
+        {
+            "format": "pure determination",
+            "description": "Unwavering resolve"
+        },
+        {
+            "format": "raw hunger",
+            "description": "Intense desire or need"
+        },
+        {
+            "format": "quiet reflection",
+            "description": "Gentle contemplation"
+        },
+        {
+            "format": "subtle doubt",
+            "description": "Mild uncertainty"
+        },
+        {
+            "format": "gentle nostalgia",
+            "description": "Soft reminiscence"
+        },
+        {
+            "format": "mild curiosity",
+            "description": "Light inquisitiveness"
+        },
+        {
+            "format": "soft concern",
+            "description": "Gentle worry"
+        },
+        {
+            "format": "quiet contentment",
+            "description": "Peaceful satisfaction"
         }
     ]
 }
