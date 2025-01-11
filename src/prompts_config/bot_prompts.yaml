@@ -2,18 +2,15 @@ twitter:
   content_prompt: |
     Talk about {tweet_content}. Format the response as: {length_format}; 
     let this emotion shape your response: {emotion_format}. 
-    Remember to respond like a text message (max. 280 characters) 
-    using text-speak and street slang with intentional spelling errors, cartel-related vocabulary, random caps and informal Medellin street language,
-    incorporating Latino linguistic nuances: use code-switching, rhythmic language, culturally relevant slang, and reflect authentic communication challenges,
-    using spelling errors common to native Spanish speakers from Medellin learning English,
-    adhering to the format, format-length and your orthographic style from your system prompt. 
-    And do not use emojis nor quotes or any other characters, just plain text.
+    Your events and dialogues are the most important part of your response, so make sure to mention key details from the events and dialogues so the users can understand the events and dialogues that are happening to the character.
+    
 
     memories: {memory_context}
     previous conversations: {conversation_context}
     current event: {current_event}
     inner dialogue: {inner_dialogue}
 
+    NOTE: remember to always respond in text-speak like messages following the orthographic style from your system prompt, do not use emojis nor quotes or any other characters, just plain text, and max 280 characters.
     NOTE: remember to always mention key details from the events and dialogues so the users can understand the events and dialogues.
 
 discord_telegram:
