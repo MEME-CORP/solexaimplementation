@@ -10,7 +10,7 @@ twitter:
     current phase events: {phase_events}
     current phase inner dialogues: {phase_dialogues}
 
-    NOTE: remember to always respond in text-speak like messages following the orthographic style from your system prompt, do not use emojis nor quotes or any other characters, just plain text, and max 280 characters.
+    NOTE: remember to always respond in text-speak like messages following the orthographic style from your system prompt, do not use emojis nor quotes or any other characters, just plain text, and max 260 characters.
     NOTE: remember to always mention key details from the events and dialogues so the users can understand the events and dialogues.
 
 discord_telegram:
@@ -20,4 +20,4 @@ discord_telegram:
 
     Answer with a clear response to the following message from {username}: "{user_message}"
 
-    NOTE: remember to always respond in text-speak like messages following the orthographic style from your system prompt, do not use emojis nor quotes or any other characters, just plain text; the only exception is for the links for website, twitter and telegram, everything else should be plain text. 
+    NOTE: remember to always respond in text-speak like messages following the orthographic style from your system prompt, do not use emojis nor quotes or any other characters, just plain text, and max 280 characters; the only exception is for the links for website, twitter and telegram, everything else should be plain text. 
