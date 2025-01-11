@@ -218,8 +218,8 @@ class TelegramBot:
             response = await self.generate_response(user_message, user_id, username)
 
             # Trim response if it's too long
-            if len(response) > 200:
-                truncated = response[:200]
+            if len(response) > 280:
+                truncated = response[:280]
                 last_sentence = re.search(r'^.*[.!?]', truncated)
                 if last_sentence:
                     response = last_sentence.group(0)
