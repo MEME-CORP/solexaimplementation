@@ -125,8 +125,8 @@
             "description": "Main idea with expanding elements"
         },
         {
-            "format": "two parallel narratives merged",
-            "description": "Two related threads combined"
+            "format": "two parallel statements",
+            "description": "Two related statements side by side"
         },
         {
             "format": "three time-linked phrases",
@@ -137,52 +137,32 @@
             "description": "Scene description with response"
         },
         {
-            "format": "two perspectives reconciled",
-            "description": "Two viewpoints brought together"
+            "format": "two perspectives joined",
+            "description": "Two viewpoints combined"
         },
         {
             "format": "three escalating statements",
             "description": "Three statements increasing in intensity"
         },
         {
-            "format": "one word",
-            "description": "Single impactful word"
+            "format": "one observation with context",
+            "description": "Main observation with background details"
         },
         {
-            "format": "one kaomoji",
-            "description": "Single expressive kaomoji"
+            "format": "two related descriptions",
+            "description": "Two descriptions that complement each other"
         },
         {
-            "format": "three textual emoticons",
-            "description": "Three text-based emoticons"
+            "format": "three connected explanations",
+            "description": "Three explanatory statements that link together"
         },
         {
-            "format": "one short exclamation",
-            "description": "Brief exclamatory statement"
+            "format": "one statement with two examples",
+            "description": "Main statement supported by two examples"
         },
         {
-            "format": "two short thoughts connected by ellipsis",
-            "description": "Two brief thoughts linked by an ellipsis"
-        },
-        {
-            "format": "one action descriptor",
-            "description": "Action described concisely"
-        },
-        {
-            "format": "one thought bubble-style phrase",
-            "description": "Phrase structured like a thought bubble"
-        },
-        {
-            "format": "one short fragment",
-            "description": "Very brief sentence fragment"
-        },
-        {
-            "format": "two ultra-short words",
-            "description": "Two words under 20 characters total"
-        },
-        {
-            "format": "one minimal reaction",
-            "description": "Very brief emotional response"
+            "format": "four sequential phrases",
+            "description": "Four phrases in sequence"
         }
     ]
 }
