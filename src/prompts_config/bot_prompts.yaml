@@ -14,6 +14,8 @@ twitter:
     current phase events: {phase_events}
     current phase inner dialogues: {phase_dialogues}
 
+    NOTE: remember to always mention key details from the events and dialogues so the users can understand the events and dialogues.
+
 discord_telegram:
   content_prompt: |
     Previous conversation:
