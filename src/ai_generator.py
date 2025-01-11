@@ -25,7 +25,20 @@ class AIGenerator:
         logger.info("Initializing AIGenerator")
         self.db = DatabaseService()
         self.memories = None
-        self.narrative = None
+        
+        # Load narrative data first
+        logger.info("Loading narrative data")
+        story_circle = self.db.get_story_circle_sync()
+        if story_circle:
+            logger.info(f"Successfully loaded story circle with {len(story_circle.get('events', []))} events")
+            self.narrative = story_circle
+        else:
+            logger.warning("No story circle found, initializing empty narrative")
+            self.narrative = {
+                'events': [],
+                'dialogues': [],
+                'dynamic_context': {}
+            }
         
         # Mode-specific settings
         if mode == 'twitter':
@@ -131,10 +144,22 @@ class AIGenerator:
             story_circle = self.db.get_story_circle_sync()
             if story_circle:
                 logger.info("Narrative content:")
-                logger.info(f"Current Phase: {story_circle['narrative']['current_phase']}")
-                logger.info(f"Current Event: {story_circle['narrative']['dynamic_context']['current_event']}")
-                logger.info(f"Current Inner Dialogue: {story_circle['narrative']['dynamic_context']['current_inner_dialogue']}")
-                return story_circle['narrative']
+                logger.info(f"Current Phase: {story_circle.get('current_phase')}")
+                logger.info(f"Events count: {len(story_circle.get('events', []))}")
+                logger.info(f"Dialogues count: {len(story_circle.get('dialogues', []))}")
+                logger.info(f"Current Event: {story_circle.get('dynamic_context', {}).get('current_event')}")
+                logger.info(f"Current Inner Dialogue: {story_circle.get('dynamic_context', {}).get('current_inner_dialogue')}")
+                
+                # Verify events and dialogues are present
+                events = story_circle.get('events', [])
+                dialogues = story_circle.get('dialogues', [])
+                if events and dialogues:
+                    logger.info("Sample of events and dialogues:")
+                    for i, (event, dialogue) in enumerate(zip(events[:2], dialogues[:2])):
+                        logger.info(f"Event {i+1}: {event}")
+                        logger.info(f"Dialogue {i+1}: {dialogue}")
+                
+                return story_circle
             else:
                 logger.warning("No story circle found in database")
                 return None
@@ -154,6 +179,14 @@ class AIGenerator:
 
     def _prepare_messages(self, **kwargs):
         """Prepare messages for API call - exposed for testing"""
+        logger.info("Starting message preparation with mode: %s", self.mode)
+        
+        # Refresh narrative data to ensure we have latest events/dialogues
+        story_circle = self.db.get_story_circle_sync()
+        if story_circle:
+            self.narrative = story_circle
+            logger.info(f"Refreshed narrative data with {len(story_circle.get('events', []))} events")
+        
         # Simplify memory handling with more familiar pattern
         memories = kwargs.get('memories', self.memories)
         memory_context = (
@@ -162,23 +195,29 @@ class AIGenerator:
             else memories if isinstance(memories, str)
             else "no relevant memories for this conversation"
         )
+        logger.debug("Memory context prepared: %s", memory_context[:100] + "..." if len(str(memory_context)) > 100 else memory_context)
         
-        # Simplify narrative context extraction
-        narrative_context = kwargs.get('narrative_context', self.narrative.get('dynamic_context', {}))
-        current_event = narrative_context.get('current_event', '') if narrative_context else ''
-        inner_dialogue = narrative_context.get('current_inner_dialogue', '') if narrative_context else ''
+        # Extract events and dialogues directly from narrative
+        events = self.narrative.get('events', [])
+        dialogues = self.narrative.get('dialogues', [])
         
-        # Extract phase events and dialogues from narrative
-        narrative = kwargs.get('narrative_context', self.narrative)
-        if narrative and isinstance(narrative, dict):
-            events = narrative.get('events', [])
-            dialogues = narrative.get('dialogues', [])
-            phase_events = "\n".join(f"{i+1}. {event}" for i, event in enumerate(events)) if events else "No events yet"
-            phase_dialogues = "\n".join(f"{i+1}. {dialogue}" for i, dialogue in enumerate(dialogues)) if dialogues else "No dialogues yet"
-        else:
-            phase_events = "No events yet"
-            phase_dialogues = "No dialogues yet"
-
+        # Enhanced logging for events and dialogues
+        logger.info("Current phase events and dialogues:")
+        for i, (event, dialogue) in enumerate(zip(events, dialogues)):
+            logger.info(f"Event {i+1}: {event}")
+            logger.info(f"Dialogue {i+1}: {dialogue}")
+        
+        # Format events and dialogues for prompt
+        phase_events = "\n".join(f"{i+1}. {event}" for i, event in enumerate(events)) if events else "No events yet"
+        phase_dialogues = "\n".join(f"{i+1}. {dialogue}" for i, dialogue in enumerate(dialogues)) if dialogues else "No dialogues yet"
+        
+        logger.info(f"Formatted {len(events)} events and {len(dialogues)} dialogues")
+        
+        # Get dynamic context
+        dynamic_context = self.narrative.get('dynamic_context', {})
+        current_event = dynamic_context.get('current_event', '')
+        inner_dialogue = dynamic_context.get('current_inner_dialogue', '')
+        
         # Get the appropriate prompt template based on mode
         if self.mode == 'twitter':
             prompt_template = self.bot_prompts.get('twitter', {}).get('content_prompt', '')
@@ -188,6 +227,11 @@ class AIGenerator:
             )
             emotion_format = random.choice(self.emotion_formats)['format']
             length_format = random.choice(self.length_formats)['format']
+            
+            logger.info("Preparing Twitter prompt with variables:")
+            logger.info("- Tweet content: %s", tweet_content)
+            logger.info("- Emotion format: %s", emotion_format)
+            logger.info("- Length format: %s", length_format)
             
             content_prompt = prompt_template.format(
                 tweet_content=tweet_content,
@@ -200,6 +244,15 @@ class AIGenerator:
                 current_event=current_event,
                 inner_dialogue=inner_dialogue
             )
+            
+            # Enhanced logging for prompt variables
+            logger.info("Formatted prompt variables:")
+            logger.info("Phase Events:\n%s", phase_events)
+            logger.info("Phase Dialogues:\n%s", phase_dialogues)
+            logger.info("Current Event: %s", current_event)
+            logger.info("Inner Dialogue: %s", inner_dialogue)
+            
+            logger.debug("Generated content prompt: %s", content_prompt[:200] + "..." if len(content_prompt) > 200 else content_prompt)
         else:
             # Discord and Telegram format
             prompt_template = self.bot_prompts.get('discord_telegram', {}).get('content_prompt', '')
@@ -233,7 +286,7 @@ class AIGenerator:
     def generate_content(self, **kwargs):
         """Generate content synchronously"""
         try:
-            logger.info("Starting content generation")
+            logger.info("Starting content generation with mode: %s", self.mode)
             
             # Simplified memory handling for random tweets
             memories = kwargs.pop('memories', self.memories)
@@ -241,15 +294,24 @@ class AIGenerator:
                 narrative_context = kwargs.get('narrative_context', {})
                 current_event = narrative_context.get('current_event', '')
                 if not memories or memories == "no relevant memories for this conversation":
-                    logger.info("Using current event context for random tweet")
+                    logger.info("Using current event context for random tweet: %s", current_event)
                     memories = f"Current event context: {current_event}"
             
             messages = self._prepare_messages(memories=memories, **kwargs)
             
-            logger.debug(f"Generating with config: mode={self.mode}, model={self.model}, temp={self.temperature}")
+            logger.info("Generating content with configuration:")
+            logger.info("- Model: %s", self.model)
+            logger.info("- Temperature: %s", self.temperature)
+            logger.info("- Max tokens: %s", self.max_tokens)
+            
+            # Log the messages being sent to the LLM
+            logger.info("Messages being sent to LLM:")
+            for msg in messages:
+                logger.info("Role: %s", msg["role"])
+                logger.info("Content preview: %s", msg["content"][:200] + "..." if len(msg["content"]) > 200 else msg["content"])
             
             response = self.client.chat.completions.create(
-                model=self.model,  # Use the configured model instead of hardcoded value
+                model=self.model,
                 messages=messages,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
@@ -257,14 +319,24 @@ class AIGenerator:
             
             generated_content = response.choices[0].message.content
             
+            # Log LLM response details
+            logger.info("LLM Response Details:")
+            logger.info("- Response length: %d characters", len(generated_content))
+            logger.info("- First 100 chars: %s", generated_content[:100])
+            logger.info("- Usage tokens: %s", getattr(response, 'usage', {}))
+            
             # Validate response
             if not generated_content or not isinstance(generated_content, str):
                 logger.error("Invalid response generated")
                 raise ValueError("Generated content is invalid")
             
             if self.mode == 'twitter' and len(generated_content) > 280:
-                logger.warning("Generated content exceeds Twitter limit, truncating")
+                logger.warning("Generated content exceeds Twitter limit, truncating from %d characters", len(generated_content))
                 generated_content = generated_content[:277] + "..."
+            
+            logger.info("Successfully generated content:")
+            logger.info("- Content length: %d characters", len(generated_content))
+            logger.info("- Generated content: %s", generated_content)
             
             return generated_content
 
