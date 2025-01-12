@@ -11,7 +11,7 @@ twitter:
     current phase inner dialogues: {phase_dialogues}
 
     NOTE: remember to always respond in text-speak like messages following the orthographic style from your system prompt, do not use emojis nor quotes or any other characters, just plain text, and less than 260 characters.
-    NOTE: remember to always mention key details from the events and dialogues so the users can understand the events and dialogues.
+    NOTE: remember to always mention key details from the events and dialogues so the users can understand the events and dialogues, but be straightforward, don't generate any introductory text, just the response.
 
 discord_telegram:
   content_prompt: |
@@ -20,4 +20,5 @@ discord_telegram:
 
     Answer with a clear response to the following message from {username}: "{user_message}"
 
-    NOTE: remember to always respond in text-speak like messages following the orthographic style (latino that speaks english as a second languag, and doesn't know any american slang) from your system prompt, do not use emojis nor quotes or any other characters, just plain text; the only exception (if user explicitly asks for the links) is for the links, meaning that for links you will use proper link format, for website, twitter and/or telegram, everything else should be plain text. 
+    NOTE: remember to always respond in text-speak like messages following the orthographic style (latino that speaks english as a second language, and doesn't know any american slang) from your system prompt, do not use emojis nor quotes or any other characters, just plain text; the only exception (if user explicitly asks for the links) is for the links, meaning that for links you will use proper link format, for website, twitter and/or telegram, everything else should be plain text. 
+    NOTE: remember you use different lenghts based on the complexity of the questions, if the question is complex, use a longer response, if the question is simple, use a shorter response.
