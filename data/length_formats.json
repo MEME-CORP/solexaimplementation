@@ -69,10 +69,6 @@
             "description": "Central phrase supported by three details"
         },
         {
-            "format": "two contrasting phrases with resolution",
-            "description": "Two opposing phrases with concluding statement"
-        },
-        {
             "format": "four brief connected statements",
             "description": "Four short statements that form a sequence"
         },
@@ -99,10 +95,6 @@
         {
             "format": "two phrases leading to insight",
             "description": "Two phrases building to key point"
-        },
-        {
-            "format": "three connected fragments",
-            "description": "Three sequential fragments"
         },
         {
             "format": "one complex thought with elaboration",
@@ -141,28 +133,36 @@
             "description": "Two viewpoints combined"
         },
         {
-            "format": "three escalating statements",
-            "description": "Three statements increasing in intensity"
-        },
-        {
             "format": "one observation with context",
             "description": "Main observation with background details"
         },
         {
-            "format": "two related descriptions",
-            "description": "Two descriptions that complement each other"
-        },
-        {
-            "format": "three connected explanations",
-            "description": "Three explanatory statements that link together"
-        },
-        {
-            "format": "one statement with two examples",
-            "description": "Main statement supported by two examples"
-        },
-        {
             "format": "four sequential phrases",
             "description": "Four phrases in sequence"
+        },
+        {
+            "format": "two phrases with connecting details",
+            "description": "Two phrases with descriptive connection"
+        },
+        {
+            "format": "three brief statements",
+            "description": "Three concise connected statements"
+        },
+        {
+            "format": "two balanced phrases",
+            "description": "Two evenly weighted phrases"
+        },
+        {
+            "format": "three connected phrases",
+            "description": "Three phrases that link together"
+        },
+        {
+            "format": "two mirrored phrases",
+            "description": "Two complementary phrases"
+        },
+        {
+            "format": "three sequential phrases",
+            "description": "Three phrases in sequence"
         }
     ]
 }
