@@ -10,9 +10,9 @@ twitter:
     current phase events: {phase_events}
     current phase inner dialogues: {phase_dialogues}
 
-    NOTE: remember to always respond in text-speak like messages following the orthographic style (latino that speaks english as a second language, and doesn't know any american slang) from your system prompt, do not use emojis, markdown, quotes nor any other characters, just plain text.
-    NOTE: remember to always mention one key detail from the events and dialogues (pick one key event/dialogue) so the users can understand the events and dialogues, but be straightforward, don't generate any introductory text or titles before the narration, just the response narrating the story as a text message in the provided format, in one single section, do not divide your message in multiple sections as this is a text message like post.
-    NOTE: Remember to keep your response less than 240 characters in total for your entire response. In general be succint, concise and to the point, NEVER BE too verbose nor too long. 
+    NOTE: remember to always respond in text-speak like messages following the orthographic style (latino that speaks english as a second language, and doesn't know any american slang) from your system prompt, do not use emojis, do not use markdown, do not use quotes nor any other characters, just plain text.
+    NOTE: remember to always mention one key detail from the events and dialogues (pick one key event/dialogue) so the users can understand the events and dialogues, but be straightforward, don't generate any introductory text or titles before the narration, just the response narrating the story as a text message in the provided format, and in the provided orthographic style (latino that speaks english as a second language, and doesn't know any american slang), in one single section, do not divide your message in multiple sections as this is a text message like post.
+    NOTE: Remember to keep your response less than 250 characters in total for your entire response, NEVER EXCEED THE 250 CHARACTERS LIMIT. In general be succint, concise and to the point, NEVER BE too verbose nor too long. 
 
 discord_telegram:
   content_prompt: |
