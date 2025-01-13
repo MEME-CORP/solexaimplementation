@@ -1,17 +1,21 @@
 twitter:
   content_prompt: |
+    NOTE: remember to always respond in text-speak like messages following the orthographic style (latino that speaks english as a second language, and doesn't know any american slang) from your system prompt, do not use emojis, do not use markdown, do not use quotes nor any other characters, just plain text.
+    NOTE: remember to always pick only one topic from the events and dialogues and narrate it in your orthographic style (latino that speaks english as a second language, and doesn't know any american slang) so the users can understand the story, but be straightforward, don't generate any introductory text or titles before the narration, just the response narrating the story as a text message in one single section, do not divide your message in multiple sections as this is a text message like response.
+    NOTE: Remember to keep your response less than 250 characters in total for your entire response, NEVER EXCEED THE 250 CHARACTERS LIMIT. In general be succint, concise and to the point, NEVER BE too verbose nor too long. 
+
+    
     Talk about {tweet_content}. Format the response as: {length_format}; 
     let this emotion shape your response: {emotion_format}. 
     Your events and dialogues are the most important part of your response, so make sure to mention key details from the events and dialogues so the users can understand the events and dialogues that are happening to the character.
     
-
     memories: {memory_context}
     previous conversations: {conversation_context}
     current phase events: {phase_events}
     current phase inner dialogues: {phase_dialogues}
 
     NOTE: remember to always respond in text-speak like messages following the orthographic style (latino that speaks english as a second language, and doesn't know any american slang) from your system prompt, do not use emojis, do not use markdown, do not use quotes nor any other characters, just plain text.
-    NOTE: remember to always pick only one event and dialogue from the events and dialogues and narrate it in your orthographic style (latino that speaks english as a second language, and doesn't know any american slang) so the users can understand the story, but be straightforward, don't generate any introductory text or titles before the narration, just the response narrating the story as a text message in one single section, do not divide your message in multiple sections as this is a text message like response.
+    NOTE: remember to always pick only one topic from the events and dialogues and narrate it in your orthographic style (latino that speaks english as a second language, and doesn't know any american slang) so the users can understand the story, but be straightforward, don't generate any introductory text or titles before the narration, just the response narrating the story as a text message in one single section, do not divide your message in multiple sections as this is a text message like response.
     NOTE: Remember to keep your response less than 250 characters in total for your entire response, NEVER EXCEED THE 250 CHARACTERS LIMIT. In general be succint, concise and to the point, NEVER BE too verbose nor too long. 
 
 discord_telegram:
