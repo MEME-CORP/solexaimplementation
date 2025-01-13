@@ -89,20 +89,20 @@
             "description": "Two thorough observational statements"
         },
         {
-            "format": "three short scenes",
-            "description": "Three brief scene descriptions"
+            "format": "three connected segments",
+            "description": "Three brief connected segments"
         },
         {
             "format": "one statement with multiple perspectives",
             "description": "Single statement viewed from different angles"
         },
         {
-            "format": "two phrases leading to revelation",
+            "format": "two phrases leading to insight",
             "description": "Two phrases building to key point"
         },
         {
-            "format": "three connected moments",
-            "description": "Three sequential moment descriptions"
+            "format": "three connected fragments",
+            "description": "Three sequential fragments"
         },
         {
             "format": "one complex thought with elaboration",
@@ -113,8 +113,8 @@
             "description": "Four related observational statements"
         },
         {
-            "format": "two scenes with transition",
-            "description": "Two scene descriptions with connecting element"
+            "format": "two parts with transition",
+            "description": "Two parts with connecting element"
         },
         {
             "format": "three layered descriptions",
@@ -133,8 +133,8 @@
             "description": "Three phrases connected by timing"
         },
         {
-            "format": "one detailed scene with reaction",
-            "description": "Scene description with response"
+            "format": "one extended description with response",
+            "description": "Detailed description with response"
         },
         {
             "format": "two perspectives joined",
