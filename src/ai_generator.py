@@ -221,10 +221,40 @@ class AIGenerator:
         # Get the appropriate prompt template based on mode
         if self.mode == 'twitter':
             prompt_template = self.bot_prompts.get('twitter', {}).get('content_prompt', '')
+            
+            # Randomly choose between current instructions and memories
+            use_memories = random.choice([True, False])
+            logger.info("Content generation mode: %s", "Using memories" if use_memories else "Using current instructions")
+            
+            if use_memories:
+                # When using memories, we should clear or minimize narrative context
+                phase_events = "No events to consider"
+                phase_dialogues = "No dialogues to consider"
+                current_event = ""
+                inner_dialogue = ""
+                # Ensure we're using the memory context
+                if self.memories:
+                    memory_context = random.choice(self.memories) if isinstance(self.memories, list) else self.memories
+                    logger.info(f"Selected memory for generation: {memory_context}")
+                else:
+                    logger.warning("No memories available for selection")
+                    memory_context = "no memories available"
+            
             tweet_content = (
-                f"user_message: {kwargs.get('user_message', '')[9:].strip()} - based on your current events and dialogues" if kwargs.get('user_message', '').startswith('reply to:')
-                else "based on your current events and dialogues, narrate the events/dialogues in detail"
+                f"user_message: {kwargs.get('user_message', '')[9:].strip()} - based on one topic from your events and dialogues" if kwargs.get('user_message', '').startswith('reply to:')
+                else "one of your memories randomly" if use_memories
+                else "one topic from your events and dialogues as a narration"
             )
+            
+            # If using memories, refresh them from database
+            if use_memories:
+                logger.info("Fetching fresh memories from database")
+                self.memories = self.db.get_memories()
+                if self.memories:
+                    logger.info("Successfully retrieved %d memories", len(self.memories))
+                else:
+                    logger.warning("No memories found in database")
+            
             emotion_format = random.choice(self.emotion_formats)['format']
             length_format = random.choice(self.length_formats)['format']
             
