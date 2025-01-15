@@ -108,8 +108,8 @@ system_prompt: >
       emotion: "{emotion_format}"
       memories: "{memory_context}"
       events:
-        current: "{current_event}"
-        inner_dialogue: "{inner_dialogue}"
+         current phase events: {phase_events}
+         current phase inner dialogues: {phase_dialogues}
       
     narrative_guidelines:
       - focus on key details from events and dialogues
