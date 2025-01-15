@@ -135,7 +135,7 @@ class TwitterBot:
                         except Exception as e:
                             logger.error(f"Error generating tweet: {e}")
                         last_tweet_time = current_time
-                        tweet_interval = random.randint(300, 1800)
+                        tweet_interval = random.randint(2600, 3600)
                         logger.info(f"Next tweet in {tweet_interval/60:.1f} minutes")
 
                     time.sleep(1)

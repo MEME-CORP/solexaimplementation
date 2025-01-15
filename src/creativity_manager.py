@@ -65,11 +65,16 @@ class CreativityManager:
         
         # Initialize milestones
         self._milestones = [
-            (Decimal('75000'), Decimal('0.5'), Decimal('0.2')),
-            (Decimal('150000'), Decimal('0.5'), Decimal('0.4')),
-            (Decimal('300000'), Decimal('0.5'), Decimal('0.8')),
-            (Decimal('600000'), Decimal('0.5'), Decimal('1.0')),
-            (Decimal('1000000'), Decimal('0.5'), Decimal('1.5'))
+            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
+            (Decimal('150000'), Decimal('0.0000001'), Decimal('0.001')),
+            (Decimal('300000'), Decimal('0.000001'), Decimal('0.001')),
+            (Decimal('600000'), Decimal('0.00001'), Decimal('0.001')),
+            (Decimal('1000000'), Decimal('0.0001'), Decimal('0.001')),  # 1M milestone
+            (Decimal('5000000'), Decimal('0.001'), Decimal('0.001')),          # 5M milestone
+            (Decimal('10000000'), Decimal('0.01'), Decimal('0.001')),         # 10M milestone
+            (Decimal('20000000'), Decimal('0.1'), Decimal('0.001')),         # 20M milestone
+            (Decimal('50000000'), Decimal('1'), Decimal('0.001')),         # 50M milestone
+            (Decimal('100000000'), Decimal('2'), Decimal('0.001'))
         ]
         
         # Optional caching of the last known marketcap

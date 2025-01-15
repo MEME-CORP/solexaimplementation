@@ -112,16 +112,26 @@ class CTOManager:
         
     def _post_milestones(self):
         """Post milestone requirements"""
+        def format_milestone(mc: Decimal, bp: Decimal) -> str:
+            # Format marketcap with dots for readability
+            mc_formatted = f"{int(mc):,}".replace(",", ".")
+            # Format burn percentage like ATO manager (multiply by 1000, 5 decimal places)
+            burn_amount_display = f"{float(bp * 1000):.5f}"
+            return f"- {mc_formatted}: burn {burn_amount_display} tokens!"
+
         milestones_text = "\n".join([
-            f"- {mc/1000}k mc: burn {bp}% of suppwy!"
+            format_milestone(mc, bp)
             for mc, bp in self._milestones[:-1]
         ])
+        
         final_mc, final_bp = self._milestones[-1]
+        final_mc_formatted = f"{int(final_mc):,}".replace(",", ".")
+        final_burn_display = f"{float(final_bp/2 * 1000):.5f}"  # Format final burn percentage
         
         announcement = (
             "okie dokie! hewe awe the miwestones fow this waunch! >w<\n\n"
             f"{milestones_text}\n"
-            f"- {final_mc/1000}k mc: burn {final_bp/2}% and wetuwn {final_bp/2}% to dev!\n\n"
+            f"- {final_mc_formatted}: burn {final_burn_display}% and wetuwn {final_burn_display}% to dev!\n\n"
             "u have 4 houws to hit the fiwst mc... ow i'ww have to caww a CTO! >:3"
         )
         logger.info(f"Posted milestones: {announcement}")

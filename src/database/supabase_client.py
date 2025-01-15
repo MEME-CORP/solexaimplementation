@@ -822,12 +822,19 @@ class DatabaseService:
                 .order('phase_number')\
                 .execute()
 
+            # Extract events and dialogues directly from narrative JSONB
+            events = narrative.get('events', [])
+            dialogues = narrative.get('dialogues', [])
+            logger.info(f"Retrieved {len(events)} events and {len(dialogues)} dialogues from narrative")
+
             # Structure the response
             return {
                 'id': story_circle['id'],
                 'is_current': story_circle['is_current'],
                 'current_phase': narrative.get('current_phase', ''),
                 'current_phase_number': narrative.get('current_phase_number', 1),
+                'events': events,  # Add events from narrative
+                'dialogues': dialogues,  # Add dialogues from narrative
                 'dynamic_context': narrative.get('dynamic_context', {
                     'current_event': '',
                     'current_inner_dialogue': '',

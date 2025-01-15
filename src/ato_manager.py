@@ -174,7 +174,7 @@ class ATOManager:
     def _post_wallet_announcement(self):
         """Post wallet announcement in character style"""
         announcement = (
-            "yo check dis wallet we just set up, no cap\n\n"
+            "yo check dis wallet we just set up\n\n"
             f"dis our new operation base: {self._agent_wallet}\n\n"
             "we bout 2 run dis Agent Take Ovah (ATO) like a straight boss move\n"            
             "waitin on dem tokens 2 drop... we dont play"
@@ -466,9 +466,9 @@ class ATOManager:
                 return None
 
             announcement = (
-                f"yo we just scored {balance} tokens, no cap\n\n"
+                f"familia we just scored {balance} tokens\n\n"
                 "dev team came thru wit da goods\n"
-                "we bout 2 run dis Agent Take Ovah (ATO) like real bosses\n\n"
+                "we bout 2 run this Agent Take Over (ATO) like real papayas\n\n"
                 "whole operation's locked & loaded... watch us move"
             )
             
@@ -601,7 +601,7 @@ class ATOManager:
         ])
 
         announcement = (
-            f"current market status: {self._format_number_with_dots(int(current_mc))}\n\n"
+            f"current marketcap: {self._format_number_with_dots(int(current_mc))}\n\n"
             f"{milestones_text}\n\n"            
         )
         
@@ -626,7 +626,7 @@ class ATOManager:
                 # Post current marketcap update
                 self._post_marketcap_update(current_mc)
                 
-                await asyncio.sleep(120)  # Check every 20 minutes
+                await asyncio.sleep(7200)  # Check every 20 minutes
         except Exception as e:
             logger.error(f"Error in marketcap monitoring: {e}")
 
@@ -691,7 +691,7 @@ class ATOManager:
             
             # Create base announcement with formatted numbers
             base_announcement = (
-                f"current market status: {self._format_number_with_dots(int(current_mc))}, no cap\n"
+                f"current marketcap: {self._format_number_with_dots(int(current_mc))}\n"
                 f"next move target: {self._format_number_with_dots(int(next_milestone))}\n"
                 f"we still need: {self._format_number_with_dots(int(remaining))} to make dis happen\n"
                 "operation locked & loaded... we dont play"

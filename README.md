@@ -321,6 +321,35 @@ python -m tests.test_story_circle_integration
 
 Note: Make sure you have all required environment variables set in your `.env` file before running these commands.+
 
+# Memory Upload Instructions
+
+## Uploading Memories to Database
+
+The project includes a script to upload memories from `data/new_memories.txt` to the Supabase database. Here's how to use it:
+
+1. Ensure your memories are in `data/new_memories.txt`, with one memory per line
+2. Run the upload script:
+
+```bash
+# From project root directory
+python -m src.scripts.upload_memories
+```
+
+The script will:
+- Read all memories from new_memories.txt
+- Upload them to the Supabase 'memories' table
+- Log the results to console
+
+### Requirements
+- Valid Supabase credentials in your environment variables
+- Python 3.7+
+- Required packages installed (see requirements.txt)
+
+### Troubleshooting
+- Check logs for detailed error messages
+- Ensure your Supabase credentials are correct
+- Verify the memories file exists and is readable
+
 
 
 
