@@ -4,6 +4,7 @@ twitter:
     
     conversation context: {conversation_context}
 
+
 discord_telegram:
   content_prompt: |
     NOTE: remember to answer conversationally (do not paraphrase nor repeat the user's message), especially answering to simple questions or short messages with punchy one-liners or just a few words. In general be succint, concise and to the point, NEVER BE too verbose nor too long.

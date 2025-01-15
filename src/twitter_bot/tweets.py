@@ -210,10 +210,9 @@ class TweetManager:
 
     def clean_content(self, content: str) -> str:
         """Clean tweet content"""
-        content = content.split("**(")[0].strip()
-        lines = content.split('\n')
-        if len(lines) > 1:
-            return lines[0].strip()
+        # Remove only specific markers if present, otherwise keep full content
+        if "**()" in content:
+            content = content.split("**()")[0].strip()
         return content.strip()
 
     def sanitize_text(self, text: str) -> str:
