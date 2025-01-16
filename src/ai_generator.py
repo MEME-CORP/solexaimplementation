@@ -12,6 +12,7 @@ import traceback
 from src.database.supabase_client import DatabaseService
 import yaml
 from pathlib import Path
+from src.memory_decision import MemoryDecision
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -67,11 +68,13 @@ class AIGenerator:
         # Always use Gemma for direct user interactions
         self.model = Config.AI_MODEL2  # This is gemma-2-9b-it
 
-        # Load memories and narrative after everything else is initialized
+        # Initialize memory decision
+        self.memory_decision = MemoryDecision()
+        
+        # Load memories using memory_decision instead of direct db access
         logger.info("Loading memories and narrative")
         try:
-            memories_response = self.db.get_memories()
-            self.memories = memories_response if memories_response else []
+            self.memories = self.memory_decision.get_memories_sync()
             logger.info(f"Successfully loaded {len(self.memories)} memories")
         except Exception as e:
             logger.error(f"Error loading memories: {e}")
@@ -129,9 +132,9 @@ class AIGenerator:
             return [{"format": "default response", "description": "Standard emotional response"}]
 
     def load_memories(self):
-        """Load memories from database"""
+        """Load memories from database through memory decision"""
         try:
-            memories = self.db.get_memories()
+            memories = self.memory_decision.get_all_memories()
             logger.info(f"Successfully loaded {len(memories)} memories")
             return memories
         except Exception as e:
@@ -187,14 +190,25 @@ class AIGenerator:
             self.narrative = story_circle
             logger.info(f"Refreshed narrative data with {len(story_circle.get('events', []))} events")
         
-        # Simplify memory handling with more familiar pattern
+        # Modified memory handling
         memories = kwargs.get('memories', self.memories)
         memory_context = (
             "no relevant memories for this conversation" 
-            if not memories or (isinstance(memories, str) and memories.strip() in ["", "no relevant memories for this conversation"])
-            else memories if isinstance(memories, str)
+            if not memories
+            else memories if isinstance(memories, (str, list))
             else "no relevant memories for this conversation"
         )
+        
+        # Add logging for memory selection output
+        logger.info("Selected memories for context:")
+        logger.info("----------------------------------------")
+        logger.info(memory_context)
+        logger.info("----------------------------------------")
+        
+        # If memories is a list, format it properly
+        if isinstance(memory_context, list):
+            memory_context = "\n".join(f"- {memory}" for memory in memory_context)
+        
         logger.debug("Memory context prepared: %s", memory_context[:100] + "..." if len(str(memory_context)) > 100 else memory_context)
         
         # Extract events and dialogues directly from narrative
@@ -300,10 +314,24 @@ class AIGenerator:
                 inner_dialogue=inner_dialogue
             )
 
+        # Format the system prompt with context variables
+        if self.mode == 'twitter':
+            formatted_system_prompt = self.system_prompt.format(
+                emotion_format=emotion_format,
+                length_format=length_format,
+                memory_context=memory_context,
+                phase_events=phase_events,
+                phase_dialogues=phase_dialogues
+            )
+        else:  # discord and telegram only need memory_context
+            formatted_system_prompt = self.system_prompt.format(
+                memory_context=memory_context
+            )
+
         messages = [
             {
                 "role": "system",
-                "content": f"{self.system_prompt}"
+                "content": formatted_system_prompt
             },
             {
                 "role": "user",
@@ -318,16 +346,46 @@ class AIGenerator:
         try:
             logger.info("Starting content generation with mode: %s", self.mode)
             
-            # Simplified memory handling for random tweets
-            memories = kwargs.pop('memories', self.memories)
-            if self.mode == 'twitter' and not kwargs.get('user_message'):
+            # Get relevant memories for all modes
+            user_id = kwargs.get('user_id', '')
+            user_message = kwargs.get('user_message', '')
+            
+            try:
+                # Select relevant memories based on user message for all modes
+                memories = self.memory_decision.select_relevant_memories(
+                    user_id or 'system',
+                    user_message or 'generate content'
+                )
+                if memories and memories != "no relevant memories for this conversation":
+                    kwargs['memories'] = memories
+                    logger.info(f"Retrieved relevant memories for user {user_id or 'system'}")
+                else:
+                    # If no relevant memories, use a single random memory for variety
+                    all_memories = self.memories or []
+                    kwargs['memories'] = random.choice(all_memories) if all_memories else "no memories available"
+                    logger.info("Using random memory due to no relevant matches")
+            except Exception as e:
+                logger.error(f"Error selecting memories: {e}")
+                kwargs['memories'] = "no memories available"
+            
+            # Special handling for Twitter mode without user message
+            if self.mode == 'twitter' and not user_message:
                 narrative_context = kwargs.get('narrative_context', {})
                 current_event = narrative_context.get('current_event', '')
-                if not memories or memories == "no relevant memories for this conversation":
+                if current_event:
                     logger.info("Using current event context for random tweet: %s", current_event)
-                    memories = f"Current event context: {current_event}"
+                    kwargs['memories'] = f"Current event context: {current_event}"
             
-            messages = self._prepare_messages(memories=memories, **kwargs)
+            messages = self._prepare_messages(**kwargs)
+            
+            # Add detailed logging of the complete system prompt
+            if self.mode == 'twitter':
+                logger.info("Complete Twitter system prompt:")
+                logger.info("----------------------------------------")
+                for msg in messages:
+                    logger.info(f"Role: {msg['role']}")
+                    logger.info(f"Content:\n{msg['content']}")
+                logger.info("----------------------------------------")
             
             logger.info("Generating content with configuration:")
             logger.info("- Model: %s", self.model)
@@ -395,4 +453,15 @@ class AIGenerator:
         except Exception as e:
             logger.error(f"Error loading system prompt for {self.mode} mode: {e}")
             return ""
+
+    def get_memories_sync(self):
+        """Get memories synchronously for response generation"""
+        try:
+            if not self.memories:  # If memories aren't loaded or are empty
+                self.memories = self.db.get_memories_sync()
+                logger.info(f"Retrieved {len(self.memories)} memories from database")
+            return self.memories
+        except Exception as e:
+            logger.error(f"Error getting memories synchronously: {e}")
+            return []
 

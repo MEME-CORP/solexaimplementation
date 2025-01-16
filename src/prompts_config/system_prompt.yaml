@@ -165,6 +165,7 @@ system_prompt: >
       
     context_variables:
       emotion: "{emotion_format}"
+      length: "{length_format}"
       memories: "{memory_context}"
       events:
         current phase events: {phase_events}
