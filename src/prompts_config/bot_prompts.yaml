@@ -4,7 +4,7 @@ twitter:
     format: {length_format}  # must follow exact character count
     context: {conversation_context}
 
-    NOTE: start directly with message text - no titles, no markdown, no formatting, no labels - message length must match format's character count exactly
+    NOTE: start directly with message text - no titles, no markdown, no formatting, no labels, no quotes, no asterisks - message length must match format's character count exactly
 
 discord_telegram:
   content_prompt: |
