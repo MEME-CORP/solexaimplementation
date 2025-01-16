@@ -43,7 +43,7 @@ class AIGenerator:
         # Mode-specific settings
         if mode == 'twitter':
             self.max_tokens = 70
-            self.temperature = 0.7
+            self.temperature = 0.0
             self.length_formats = self.load_length_formats()
             self.emotion_formats = self.load_emotion_formats()
         elif mode == 'discord':
@@ -243,7 +243,7 @@ class AIGenerator:
             tweet_content = (
                 f"user_message: {kwargs.get('user_message', '')[9:].strip()} - based on one topic from your events and dialogues" if kwargs.get('user_message', '').startswith('reply to:')
                 else "one of your memories randomly" if use_memories
-                else "one topic from your events and dialogues as a narration"
+                else "one topic from your events and dialogues"
             )
             
             # If using memories, refresh them from database
