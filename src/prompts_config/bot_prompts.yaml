@@ -3,7 +3,7 @@ twitter:
     narrate this: {tweet_content}  
     context: {conversation_context}
 
-    NOTE: start directly with message text - no titles, no markdown, no formatting, no labels like "sudden flashback" or similar
+    NOTE: start directly with message text - no titles, no markdown, no formatting, no labels like "sudden flashback" or similar - strictly follow format's character count (if format says 150 chars, message must be 150 chars or less)
 
 discord_telegram:
   content_prompt: |
