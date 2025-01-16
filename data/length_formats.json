@@ -1,167 +1,167 @@
 {
     "formats": [
         {
-            "format": "three linked phrases",
+            "format": "single brief thought = 25 chars",
             "description": "Three phrases that flow together"
         },
         {
-            "format": "one short paragraph",
+            "format": "quick statement = 50 chars",
             "description": "Brief paragraph under 280 characters"
         },
         {
-            "format": "two phrases with connecting words",
+            "format": "one phrase with detail = 100 chars",
             "description": "Two phrases joined by transitional words"
         },
         {
-            "format": "one descriptive sentence with follow-up phrase",
+            "format": "two connected thoughts = 150 chars",
             "description": "Main sentence followed by related phrase"
         },
         {
-            "format": "three related sentences",
+            "format": "descriptive paragraph = 200 chars",
             "description": "Three sentences that connect thematically"
         },
         {
-            "format": "two detailed phrases",
+            "format": "complete narrative = 250 chars",
             "description": "Two phrases with descriptive elements"
         },
         {
-            "format": "one complex sentence with two clauses",
+            "format": "two short phrases = 100 chars",
             "description": "Sentence with main and subordinate clauses"
         },
         {
-            "format": "four short connected phrases",
+            "format": "three linked thoughts = 150 chars",
             "description": "Four brief phrases that build on each other"
         },
         {
-            "format": "two sentences with linking phrase",
+            "format": "detailed observation = 200 chars",
             "description": "Two sentences connected by a bridging phrase"
         },
         {
-            "format": "one extended phrase with details",
+            "format": "extended statement = 250 chars",
             "description": "Single detailed phrase under character limit"
         },
         {
-            "format": "three short sentences building context",
+            "format": "quick response = 50 chars",
             "description": "Three sentences that develop context"
         },
         {
-            "format": "two descriptive phrases, one conclusion",
+            "format": "single thought with context = 150 chars",
             "description": "Two detailed phrases leading to conclusion"
         },
         {
-            "format": "one sentence with two supporting phrases",
+            "format": "two balanced statements = 200 chars",
             "description": "Main sentence supported by two phrases"
         },
         {
-            "format": "three phrases separated by semicolons",
+            "format": "complete story = 250 chars",
             "description": "Three phrases with semicolon separation"
         },
         {
-            "format": "two detailed sentences",
+            "format": "brief message = 25 chars",
             "description": "Two sentences with rich detail"
         },
         {
-            "format": "three interconnected thoughts",
+            "format": "three interconnected thoughts = 200 chars",
             "description": "Three thoughts that build upon each other"
         },
         {
-            "format": "one main phrase with three details",
+            "format": "one main phrase with details = 150 chars",
             "description": "Central phrase supported by three details"
         },
         {
-            "format": "four brief connected statements",
+            "format": "four brief statements = 100 chars",
             "description": "Four short statements that form a sequence"
         },
         {
-            "format": "three phrases with parallel structure",
+            "format": "parallel structure = 200 chars",
             "description": "Three phrases following similar pattern"
         },
         {
-            "format": "one long sentence broken by commas",
+            "format": "complex sentence = 250 chars",
             "description": "Extended sentence with comma-separated elements"
         },
         {
-            "format": "two detailed observations",
+            "format": "dual observation = 200 chars",
             "description": "Two thorough observational statements"
         },
         {
-            "format": "three connected segments",
+            "format": "triple segment = 150 chars",
             "description": "Three brief connected segments"
         },
         {
-            "format": "one statement with multiple perspectives",
+            "format": "multi perspective = 250 chars",
             "description": "Single statement viewed from different angles"
         },
         {
-            "format": "two phrases leading to insight",
+            "format": "insight development = 200 chars",
             "description": "Two phrases building to key point"
         },
         {
-            "format": "one complex thought with elaboration",
+            "format": "elaborated thought = 250 chars",
             "description": "Main thought with supporting details"
         },
         {
-            "format": "four linked observations",
+            "format": "quick observations = 100 chars",
             "description": "Four related observational statements"
         },
         {
-            "format": "two parts with transition",
+            "format": "transitional message = 150 chars",
             "description": "Two parts with connecting element"
         },
         {
-            "format": "three layered descriptions",
+            "format": "layered description = 200 chars",
             "description": "Three descriptions building in detail"
         },
         {
-            "format": "one central idea with expansions",
+            "format": "expanded idea = 250 chars",
             "description": "Main idea with expanding elements"
         },
         {
-            "format": "two parallel statements",
+            "format": "parallel thoughts = 150 chars",
             "description": "Two related statements side by side"
         },
         {
-            "format": "three time-linked phrases",
+            "format": "time sequence = 200 chars",
             "description": "Three phrases connected by timing"
         },
         {
-            "format": "one extended description with response",
+            "format": "statement response = 250 chars",
             "description": "Detailed description with response"
         },
         {
-            "format": "two perspectives joined",
+            "format": "dual perspective = 200 chars",
             "description": "Two viewpoints combined"
         },
         {
-            "format": "one observation with context",
+            "format": "contextual observation = 250 chars",
             "description": "Main observation with background details"
         },
         {
-            "format": "four sequential phrases",
+            "format": "quick sequence = 100 chars",
             "description": "Four phrases in sequence"
         },
         {
-            "format": "two phrases with connecting details",
+            "format": "connected phrases = 150 chars",
             "description": "Two phrases with descriptive connection"
         },
         {
-            "format": "three brief statements",
+            "format": "triple statement = 200 chars",
             "description": "Three concise connected statements"
         },
         {
-            "format": "two balanced phrases",
+            "format": "balanced thought = 150 chars",
             "description": "Two evenly weighted phrases"
         },
         {
-            "format": "three connected phrases",
+            "format": "connected narrative = 250 chars",
             "description": "Three phrases that link together"
         },
         {
-            "format": "two mirrored phrases",
+            "format": "mirrored message = 200 chars",
             "description": "Two complementary phrases"
         },
         {
-            "format": "three sequential phrases",
+            "format": "sequential narrative = 250 chars",
             "description": "Three phrases in sequence"
         }
     ]
