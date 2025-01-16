@@ -21,7 +21,7 @@
             "description": "Three sentences that connect thematically"
         },
         {
-            "format": "complete narrative = 250 chars",
+            "format": "complete narrative = 200 chars",
             "description": "Two phrases with descriptive elements"
         },
         {
@@ -37,7 +37,7 @@
             "description": "Two sentences connected by a bridging phrase"
         },
         {
-            "format": "extended statement = 250 chars",
+            "format": "extended statement = 200 chars",
             "description": "Single detailed phrase under character limit"
         },
         {
@@ -53,7 +53,7 @@
             "description": "Main sentence supported by two phrases"
         },
         {
-            "format": "complete story = 250 chars",
+            "format": "complete story = 200 chars",
             "description": "Three phrases with semicolon separation"
         },
         {
@@ -77,7 +77,7 @@
             "description": "Three phrases following similar pattern"
         },
         {
-            "format": "complex sentence = 250 chars",
+            "format": "complex sentence = 200 chars",
             "description": "Extended sentence with comma-separated elements"
         },
         {
@@ -89,7 +89,7 @@
             "description": "Three brief connected segments"
         },
         {
-            "format": "multi perspective = 250 chars",
+            "format": "multi perspective = 200 chars",
             "description": "Single statement viewed from different angles"
         },
         {
@@ -97,7 +97,7 @@
             "description": "Two phrases building to key point"
         },
         {
-            "format": "elaborated thought = 250 chars",
+            "format": "elaborated thought = 200 chars",
             "description": "Main thought with supporting details"
         },
         {
@@ -113,7 +113,7 @@
             "description": "Three descriptions building in detail"
         },
         {
-            "format": "expanded idea = 250 chars",
+            "format": "expanded idea = 200 chars",
             "description": "Main idea with expanding elements"
         },
         {
@@ -125,7 +125,7 @@
             "description": "Three phrases connected by timing"
         },
         {
-            "format": "statement response = 250 chars",
+            "format": "statement response = 200 chars",
             "description": "Detailed description with response"
         },
         {
@@ -133,7 +133,7 @@
             "description": "Two viewpoints combined"
         },
         {
-            "format": "contextual observation = 250 chars",
+            "format": "contextual observation = 200 chars",
             "description": "Main observation with background details"
         },
         {
@@ -153,7 +153,7 @@
             "description": "Two evenly weighted phrases"
         },
         {
-            "format": "connected narrative = 250 chars",
+            "format": "connected narrative = 200 chars",
             "description": "Three phrases that link together"
         },
         {
@@ -161,8 +161,60 @@
             "description": "Two complementary phrases"
         },
         {
-            "format": "sequential narrative = 250 chars",
+            "format": "sequential narrative = 200 chars",
             "description": "Three phrases in sequence"
+        },
+        {
+            "format": "kaomoji mood = 10 chars",
+            "description": "Single emotional expression"
+        },
+        {
+            "format": "quick mood = 10 chars",
+            "description": "One-word emotional state"
+        },
+        {
+            "format": "brief reaction = 25 chars",
+            "description": "Quick emotional response"
+        },
+        {
+            "format": "short alert = 25 chars",
+            "description": "Brief urgent message"
+        },
+        {
+            "format": "quick update = 50 chars",
+            "description": "Brief status report"
+        },
+        {
+            "format": "fast message = 50 chars",
+            "description": "Quick informational update"
+        },
+        {
+            "format": "rapid response = 50 chars",
+            "description": "Quick situational reply"
+        },
+        {
+            "format": "brief report = 100 chars",
+            "description": "Concise situation summary"
+        },
+        {
+            "format": "quick overview = 100 chars",
+            "description": "Brief event description"
+        },
+        {
+            "format": "status update = 100 chars",
+            "description": "Current situation report"
+        },
+        {
+            "format": "short summary = 150 chars",
+            "description": "Condensed event narrative"
+        },
+        {
+            "format": "quick briefing = 150 chars",
+            "description": "Brief situation overview"
+        },
+        {
+            "format": "rapid report = 150 chars",
+            "description": "Quick detailed update"
         }
     ]
 }
