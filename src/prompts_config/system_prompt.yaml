@@ -162,7 +162,6 @@ system_prompt: >
         - natural bilingual flow
       
     context_variables:
-      format: "{length_format}"  # Note: Strictly enforce format's character count
       emotion: "{emotion_format}"
       memories: "{memory_context}"
       events:

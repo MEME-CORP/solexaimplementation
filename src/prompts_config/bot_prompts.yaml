@@ -1,9 +1,10 @@
 twitter:
   content_prompt: |
     narrate this: {tweet_content}  
+    format: {length_format}  # must follow exact character count
     context: {conversation_context}
 
-    NOTE: start directly with message text - no titles, no markdown, no formatting, no labels like "sudden flashback" or similar - strictly follow format's character count (if format says 150 chars, message must be 150 chars or less)
+    NOTE: start directly with message text - no titles, no markdown, no formatting, no labels - message length must match format's character count exactly
 
 discord_telegram:
   content_prompt: |
