@@ -1,10 +1,10 @@
 twitter:
   content_prompt: |
-    narrate this: {tweet_content}  
-    format: {length_format}  # must follow exact character count
+    narrate this: {tweet_content}  # write as plain text message - no quotes/asterisks/formatting around words or full message
+    format: {length_format}  # plan complete thought to fit exactly within character count
     context: {conversation_context}
 
-    NOTE: write like quick texts - plan your complete thought to fit format's exact character count - use 2-3 spanish words - no titles/formatting/quotes/labels
+    NOTE: write like quick texts - use 2-3 spanish words - no titles/labels/formatting
 
 discord_telegram:
   content_prompt: |
