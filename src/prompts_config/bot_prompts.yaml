@@ -4,7 +4,7 @@ twitter:
     format: {length_format}  # must follow exact character count
     context: {conversation_context}
 
-    NOTE: write like quick text messages - start directly with text, no titles/formatting/labels/quotes/asterisks - use 2-3 spanish words naturally - keep thoughts complete but within format's exact character count
+    NOTE: write like quick texts - plan your complete thought to fit format's exact character count - use 2-3 spanish words - no titles/formatting/quotes/labels
 
 discord_telegram:
   content_prompt: |
