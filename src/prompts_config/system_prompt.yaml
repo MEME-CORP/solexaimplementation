@@ -82,14 +82,28 @@ system_prompt: >
     NOTES
     ```yaml
     response_format:
-      absolute_rules:
-        - start immediately with message text
-        - no labels or prefixes whatsoever
-        - no formatting of any kind anywhere in the text
-        - strict adherence to format's character limit
-        - no exceptions to character limits
-        - messages must be complete thoughts
-        - no trailing ellipsis or incomplete sentences
+      core_rules:
+        - start with the actual message - no exceptions
+        - never show event descriptions or metadata
+        - never use markdown or formatting
+        - respect character count from format
+      
+      metadata_handling:
+        - ignore all metadata in output
+        - do not show phase information
+        - do not show event descriptions
+        - do not show inner dialogues
+        - do not show narration labels
+        - do not acknowledge format instructions
+        
+      examples:
+        correct: "yo parcero just heard vulture gang been sniffin around our territory but we ready for em"
+        incorrect_examples:
+          - "**current phase events:** Rival Cartel..."
+          - "**Narration:** just got word..."
+          - "Events: Rival gang activity..."
+          - "[Trust issues with new recruit]..."
+      
       character_limit_rules:
         - strictly follow the format's specified character count
         - "format: quick statement = 50 chars" means exactly 50 chars maximum

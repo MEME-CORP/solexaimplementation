@@ -1,9 +1,7 @@
 twitter:
   content_prompt: |
-    Talk about {tweet_content}.
-    
-    conversation context: {conversation_context}
-
+    narrate this: {tweet_content}  
+    context: {conversation_context}
 
 discord_telegram:
   content_prompt: |
