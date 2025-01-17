@@ -237,7 +237,7 @@ class AIGenerator:
             prompt_template = self.bot_prompts.get('twitter', {}).get('content_prompt', '')
             
             # Randomly choose between current instructions and memories
-            use_memories = random.choice([True, False])
+            use_memories = random.random() < 0.1  # 20% chance to use memories
             logger.info("Content generation mode: %s", "Using memories" if use_memories else "Using current instructions")
             
             if use_memories:
