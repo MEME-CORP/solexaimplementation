@@ -14,5 +14,4 @@ marketcap:
     - Keep cartel-related vocabulary and Medellin street language
     - No emojis, quotes or special characters
     - Max 280 characters
-    - Must include marketcap, next target, and remaining amount but transformed into narrative-aware messages
     - Use newlines as in the base announcement to make it more readable
