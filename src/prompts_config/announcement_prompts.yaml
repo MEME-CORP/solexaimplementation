@@ -8,7 +8,7 @@ marketcap:
     Inner dialogue: {inner_dialogue}
 
     Rules:
-    - Keep the market numbers and information intact
+    - Keep the numbers from base announcement intact, modify the rest to make the announcement more engaging and narrative-aware (of the story elements) 
     - Add brief narrative context from the story elements
     - Use text-speak and street slang with intentional spelling errors
     - Keep cartel-related vocabulary and Medellin street language
