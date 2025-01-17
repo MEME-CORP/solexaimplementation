@@ -43,7 +43,7 @@ class AIGenerator:
         
         # Mode-specific settings
         if mode == 'twitter':
-            self.max_tokens = 65
+            self.max_tokens = 70
             self.temperature = 0.0
             self.length_formats = self.load_length_formats()
             self.emotion_formats = self.load_emotion_formats()

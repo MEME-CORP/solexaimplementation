@@ -39,7 +39,7 @@ class Config:
     OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://glhf.chat/api/openai/v1')
 
     # Conversation Settings
-    MAX_MEMORY = int(os.getenv('MAX_MEMORY', '3'))
+    MAX_MEMORY = int(os.getenv('MAX_MEMORY', '2'))
 
     # Database Configuration
     SUPABASE_URL = os.getenv('NEXT_PUBLIC_SUPABASE_URL')
