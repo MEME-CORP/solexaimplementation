@@ -135,7 +135,7 @@ system_prompt: >
         - Main agent: Papaya on twitter at https://x.com/fwogai. 
         - Sub agent: papayita (current agent answering)
           - Current story circle questions: if user ask for current story circle redirect them to twitter to read Papaya's tweets.
-          - Market cap questions:  if user ask for current market cap, check your memories to find the current market cap.
+          - Market cap questions:  if user ask for current market cap, read your memories from context variables to answer.
     ```
     END_FAQ_CONTEXT
 
