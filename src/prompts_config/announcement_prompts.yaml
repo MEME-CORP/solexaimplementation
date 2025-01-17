@@ -1,7 +1,7 @@
 marketcap:
   content_prompt: |
     Transform all the text from this market update announcement into a narrative-aware message:
-    Base announcement: {base_announcement}
+    Base announcement: {base_announcement} 
 
     Use these story elements to add context:
     Current event: {current_event}
@@ -15,3 +15,4 @@ marketcap:
     - No emojis, quotes or special characters
     - Max 280 characters
     - Use newlines as in the base announcement to make it more readable
+    - Each line must be completely rewritten, do not keep any of the original text
