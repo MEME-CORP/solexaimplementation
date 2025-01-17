@@ -175,8 +175,9 @@ class CreativityManager:
             )
             
             # 5) Call the OpenAI Chat Completion endpoint
+            logger.info(f"Using AI model: {Config.AI_MODEL}")
             response = self.client.chat.completions.create(
-                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+                model=Config.AI_MODEL,
                 messages=[
                     {"role": "system", "content": formatted_prompt},
                     {
