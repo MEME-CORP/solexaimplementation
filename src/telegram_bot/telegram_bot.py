@@ -271,8 +271,13 @@ class TelegramBot:
         try:
             # Gather conversation context
             conversation_context = self.get_conversation_context(user_id)
-            # Pull relevant memories from DB or other source
-            memories = select_relevant_memories(username, user_message)
+            
+            # Refresh memories from database before generating response
+            memories = self.generator.get_memories_sync()  # Add this line to get fresh memories
+            if not memories:
+                # Fallback to existing memory selection if needed
+                memories = select_relevant_memories(username, user_message)
+            
             # Get story circle context
             narrative_context = get_current_context()
             # Random emotion format
@@ -284,7 +289,7 @@ class TelegramBot:
                 user_id=user_id,
                 username=username,
                 conversation_context=conversation_context,
-                memories=memories,
+                memories=memories,  # Now passing fresh memories
                 narrative_context=narrative_context,
                 emotion_format=emotion_format
             )

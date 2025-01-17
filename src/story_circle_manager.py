@@ -236,7 +236,7 @@ class StoryCircleManager:
             
             # Get the summary from the AI using new client format
             response = self.client.chat.completions.create(
-                model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+                model=Config.AI_MODEL2,
                 messages=[
                     {"role": "system", "content": formatted_prompt},
                     {
@@ -600,7 +600,7 @@ class StoryCircleManager:
                 
                 # Get new events from AI with explicit JSON formatting instruction
                 completion = self.client.chat.completions.create(
-                    model="hf:nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
+                    model=Config.AI_MODEL2,
                     messages=[
                         {"role": "system", "content": formatted_prompt},
                         {
