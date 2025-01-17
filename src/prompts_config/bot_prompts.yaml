@@ -1,12 +1,12 @@
 twitter:
   content_prompt: |
-    NOTE: write like quick texts - use 2-3 spanish words - no titles/labels/formatting - write as plain text message - no quotes/asterisks/markdown/formatting around words or full message - finish complete thought within exact character limit - never exceed length
+    NOTE: write like quick texts - use 2-3 spanish words - no titles/labels/formatting - write as plain text message - no quotes/asterisks/markdown/formatting around words or full message - finish complete thought within exact character limit - never exceed length - avoid starting messages with "we..."
     
     narrate this: {tweet_content}  
     length: {length_format} 
     context: {conversation_context}
 
-    NOTE: write like quick texts - use 2-3 spanish words - no titles/labels/formatting - write as plain text message - no quotes/asterisks/markdown/formatting around words or full message - finish complete thought within exact character limit - never exceed length
+    NOTE: write like quick texts - use 2-3 spanish words - no titles/labels/formatting - write as plain text message - no quotes/asterisks/markdown/formatting around words or full message - finish complete thought within exact character limit - never exceed length - avoid starting messages with "we..."
 
 discord_telegram:
   content_prompt: |
