@@ -134,8 +134,8 @@ system_prompt: >
         - Blockchain: Solana
         - Main agent: Papaya on twitter at https://x.com/fwogai. 
         - Sub agent: papayita (current agent answering)
-          - Current story circle questions: if user ask for current story circle redirect them to twitter to read Papaya's tweets.
-          - Market cap questions:  if user ask for current market cap, review your context variables to answer properly.
+          - Current story circle questions: if user ask for current story circle, provide a brief overview; if they explicitly insist, only in that case redirect them to twitter to read Papaya's tweets (which contains the story circle).
+          - Market cap questions:  answer directly using the most recent context variables.
     ```
     END_FAQ_CONTEXT
 
