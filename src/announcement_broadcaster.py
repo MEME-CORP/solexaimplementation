@@ -289,3 +289,35 @@ class AnnouncementBroadcaster:
         cls._chat_id = chat_id
         logger.info(f"Chat ID set to: {chat_id}")
         return True
+
+    @classmethod
+    async def broadcast_telegram_only(cls, message: str):
+        """Broadcast message only to Telegram"""
+        if not message or not message.strip():
+            logger.warning("Attempted to broadcast empty message - skipping")
+            return False
+        try:
+            # First try instance chat_id, then config
+            chat_id = cls._chat_id or getattr(Config, 'TELEGRAM_CHAT_ID', None)
+            
+            if not chat_id:
+                logger.error("No chat ID available. Use /chatid command to set it or configure TELEGRAM_CHAT_ID")
+                raise ValueError("No chat ID available for broadcasting")
+
+            # Send to Telegram only
+            if cls._instance and cls._instance._telegram_app:
+                try:
+                    await cls._instance._telegram_app.bot.send_message(
+                        chat_id=chat_id,
+                        text=message,
+                        disable_web_page_preview=True
+                    )
+                    logger.info(f"Successfully sent announcement to Telegram chat {chat_id}")
+                    return True
+                except Exception as e:
+                    logger.error(f"Failed to send Telegram message: {e}")
+                    return False
+            return False
+        except Exception as e:
+            logger.error(f"Critical error in telegram broadcast: {e}", exc_info=True)
+            return False

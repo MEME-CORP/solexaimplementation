@@ -14,6 +14,7 @@ from pathlib import Path
 from src.prompts import load_style_prompts
 from src.creativity_manager import CreativityManager
 from src.ai_announcements import AIAnnouncements
+from src.database.supabase_client import DatabaseService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('ATOManager')
@@ -27,6 +28,9 @@ class DecimalEncoder(json.JSONEncoder):
 class ATOManager:
     def __init__(self):
         """Initialize ATO Manager"""
+        # Add database initialization
+        self.db = DatabaseService()
+        
         # Add system prompt loading
         self.system_prompts = load_style_prompts()
         if not self.system_prompts or 'style1' not in self.system_prompts:
@@ -466,7 +470,7 @@ class ATOManager:
                 return None
 
             announcement = (
-                f"familia we just scored {balance} tokens\n\n"
+                f"familia we just received {balance} tokens\n\n"
                 "dev team came thru wit da goods\n"
                 "we bout 2 run this Agent Take Over (ATO) like real papayas\n\n"
                 "whole operation's locked & loaded... watch us move"
@@ -614,6 +618,7 @@ class ATOManager:
     async def _monitor_marketcap(self):
         """Monitor marketcap and handle milestones"""
         try:
+            last_update_time = 0  # Track last update time
             while True:
                 current_mc = await self._check_marketcap()
                 
@@ -623,10 +628,13 @@ class ATOManager:
                     if current_mc >= next_milestone[0]:
                         await self._handle_milestone_reached(current_mc)
                 
-                # Post current marketcap update
-                self._post_marketcap_update(current_mc)
+                # Only post marketcap update every 2 hours
+                current_time = time.time()
+                if current_time - last_update_time >= 3600:  # 7200 seconds = 2 hours
+                    self._post_marketcap_update(current_mc)
+                    last_update_time = current_time
                 
-                await asyncio.sleep(7200)  # Check every 20 minutes
+                await asyncio.sleep(600)  # Check every 10 minutes (600 seconds)
         except Exception as e:
             logger.error(f"Error in marketcap monitoring: {e}")
 
@@ -669,9 +677,29 @@ class ATOManager:
         if last_update and (time.time() - last_update < 21600):  # 6 hours in seconds
             return None
 
+        # Get fresh narrative data from database with retries
+        story_circle = None
+        max_retries = 3
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            story_circle = self.db.get_story_circle_sync()
+            if story_circle and story_circle.get('events'):
+                self.narrative = story_circle
+                logger.info(f"Refreshed narrative data with {len(story_circle.get('events', []))} events")
+                break
+            else:
+                logger.warning(f"Attempt {attempt + 1}/{max_retries}: No story circle data yet, retrying...")
+                time.sleep(retry_delay)  # Wait before retry
+                retry_delay *= 4  # Exponential backoff
+        
+        # Skip announcement if no narrative context is available
+        if not story_circle or not story_circle.get('events'):
+            logger.warning("Skipping marketcap update - narrative context not available")
+            return None
+
         # Store current marketcap in memories table
         try:
-            # Format marketcap memory
             marketcap_memory = f"Current marketcap: {current_mc}"
             self.memory_processor.store_marketcap_sync(marketcap_memory)
             logger.info(f"Successfully stored marketcap in memories: {marketcap_memory}")
@@ -698,44 +726,47 @@ class ATOManager:
             )
 
             try:
-                # Get narrative context from narrative object
-                if hasattr(self, 'narrative') and isinstance(self.narrative, dict):
-                    context = self.narrative.get('dynamic_context', {})
-                    current_event = context.get('current_event', '')
-                    # CHANGED HERE: accept either "inner_dialogue" or "current_inner_dialogue"
-                    inner_dialogue = context.get('inner_dialogue', '') or context.get('current_inner_dialogue', '')
+                # Extract narrative context
+                dynamic_context = story_circle.get('dynamic_context', {})
+                current_event = dynamic_context.get('current_event', '')
+                inner_dialogue = dynamic_context.get('inner_dialogue', '') or dynamic_context.get('current_inner_dialogue', '')
 
-                    if current_event and inner_dialogue:
-                        logger.info("Generating AI announcement with narrative context...")
-                        announcement = self.ai_announcements.generate_marketcap_announcement(
-                            base_announcement,
-                            current_event,
-                            inner_dialogue
-                        )
-                        if announcement and announcement.strip():
-                            logger.info("Successfully generated AI announcement")
-                        else:
-                            logger.warning("LLM returned empty announcement, falling back to base")
-                            announcement = base_announcement
-                    else:
-                        logger.warning("Missing narrative context, using base announcement")
-                        announcement = base_announcement
+                # Attempt AI generation with narrative context
+                announcement = self.ai_announcements.generate_marketcap_announcement(
+                    base_announcement,
+                    current_event,
+                    inner_dialogue
+                )
+                
+                if announcement and announcement.strip():
+                    logger.info("Successfully generated AI announcement")
+                    logger.info("AI Generated Content:")
+                    logger.info("-" * 50)
+                    logger.info(f"Base Announcement:\n{base_announcement}")
+                    logger.info(f"Current Event: {current_event}")
+                    logger.info(f"Inner Dialogue: {inner_dialogue}")
+                    logger.info(f"Generated Announcement:\n{announcement}")
+                    logger.info("-" * 50)
+                    logger.info(f"Broadcasting AI marketcap announcement to Telegram only: {announcement}")
+                    asyncio.create_task(self.broadcaster.broadcast_telegram_only(announcement))
                 else:
-                    logger.warning("No narrative object available, using base announcement")
+                    logger.warning("LLM returned empty announcement, falling back to base")
                     announcement = base_announcement
+                    logger.info(f"Broadcasting base announcement to Telegram only: {announcement}")
+                    asyncio.create_task(self.broadcaster.broadcast_telegram_only(announcement))
             except Exception as e:
-                logger.error(f"Error in narrative processing: {str(e)}", exc_info=True)
+                logger.error(f"Error in AI announcement generation: {str(e)}", exc_info=True)
                 announcement = base_announcement
+                logger.info(f"Broadcasting base announcement to Telegram only: {announcement}")
+                asyncio.create_task(self.broadcaster.broadcast_telegram_only(announcement))
         else:
-            # If all milestones are achieved, just post current marketcap
+            # If all milestones are achieved, just post current marketcap to Telegram only
             announcement = f"current marketcap: {self._format_number_with_dots(int(current_mc))}"
+            logger.info(f"Broadcasting milestone completion announcement to Telegram only: {announcement}")
+            asyncio.create_task(self.broadcaster.broadcast_telegram_only(announcement))
         
         self._announcement_history['marketcap_updates'][mc_key] = time.time()
         self._save_announcement_history()
-        
-        twitter_announcement = self._format_announcement_for_twitter(announcement)
-        logger.info(f"Broadcasting final announcement: {twitter_announcement}")
-        asyncio.create_task(self.broadcaster.broadcast(twitter_announcement))
         
         return announcement
 

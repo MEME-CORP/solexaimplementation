@@ -57,7 +57,12 @@ class AIAnnouncements:
                 inner_dialogue=inner_dialogue
             )
             
-            logger.debug(f"Generated prompt for LLM: {prompt}")
+            logger.info("AI Generation Input:")
+            logger.info("-" * 50)
+            logger.info(f"Base Announcement:\n{base_announcement}")
+            logger.info(f"Current Event: {current_event}")
+            logger.info(f"Inner Dialogue: {inner_dialogue}")
+            logger.info("-" * 50)
 
             messages = [
                 {"role": "system", "content": "You are a street-smart AI agent providing market updates."},
@@ -73,7 +78,10 @@ class AIAnnouncements:
             )
 
             generated_content = response.choices[0].message.content.strip()
-            logger.debug(f"Raw LLM response: {generated_content}")
+            logger.info("AI Generation Output:")
+            logger.info("-" * 50)
+            logger.info(f"Generated Content:\n{generated_content}")
+            logger.info("-" * 50)
 
             # Validate the generated content
             if not generated_content:
