@@ -57,9 +57,23 @@ cp .env.template .env
 1. Edit the `.env` file with your credentials:
    - Get GLHF API key from [GLHF Chat](https://glhf.chat)
    - Create a [Telegram Bot](https://core.telegram.org/bots#creating-a-new-bot) and get the token
+   - Set up your Telegram chat ID (see Telegram Setup below)
    - Set up a [Discord Application](https://discord.com/developers/applications) and get the bot token
    - Add your Twitter credentials
    - Set up Supabase (see Database Setup below)
+
+### Telegram Setup
+1. Add your bot to the desired Telegram chat/group
+2. Use the `/chatid` command in the chat where you want the bot to operate
+3. The bot will respond with the chat ID
+4. Add this chat ID to your `.env` file as `TELEGRAM_CHAT_ID`
+
+Alternatively, you can:
+1. Add your bot to the chat/group
+2. Send any message to the chat
+3. Visit `https://api.telegram.org/bot<YourBOTToken>/getUpdates`
+4. Look for the `"chat":{"id":` field in the response
+5. Use that ID in your `.env` file
 
 2. Configure bot settings:
    - Adjust model parameters in `.env` if needed
@@ -154,6 +168,8 @@ python main.py --bots discord
 
 # Telegram Bot only
 python main.py --bots telegram
+
+   python main.py --bots twitter telegram
 ```
 
 ### Development Mode
@@ -271,7 +287,7 @@ python migrations/story_circle_supabase_migration.py
 ### Run Tests
 To run the story progression tests:
 ```bash
-python -m pytest tests/test_story_progression.py -v
+python -m pytest tests/test_story_cricle_integration.py -v
 ```
 
 ### Database Management Flow
@@ -303,4 +319,38 @@ ALTER SEQUENCE story_circle_id_seq RESTART WITH 1;
 # Run tests
 python -m tests.test_story_circle_integration
 
-Note: Make sure you have all required environment variables set in your `.env` file before running these commands.
+Note: Make sure you have all required environment variables set in your `.env` file before running these commands.+
+
+# Memory Upload Instructions
+
+## Uploading Memories to Database
+
+The project includes a script to upload memories from `data/new_memories.txt` to the Supabase database. Here's how to use it:
+
+1. Ensure your memories are in `data/new_memories.txt`, with one memory per line
+2. Run the upload script:
+
+```bash
+# From project root directory
+python -m src.scripts.upload_memories
+```
+
+The script will:
+- Read all memories from new_memories.txt
+- Upload them to the Supabase 'memories' table
+- Log the results to console
+
+### Requirements
+- Valid Supabase credentials in your environment variables
+- Python 3.7+
+- Required packages installed (see requirements.txt)
+
+### Troubleshooting
+- Check logs for detailed error messages
+- Ensure your Supabase credentials are correct
+- Verify the memories file exists and is readable
+
+
+
+
+aaaa

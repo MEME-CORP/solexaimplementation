@@ -39,11 +39,22 @@ env/
 
 # Project specific
 *.yaml
+!src/prompts_config/*.yaml
 twitter_session.json
 data/processed_tweets.txt
+tests/ 
+scripts0.2/
+templates/
 
 # Logs
 *.log
 logs/ 
 
+# Test files and caches
+.pytest_cache/
+tests/__pycache__/
+*.pyc
+.coverage
+htmlcov/
+.tox/
 tests/

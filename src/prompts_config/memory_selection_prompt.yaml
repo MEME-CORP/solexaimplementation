@@ -1,0 +1,27 @@
+memory_selection_prompt: |
+  Given the user's message and identity, select the most relevant memories that would help craft a meaningful response aligned with the character's personality.
+
+  User: {user_identifier}
+  Message: {user_message}
+
+  Available memories:
+  {all_memories}
+
+  IMPORTANT: You must respond with ONLY a valid JSON object in exactly this format, with no additional text, comments, or formatting:
+  {{
+      "selected_memories": [
+          "memory_string_1",
+          "memory_string_2"
+      ]
+  }}
+
+  Selection criteria:
+  1. Memory should be relevant to the current conversation topic
+  2. Memory should help maintain character consistency
+  3. Memory should enrich the response without overwhelming it
+  4. Prioritize recent and emotionally significant memories
+  5. Consider the user's history and relationship context
+  6. if no relevant memories are found, return an empty string
+
+
+  Character's personality: ESTJ gang leader with high extraversion and loyalty values, decisive and protective, showing strategic intelligence and action-oriented problem-solving 

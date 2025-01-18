@@ -4,54 +4,34 @@ from src.config import Config
 import logging
 import json
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import os
+import requests
 
 logger = logging.getLogger('database')
 
 class DatabaseService:
     def __init__(self):
-        self.client = create_client(
-            Config.SUPABASE_URL,
-            Config.SUPABASE_KEY
-        )
-        # Initialize storage bucket reference
-        self.storage = self.client.storage
-      
+        """Initialize database service with storage access"""
+        # Initialize Supabase client
+        self.client = Config.get_supabase_client()
+        logger.info("Initialized database service")
+        # No bucket creation/checking - assume bucket exists
+
     def get_memories(self) -> List[str]:
-        """Get all memories from storage and circle memories from database"""
+        """Get all memories from database"""
         try:
-            memories = []
+            # Get memories directly from memories table
+            response = self.client.table('memories').select('memory').execute()
             
-            # Get memories from storage JSON file
-            try:
-                # Download memories.json if it exists
-                content = self.storage.from_('memories').download('memories.json')
-                if content:
-                    json_content = json.loads(content.decode('utf-8'))
-                    memories.extend(json_content.get('memories', []))
-                    logger.info(f"Retrieved {len(memories)} memories from storage")
-                
-            except Exception as e:
-                if 'Not found' in str(e):
-                    logger.info("No memories.json found in storage")
-                else:
-                    logger.error(f"Error fetching memories from storage: {e}")
+            if response.data:
+                memories = [record['memory'] for record in response.data]
+                logger.info(f"Retrieved {len(memories)} memories from database")
+                return memories
             
-            # Get circle memories (keep this functionality unchanged)
-            try:
-                circle_response = self.client.table('circle_memories').select('memories').execute()
-                if circle_response.data:
-                    circle_memories = circle_response.data[0]['memories']['memories']
-                    memories.extend(circle_memories)
-                    logger.info(f"Retrieved {len(circle_memories)} circle memories from database")
-            except Exception as e:
-                logger.error(f"Error fetching circle memories: {e}")
-            
-            return memories
-            
+            return []
         except Exception as e:
-            logger.error(f"Error in get_memories: {e}")
+            logger.error(f"Error fetching memories: {e}")
             return []
 
     def get_story_circle(self):
@@ -75,6 +55,11 @@ class DatabaseService:
             story_circle_id = story.data['id']
             logger.info(f"Retrieved story circle {story_circle_id}")
 
+            # Get narrative JSON and extract existing dynamic context
+            narrative_json = story.data.get('narrative', {})
+            existing_context = narrative_json.get('dynamic_context', {})
+            logger.debug(f"Retrieved existing context: {existing_context}")
+
             # Get phases for this story circle
             phases = self.client.table('story_phases')\
                 .select('*')\
@@ -97,16 +82,29 @@ class DatabaseService:
             # Get events and dialogues for current phase
             events_dialogues = self.get_events_dialogues(story_circle_id, current_phase_number)
             
-            # Structure the response with proper dynamic context
+            # Extract events and dialogues
             events = [ed['event'] for ed in events_dialogues]
             dialogues = [ed['inner_dialogue'] for ed in events_dialogues]
-            
-            dynamic_context = {
-                'current_event': events[0] if events else '',
-                'current_inner_dialogue': dialogues[0] if dialogues else '',
-                'next_event': events[1] if len(events) > 1 else ''
-            }
 
+            # Determine dynamic context based on existing data
+            if existing_context.get("current_event"):
+                # Keep existing dynamic context from narrative
+                dynamic_context = {
+                    "current_event": existing_context["current_event"],
+                    "current_inner_dialogue": existing_context.get("current_inner_dialogue", ""),
+                    "next_event": existing_context.get("next_event", "")
+                }
+                logger.info("Using existing dynamic context from narrative")
+            else:
+                # Initialize with first event if no existing context
+                dynamic_context = {
+                    "current_event": events[0] if events else "",
+                    "current_inner_dialogue": dialogues[0] if dialogues else "",
+                    "next_event": events[1] if len(events) > 1 else ""
+                }
+                logger.info("Initialized new dynamic context from first event")
+
+            # Construct and return story circle data
             return {
                 "id": story_circle_id,
                 "current_phase": current_phase['phase_name'] if current_phase else 'You',
@@ -127,6 +125,7 @@ class DatabaseService:
 
         except Exception as e:
             logger.error(f"Error fetching story circle: {e}")
+            logger.exception("Full traceback:")
             return None
 
     def _ensure_single_current_circle(self):
@@ -272,44 +271,15 @@ class DatabaseService:
             return []
 
     def add_memories(self, new_memories: List[str]) -> None:
-        """Add new memories to storage JSON file"""
+        """Add new memories to database"""
         try:
-            # Create memories bucket if it doesn't exist
-            try:
-                self.storage.create_bucket('memories')
-            except Exception as e:
-                if 'already exists' not in str(e):
-                    logger.error(f"Error creating memories bucket: {e}")
-                    raise
-            
-            # Get existing memories
-            existing_memories = []
-            try:
-                content = self.storage.from_('memories').download('memories.json')
-                if content:
-                    json_content = json.loads(content.decode('utf-8'))
-                    existing_memories = json_content.get('memories', [])
-            except Exception as e:
-                if 'Not found' not in str(e):
-                    logger.error(f"Error reading existing memories: {e}")
-            
-            # Combine existing and new memories
-            all_memories = {
-                'memories': existing_memories + new_memories
-            }
-            
-            # Upload updated memories file
-            try:
-                self.storage.from_('memories').upload(
-                    'memories.json',
-                    json.dumps(all_memories).encode('utf-8'),
-                    {'content-type': 'application/json'},
-                    upsert=True  # Update if exists, create if doesn't
-                )
-                logger.info(f"Added {len(new_memories)} new memories to storage")
-            except Exception as e:
-                logger.error(f"Error uploading memories: {e}")
-                raise
+            # Insert each memory as a separate record
+            for memory in new_memories:
+                response = self.client.table('memories').insert({
+                    'memory': memory
+                }).execute()
+                
+            logger.info(f"Added {len(new_memories)} new memories to database")
                     
         except Exception as e:
             logger.error(f"Error adding memories: {e}")
@@ -796,14 +766,14 @@ class DatabaseService:
                 logger.error("Events and dialogues must have same length")
                 return False
             
-            # Create events and dialogues
+            # Create events and dialogues - Updated to use inner_dialogue
             for i, (event, dialogue) in enumerate(zip(events, dialogues)):
                 self.client.table('events_dialogues').insert({
                     'story_circle_id': story_circle_id,
                     'phase_number': phase_number,
                     'event_order': i + 1,
                     'event': event,
-                    'dialogue': dialogue
+                    'inner_dialogue': dialogue  # Changed from 'dialogue' to 'inner_dialogue'
                 }).execute()
             
             return True
@@ -811,3 +781,187 @@ class DatabaseService:
         except Exception as e:
             logger.error(f"Error creating events for phase: {e}")
             return False
+
+    def get_memories_sync(self):
+        """Get memories synchronously - used by AI generator"""
+        try:
+            response = self.client.table('memories').select('memory').execute()
+            if response.data:
+                return [record['memory'] for record in response.data]
+            return []
+        except Exception as e:
+            logger.error(f"Error fetching memories synchronously: {e}")
+            return []
+
+    def get_story_circle_sync(self):
+        """Get current story circle data synchronously"""
+        try:
+            # Get current story circle
+            response = self.client.table('story_circle')\
+                .select('*')\
+                .eq('is_current', True)\
+                .limit(1)\
+                .execute()
+
+            if not response.data:
+                logger.warning("No current story circle found")
+                return None
+
+            story_circle = response.data[0]
+            
+            # Extract narrative data
+            narrative = story_circle.get('narrative', {})
+            if not narrative:
+                logger.warning("No narrative data found in story circle")
+                return None
+
+            # Get phases for this story circle
+            phases = self.client.table('story_phases')\
+                .select('*')\
+                .eq('story_circle_id', story_circle['id'])\
+                .order('phase_number')\
+                .execute()
+
+            # Extract events and dialogues directly from narrative JSONB
+            events = narrative.get('events', [])
+            dialogues = narrative.get('dialogues', [])
+            logger.info(f"Retrieved {len(events)} events and {len(dialogues)} dialogues from narrative")
+
+            # Structure the response
+            return {
+                'id': story_circle['id'],
+                'is_current': story_circle['is_current'],
+                'current_phase': narrative.get('current_phase', ''),
+                'current_phase_number': narrative.get('current_phase_number', 1),
+                'events': events,  # Add events from narrative
+                'dialogues': dialogues,  # Add dialogues from narrative
+                'dynamic_context': narrative.get('dynamic_context', {
+                    'current_event': '',
+                    'current_inner_dialogue': '',
+                    'next_event': ''
+                }),
+                'phases': [
+                    {
+                        'phase': phase['phase_name'],
+                        'phase_number': phase['phase_number'],
+                        'description': phase.get('phase_description', '')
+                    }
+                    for phase in phases.data
+                ] if phases.data else []
+            }
+
+        except Exception as e:
+            logger.error(f"Error in get_story_circle_sync: {str(e)}")
+            logger.exception("Full traceback:")
+            return None
+
+    def add_memory(self, memory: Union[dict, str]) -> bool:
+        """
+        Add a single memory to the database with proper ID sequencing.
+        Accepts either a dictionary with full memory data or a string content.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            # First get the current max ID
+            max_id_response = self.client.table('memories')\
+                .select('id')\
+                .order('id', desc=True)\
+                .limit(1)\
+                .execute()
+                
+            # Calculate next ID
+            next_id = 1  # Default if no records exist
+            if max_id_response.data and len(max_id_response.data) > 0:
+                next_id = max_id_response.data[0]['id'] + 1
+                
+            # Convert string input to memory dict if needed
+            if isinstance(memory, str):
+                memory = {
+                    'memory': memory,
+                    'created_at': datetime.now().isoformat()
+                }
+                
+            # Ensure memory is a dict
+            if not isinstance(memory, dict):
+                logger.error("Invalid memory format")
+                return False
+                
+            # Add required fields
+            memory['id'] = next_id
+            if 'created_at' not in memory:
+                memory['created_at'] = datetime.now().isoformat()
+                
+            # Insert with explicit ID
+            response = self.client.table('memories')\
+                .insert(memory)\
+                .execute()
+                
+            if response.data:
+                logger.info(f"Successfully added memory to database with ID: {next_id}")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error adding memory to database: {e}")
+            logger.exception("Full traceback:")
+            return False
+
+    def add_processed_tweet(self, tweet_id: str) -> None:
+        """Add a processed tweet ID to database"""
+        try:
+            # Check if tweet_id already exists
+            existing = self.client.table('processed_tweets').select('tweet_id').eq('tweet_id', tweet_id).execute()
+            
+            if not existing.data:
+                # Insert new tweet_id with processed_at timestamp
+                self.client.table('processed_tweets').insert({
+                    'tweet_id': tweet_id,
+                    'processed_at': datetime.now().isoformat()
+                }).execute()
+                logger.debug(f"Added tweet ID {tweet_id} to processed tweets")
+        except Exception as e:
+            logger.error(f"Error adding processed tweet {tweet_id}: {e}")
+            raise
+
+    def insert_memory(self, memory_data: dict) -> bool:
+        """Insert a memory into the database with proper validation"""
+        try:
+            # Ensure required fields with proper names
+            required_fields = {
+                'memory': str,
+                'created_at': str
+            }
+            
+            # Validate fields
+            for field, field_type in required_fields.items():
+                if field not in memory_data:
+                    logger.error(f"Missing required field: {field}")
+                    return False
+                if not isinstance(memory_data[field], field_type):
+                    logger.error(f"Invalid type for field {field}")
+                    return False
+            
+            # Clean memory data to match schema
+            clean_memory_data = {
+                'memory': memory_data['memory'],
+                'created_at': memory_data['created_at']
+            }
+            
+            # Insert memory
+            response = self.client.table('memories')\
+                .insert(clean_memory_data)\
+                .execute()
+            
+            if response.data:
+                logger.info(f"Successfully inserted memory: {clean_memory_data['memory'][:100]}")
+                return True
+                
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error inserting memory: {e}")
+            logger.exception("Full traceback:")
+            return False
+
+  

@@ -16,6 +16,26 @@ class TweetManager:
         self.processed_tweets = set()
         self.db = DatabaseService()
         self.load_processed_tweets()
+        
+        # Process any pending tweets right after initialization
+        self._process_pending_announcements()
+
+    def _process_pending_announcements(self):
+        """Process any pending announcements right after initialization"""
+        from src.announcement_broadcaster import AnnouncementBroadcaster
+        
+        if not hasattr(AnnouncementBroadcaster, '_pending_tweets'):
+            return
+            
+        pending = AnnouncementBroadcaster._pending_tweets[:]  # Make a copy
+        
+        for message in pending:
+            try:
+                self.send_tweet(message)
+                AnnouncementBroadcaster._pending_tweets.remove(message)
+                self.logger.info(f"Successfully posted pending announcement: {message[:30]}...")
+            except Exception as e:
+                self.logger.error(f"Failed to post pending announcement: {e}")
 
     def load_processed_tweets(self):
         """Load processed tweet IDs from database"""
@@ -29,7 +49,17 @@ class TweetManager:
 
     def save_processed_tweets(self):
         """Save processed tweet IDs to database"""
-        pass
+        try:
+            # Convert set to list for database storage
+            tweet_ids = list(self.processed_tweets)
+            
+            # Store in database using existing db service
+            for tweet_id in tweet_ids:
+                self.db.add_processed_tweet(tweet_id)
+                
+            self.logger.info(f"Saved {len(tweet_ids)} processed tweet IDs to database")
+        except Exception as e:
+            self.logger.error(f"Error saving processed tweets: {e}")
 
     def extract_tweet_id(self, article) -> str:
         """Extract tweet ID from article element"""
@@ -180,10 +210,9 @@ class TweetManager:
 
     def clean_content(self, content: str) -> str:
         """Clean tweet content"""
-        content = content.split("**(")[0].strip()
-        lines = content.split('\n')
-        if len(lines) > 1:
-            return lines[0].strip()
+        # Remove only specific markers if present, otherwise keep full content
+        if "**()" in content:
+            content = content.split("**()")[0].strip()
         return content.strip()
 
     def sanitize_text(self, text: str) -> str:
@@ -324,7 +353,7 @@ class TweetManager:
             self.logger.error(f"Error checking notifications: {e}")
             return []
 
-    def check_and_process_mentions(self, generator) -> None:
+    def check_and_process_mentions(self, generator):
         """Check and process mentions"""
         try:
             notifications = self.check_notifications()
@@ -333,18 +362,16 @@ class TweetManager:
                 self.logger.info(f"Processing {len(notifications)} mentions...")
                 for notification in notifications:
                     try:
-                        # Use the working message format
                         reply_content = generator.generate_content(
                             user_message=f"reply to: {notification['text']}", 
-                            topic='',  # Empty for replies
-                            conversation_context='',  # Could add previous context if needed
-                            username=''  # Could add username if needed
+                            topic='',
+                            conversation_context='',
+                            username=''
                         )
                         
                         if reply_content and isinstance(reply_content, str):
                             self.logger.info(f"Generated reply: {reply_content[:50]}...")
                             self.reply_to_tweet(notification, reply_content)
-                            # Explicitly save processed tweets after each reply
                             self.processed_tweets.add(notification['tweet_id'])
                             self.save_processed_tweets()
                             self.logger.info(f"Replied to tweet ID: {notification['tweet_id']}")
@@ -363,8 +390,14 @@ class TweetManager:
         return tweet_id in self.processed_tweets
 
     def mark_tweet_processed(self, tweet_id: str) -> None:
-        """Mark a tweet as processed in database"""
+        """Mark a tweet as processed and save to database"""
+        if not tweet_id:
+            return
+            
+        self.processed_tweets.add(tweet_id)
         try:
-            self.processed_tweets.add(tweet_id)
+            # Save individual tweet right after processing
+            self.db.add_processed_tweet(tweet_id)
+            self.logger.info(f"Marked tweet {tweet_id} as processed")
         except Exception as e:
             self.logger.error(f"Error marking tweet as processed: {e}")

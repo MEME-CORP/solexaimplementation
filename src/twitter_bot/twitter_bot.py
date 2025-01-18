@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from src.ai_generator import AIGenerator
 from .scraper import Scraper
 from .tweets import TweetManager
+from src.announcement_broadcaster import AnnouncementBroadcaster
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -55,6 +56,12 @@ class TwitterBot:
                 if not self.scraper or not self.scraper.driver:
                     logger.error("Scraper or driver not properly initialized")
                     return False
+                    
+                # Register driver with broadcaster before creating TweetManager
+                from src.announcement_broadcaster import AnnouncementBroadcaster
+                AnnouncementBroadcaster.set_twitter_driver(self.scraper.driver)
+                
+                # Initialize TweetManager which will process pending tweets
                 self.tweet_manager = TweetManager(self.scraper.driver)
                 
             # Verify all components
@@ -89,7 +96,7 @@ class TwitterBot:
             # Set timers
             last_tweet_time = time.time()
             last_notification_check = time.time()
-            tweet_interval = random.randint(3600, 7200)  # 5-30 minutes
+            tweet_interval = random.randint(1200, 3600)  # 5-30 minutes
             notification_interval = 300  # 5 minutes
 
             logger.info(f"Next tweet in {tweet_interval/60:.1f} minutes")
@@ -128,7 +135,7 @@ class TwitterBot:
                         except Exception as e:
                             logger.error(f"Error generating tweet: {e}")
                         last_tweet_time = current_time
-                        tweet_interval = random.randint(300, 1800)
+                        tweet_interval = random.randint(2600, 3600)
                         logger.info(f"Next tweet in {tweet_interval/60:.1f} minutes")
 
                     time.sleep(1)
@@ -202,3 +209,9 @@ class TwitterBot:
             logger.error(f"Error during cleanup: {e}")
         finally:
             os._exit(0)
+
+    async def _initialize_components(self):
+        # ... existing initialization code ...
+        
+        # Process any pending tweets
+        await AnnouncementBroadcaster.process_pending_tweets()

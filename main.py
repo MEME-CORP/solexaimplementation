@@ -11,6 +11,11 @@ import time
 from telegram import Update
 from telegram.ext import Application
 from dotenv import load_dotenv
+from src.ato_manager import ATOManager
+from functools import partial
+from src.announcement_broadcaster import AnnouncementBroadcaster
+from src.story_circle_manager import progress_narrative
+from datetime import datetime
 
 # Add project root to Python path
 project_root = Path(__file__).parent
@@ -57,11 +62,14 @@ def run_twitter_bot():
     try:
         # Create bot instance without signal handlers since we're in a thread
         bot = TwitterBot(handle_signals=False)
+        
+        # Register with broadcaster
+        AnnouncementBroadcaster.register_twitter_bot(bot)
+        
         # Create an event loop for this thread
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            # Run the bot's async function
             loop.run_until_complete(bot.run())
         except Exception as e:
             print(f"Twitter bot error: {e}")
@@ -82,8 +90,10 @@ def run_telegram_bot():
         bot = TelegramBot()
         application = bot.setup()
         
+        # Register with broadcaster
+        AnnouncementBroadcaster.register_telegram_bot(bot)
+        
         print("Starting Telegram bot...")
-        # Run the application in the main thread
         application.run_polling(allowed_updates=Update.ALL_TYPES)
         
     except Exception as e:
@@ -105,10 +115,73 @@ def run_discord_bot():
     finally:
         print("Discord bot has stopped.")
 
+async def initialize_ato_manager():
+    """Initialize ATO Manager after 5 minute delay"""
+    try:
+        print("Waiting 5 minutes before initializing ATO Manager...")
+        await asyncio.sleep(2)  # 5 minutes delay
+        
+        print("Initializing ATO Manager...")
+        ato_manager = ATOManager()
+        await ato_manager.initialize()
+        print("ATO Manager initialized successfully")
+        
+    except Exception as e:
+        print(f"Error initializing ATO Manager: {e}")
+
+def run_ato_manager():
+    """Run the ATO manager in its own thread"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(initialize_ato_manager())
+    finally:
+        loop.close()
+
+def setup_paths():
+    """Setup correct paths for loading config files"""
+    # Add project root to Python path
+    project_root = Path(__file__).parent
+    sys.path.append(str(project_root))
+    
+    # Ensure prompts_config directory exists
+    prompts_config_path = project_root / 'src' / 'prompts_config'
+    if not prompts_config_path.exists():
+        prompts_config_path.mkdir(parents=True, exist_ok=True)
+        print(f"Created prompts_config directory at: {prompts_config_path}")
+
+def run_story_circle_progression():
+    """Run the story circle progression loop"""
+    global running
+    
+    print("Starting story circle progression loop...")
+    
+    while running:
+        try:
+            # Progress the narrative
+            updated_circle = progress_narrative()
+            if updated_circle:
+                print(f"[{datetime.now()}] Story circle progressed successfully")
+                print(f"Current phase: {updated_circle.get('current_phase')}")
+                print(f"Current event: {updated_circle.get('dynamic_context', {}).get('current_event')}")
+            else:
+                print(f"[{datetime.now()}] No update to story circle")
+                
+        except Exception as e:
+            print(f"Error in story circle progression: {e}")
+            
+        # Wait 60 seconds before next progression
+        time.sleep(600)
+    
+    print("Story circle progression loop stopped")
+
 def main():
+    setup_paths()
+    
     global twitter_thread, discord_thread, running
     parser = argparse.ArgumentParser()
-    parser.add_argument('--bots', nargs='+', choices=['twitter', 'telegram', 'discord'], 
+    parser.add_argument('--bots', nargs='+', 
+                       choices=['twitter', 'telegram', 'discord', 'ato'], 
                        help='Specify which bots to run')
     args = parser.parse_args()
 
@@ -116,10 +189,25 @@ def main():
         parser.print_help()
         return
 
-    # Set up signal handlers only in main thread
     setup_signal_handlers()
 
     try:
+        # Start story circle progression thread
+        story_circle_thread = threading.Thread(
+            target=run_story_circle_progression,
+            daemon=True,
+            name="StoryCircleThread"
+        )
+        story_circle_thread.start()
+        print("Story circle progression thread started")
+
+        # Start ATO manager if specifically requested
+        if 'ato' in args.bots and len(args.bots) == 1:
+            print("Starting ATO Manager only...")
+            run_ato_manager()
+            return
+
+        # Start requested bots
         if 'twitter' in args.bots:
             twitter_thread = threading.Thread(target=run_twitter_bot, daemon=True)
             twitter_thread.start()
@@ -129,6 +217,12 @@ def main():
             discord_thread = threading.Thread(target=run_discord_bot, daemon=True)
             discord_thread.start()
             print("Discord bot thread started.")
+
+        # Start ATO manager thread if any bot is running
+        if any(bot in args.bots for bot in ['twitter', 'telegram', 'discord']):
+            ato_thread = threading.Thread(target=run_ato_manager, daemon=True)
+            ato_thread.start()
+            print("ATO Manager thread scheduled (5 minute delay)...")
 
         if 'telegram' in args.bots:
             # Run Telegram bot in main thread
@@ -143,6 +237,13 @@ def main():
     finally:
         running = False
         print("Initiating shutdown sequence...")
+
+        # Add story circle thread to shutdown sequence
+        if story_circle_thread and story_circle_thread.is_alive():
+            print("Waiting for Story Circle progression to shut down...")
+            story_circle_thread.join(timeout=30)
+            if story_circle_thread.is_alive():
+                print("Story Circle progression shutdown timed out!")
 
         if twitter_thread and twitter_thread.is_alive():
             print("Waiting for Twitter bot to shut down...")

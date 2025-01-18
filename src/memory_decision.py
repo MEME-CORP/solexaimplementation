@@ -4,7 +4,7 @@ import logging
 from src.config import Config
 import os
 import yaml
-from typing import Union, Tuple
+from typing import Union, Tuple, List, Optional
 from src.database.supabase_client import DatabaseService
 
 # Configure logging
@@ -98,7 +98,19 @@ class MemoryDecision:
                     response_text = response_text[4:]
             response_text = response_text.strip()
             
-            selection = json.loads(response_text)
+            # Handle potential JSON parsing errors due to special characters
+            response_text = response_text.replace("'", "\\'").replace('"', '\\"')
+            try:
+                selection = json.loads(response_text)
+            except json.JSONDecodeError:
+                # If JSON parsing fails, try to extract memories directly using regex
+                import re
+                memory_matches = re.findall(r'"([^"]+)"', response_text)
+                if memory_matches:
+                    selection = {"selected_memories": memory_matches}
+                else:
+                    logger.error(f"Could not parse memories from response: {response_text[:100]}...")
+                    return "no relevant memories for this conversation"
             
             if not isinstance(selection, dict) or "selected_memories" not in selection:
                 logger.error("Invalid response structure")
@@ -111,9 +123,29 @@ class MemoryDecision:
                 
             return "\n".join(valid_memories)
                 
-        except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error: {e}\nRaw response: {response_text}")
+        except Exception as e:
+            logger.error(f"Error processing memory response: {e}\nRaw response: {response_text[:200]}")
             return "no relevant memories for this conversation"
+
+    def get_all_memories(self) -> List[str]:
+        """Get all memories from the database"""
+        try:
+            memories = self.db.get_memories()
+            logger.info(f"Retrieved {len(memories) if memories else 0} memories")
+            return memories if memories else []
+        except Exception as e:
+            logger.error(f"Error retrieving all memories: {e}")
+            return []
+
+    def get_memories_sync(self) -> List[str]:
+        """Synchronous version of get_all_memories"""
+        try:
+            memories = self.db.get_memories_sync()
+            logger.info(f"Retrieved {len(memories) if memories else 0} memories synchronously")
+            return memories if memories else []
+        except Exception as e:
+            logger.error(f"Error retrieving memories synchronously: {e}")
+            return []
 
 # Create singleton instance
 _memory_decision = MemoryDecision()
@@ -121,4 +153,7 @@ _memory_decision = MemoryDecision()
 # Module-level function
 def select_relevant_memories(user_identifier: str, user_message: str, return_details=False) -> Union[str, Tuple[str, dict]]:
     """Module-level function to select memories using singleton instance"""
-    return _memory_decision.select_relevant_memories(user_identifier, user_message, return_details)
+    logger.info(f"Selecting memories for user {user_identifier} and message: {user_message}")
+    memories = _memory_decision.select_relevant_memories(user_identifier, user_message)
+    logger.info(f"Found {len(memories) if memories else 0} relevant memories")
+    return memories

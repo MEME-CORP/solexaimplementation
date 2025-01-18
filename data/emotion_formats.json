@@ -1,160 +1,124 @@
 {
     "formats": [
         {
-            "format": "horny",
-            "description": "Single word response"
+            "format": "fierce determination",
+            "description": "Strong, unwavering resolve"
         },
         {
-            "format": "sleepy mumble",
-            "description": "Drowsy, soft response"
+            "format": "burning anger",
+            "description": "Intense, heated emotion"
         },
         {
-            "format": "curious tilt",
-            "description": "Inquisitive, head-tilting response"
+            "format": "overwhelming joy",
+            "description": "Powerful positive emotion"
         },
         {
-            "format": "gentle ribbit",
-            "description": "Soft, friendly acknowledgment"
+            "format": "deep pride",
+            "description": "Strong sense of achievement"
         },
         {
-            "format": "confused blink",
-            "description": "Puzzled, slightly lost response"
+            "format": "absolute confidence",
+            "description": "Unshakeable self-assurance"
         },
         {
-            "format": "happy hop",
-            "description": "Joyful, bouncy reply"
+            "format": "explosive rage",
+            "description": "Intense fury or anger"
         },
         {
-            "format": "thoughtful pause",
-            "description": "Contemplative, measured response"
+            "format": "triumphant victory",
+            "description": "Powerful sense of success"
         },
         {
-            "format": "silly giggle",
-            "description": "Playful, amused reply"
+            "format": "fierce loyalty",
+            "description": "Strong devotion or allegiance"
         },
         {
-            "format": "surprised gasp",
-            "description": "Startled, wide-eyed response"
+            "format": "burning passion",
+            "description": "Intense emotional drive"
         },
         {
-            "format": "cozy whisper",
-            "description": "Comfortable, intimate reply"
+            "format": "total dominance",
+            "description": "Overwhelming control"
         },
         {
-            "format": "mischievous croak",
-            "description": "Playfully sneaky response"
+            "format": "righteous fury",
+            "description": "Justified intense anger"
         },
         {
-            "format": "worried fidget",
-            "description": "Anxious, concerned reply"
+            "format": "wild excitement",
+            "description": "Uncontained enthusiasm"
         },
         {
-            "format": "determined nod",
-            "description": "Confident, focused response"
+            "format": "deep satisfaction",
+            "description": "Strong sense of fulfillment"
         },
         {
-            "format": "shy peep",
-            "description": "Timid, quiet reply"
+            "format": "pure ambition",
+            "description": "Intense drive for success"
         },
         {
-            "format": "grumpy mumble",
-            "description": "Slightly annoyed response"
+            "format": "fierce protection",
+            "description": "Strong defensive instinct"
         },
         {
-            "format": "eager bounce",
-            "description": "Enthusiastic, quick reply"
+            "format": "complete focus",
+            "description": "Intense concentration"
         },
         {
-            "format": "dreamy sigh",
-            "description": "Wistful, distant response"
+            "format": "raw power",
+            "description": "Pure strength emotion"
         },
         {
-            "format": "proud puff",
-            "description": "Self-satisfied, happy reply"
+            "format": "unstoppable drive",
+            "description": "Powerful motivation"
         },
         {
-            "format": "nervous shuffle",
-            "description": "Uncertain, hesitant response"
+            "format": "primal fear",
+            "description": "Deep, instinctive fear"
         },
         {
-            "format": "friendly wave",
-            "description": "Welcoming, warm reply"
+            "format": "intense anticipation",
+            "description": "Strong expectant emotion"
         },
         {
-            "format": "puzzled tilt",
-            "description": "Confused but interested response"
+            "format": "bold defiance",
+            "description": "Strong rebellious feeling"
         },
         {
-            "format": "content hum",
-            "description": "Satisfied, peaceful reply"
+            "format": "fierce competition",
+            "description": "Strong competitive spirit"
         },
         {
-            "format": "excited squeak",
-            "description": "Very happy, surprised response"
+            "format": "pure determination",
+            "description": "Unwavering resolve"
         },
         {
-            "format": "gentle boop",
-            "description": "Playful, affectionate reply"
+            "format": "raw hunger",
+            "description": "Intense desire or need"
         },
         {
-            "format": "tired yawn",
-            "description": "Sleepy but attentive response"
+            "format": "quiet reflection",
+            "description": "Gentle contemplation"
         },
         {
-            "format": "hopeful peek",
-            "description": "Optimistic, anticipating reply"
+            "format": "subtle doubt",
+            "description": "Mild uncertainty"
         },
         {
-            "format": "silly splash",
-            "description": "Playful, energetic response"
+            "format": "gentle nostalgia",
+            "description": "Soft reminiscence"
         },
         {
-            "format": "quiet wonder",
-            "description": "Amazed, soft reply"
+            "format": "mild curiosity",
+            "description": "Light inquisitiveness"
         },
         {
-            "format": "happy wiggle",
-            "description": "Joyful, moving response"
+            "format": "soft concern",
+            "description": "Gentle worry"
         },
         {
-            "format": "thoughtful hmm",
-            "description": "Considering, processing reply"
-        },
-        {
-            "format": "startled jump",
-            "description": "Surprised, reactive response"
-        },
-        {
-            "format": "loving pat",
-            "description": "Affectionate, caring reply"
-        },
-        {
-            "format": "curious poke",
-            "description": "Investigative, interested response"
-        },
-        {
-            "format": "sleepy nuzzle",
-            "description": "Comfortable, drowsy reply"
-        },
-        {
-            "format": "bouncy dance",
-            "description": "Very excited, moving response"
-        },
-        {
-            "format": "gentle comfort",
-            "description": "Soothing, supportive reply"
-        },
-        {
-            "format": "playful splash",
-            "description": "Fun, water-related response"
-        },
-        {
-            "format": "worried peek",
-            "description": "Concerned but caring reply"
-        },
-        {
-            "format": "happy snuggle",
-            "description": "Cozy, content response"
+            "format": "quiet contentment",
+            "description": "Peaceful satisfaction"
         }
     ]
 }
