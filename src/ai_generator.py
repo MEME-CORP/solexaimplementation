@@ -53,7 +53,7 @@ class AIGenerator:
             self.emotion_formats = self.load_emotion_formats()
         else:  # telegram or other
             self.max_tokens = 70
-            self.temperature = 0.9
+            self.temperature = 0.4
             self.emotion_formats = self.load_emotion_formats()
             
         # Load appropriate system prompt based on mode
