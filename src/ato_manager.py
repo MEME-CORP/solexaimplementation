@@ -53,16 +53,18 @@ class ATOManager:
         
         # Initial milestones up to 100M
         self._base_milestones = [
-            (Decimal('75000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
-            (Decimal('150000'), Decimal('0.0000001'), Decimal('0.001')),
-            (Decimal('300000'), Decimal('0.000001'), Decimal('0.001')),
-            (Decimal('600000'), Decimal('0.00001'), Decimal('0.001')),
-            (Decimal('1000000'), Decimal('0.0001'), Decimal('0.001')),  # 1M milestone
-            (Decimal('5000000'), Decimal('0.001'), Decimal('0.001')),          # 5M milestone
-            (Decimal('10000000'), Decimal('0.01'), Decimal('0.001')),         # 10M milestone
-            (Decimal('20000000'), Decimal('0.1'), Decimal('0.001')),         # 20M milestone
-            (Decimal('50000000'), Decimal('1'), Decimal('0.001')),         # 50M milestone
-            (Decimal('100000000'), Decimal('2'), Decimal('0.001'))         # 100M milestone
+            (Decimal('700000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
+            (Decimal('800000'), Decimal('0.0000001'), Decimal('0.001')),
+            (Decimal('900000'), Decimal('0.000001'), Decimal('0.001')),
+            (Decimal('1000000'), Decimal('0.00001'), Decimal('0.001')),
+            (Decimal('1100000'), Decimal('0.0001'), Decimal('0.001')),  # 1M milestone
+            (Decimal('1200000'), Decimal('0.001'), Decimal('0.001')),          # 5M milestone
+            (Decimal('2000000'), Decimal('0.01'), Decimal('0.001')),         # 10M milestone
+            (Decimal('3000000'), Decimal('0.1'), Decimal('0.001')),         # 20M milestone
+            (Decimal('5000000'), Decimal('1'), Decimal('0.001')),         # 50M milestone
+            (Decimal('10000000'), Decimal('2'), Decimal('0.001')),
+            (Decimal('20000000'), Decimal('2'), Decimal('0.001')),         
+            (Decimal('4000000'), Decimal('2'), Decimal('0.001')),                 # 100M milestone
         ]
         
         # Generate extended milestones beyond 1M
@@ -551,42 +553,6 @@ class ATOManager:
             logger.error(f"Error in milestone execution: {e}")
             return "oopsie! something went wong with the miwestone! >.<"
             
-    async def _execute_special_milestone(self, burn_percentage: Decimal, buyback_amount: Decimal):
-        """Execute special milestone with dev reward"""
-        try:
-            # Calculate amounts
-            half_burn = burn_percentage / 2
-            
-            # Execute burn
-            burn_success = await self._burn_tokens(half_burn)
-            
-            # Transfer to dev
-            dev_success = await self._transfer_tokens(
-                Config.DEV_WALLET_ADDRESS,  # Assuming this exists in Config
-                (self._total_supply * half_burn) / Decimal('100')
-            )
-            
-            # Execute buyback
-            buyback_success = await self._execute_buyback(buyback_amount)
-            
-            announcement = (
-                f"special move activated, real talk\n"
-                f"- Token Burn: {'executed' if burn_success else 'blocked'} - {half_burn}% supply dropped\n"
-                f"- Dev Cut: {'transferred' if dev_success else 'intercepted'} - {half_burn}% 2 da team\n"
-                f"- Buyback: {'secured' if buyback_success else 'interrupted'} - {buyback_amount} SOL in play\n\n"
-                "strategic maneuver complete... we stay winning"
-            )
-            logger.info(announcement)
-            
-            # Add broadcast task for the announcement
-            await self.broadcaster.broadcast(announcement)
-            
-            return announcement
-            
-        except Exception as e:
-            logger.error(f"Error in special milestone execution: {e}")
-            return "oopsie! something went wong with the speciaw miwestone! >.<"
-
     def _post_milestone_announcement(self, current_mc: Decimal):
         """Post milestone targets announcement"""
         # Check if announcement was already made
@@ -630,11 +596,11 @@ class ATOManager:
                 
                 # Only post marketcap update every 2 hours
                 current_time = time.time()
-                if current_time - last_update_time >= 3600:  # 7200 seconds = 2 hours
+                if current_time - last_update_time >= 120:  # 7200 seconds = 2 hours
                     self._post_marketcap_update(current_mc)
                     last_update_time = current_time
                 
-                await asyncio.sleep(600)  # Check every 10 minutes (600 seconds)
+                await asyncio.sleep(120)  # Check every 10 minutes (600 seconds)
         except Exception as e:
             logger.error(f"Error in marketcap monitoring: {e}")
 
@@ -651,11 +617,7 @@ class ATOManager:
             return
         
         # Execute milestone
-        announcement = None
-        if mc == Decimal('1000000') or mc == Decimal('10000000'):
-            announcement = await self._execute_special_milestone(burn_percentage, buyback_amount)
-        else:
-            announcement = await self._execute_standard_milestone(burn_percentage, buyback_amount)
+        announcement = await self._execute_standard_milestone(burn_percentage, buyback_amount)
         
         # Only update history if announcement was made successfully
         if announcement and "oopsie" not in announcement.lower():
