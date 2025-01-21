@@ -64,7 +64,10 @@ class ATOManager:
             (Decimal('5000000'), Decimal('1'), Decimal('0.001')),         # 50M milestone
             (Decimal('10000000'), Decimal('2'), Decimal('0.001')),
             (Decimal('20000000'), Decimal('2'), Decimal('0.001')),         
-            (Decimal('4000000'), Decimal('2'), Decimal('0.001')),                 # 100M milestone
+            (Decimal('40000000'), Decimal('2'), Decimal('0.001')),         # 100M milestone
+            (Decimal('60000000'), Decimal('2'), Decimal('0.001')),
+            (Decimal('80000000'), Decimal('2'), Decimal('0.001')),
+            (Decimal('100000000'), Decimal('2'), Decimal('0.001')),
         ]
         
         # Generate extended milestones beyond 1M
