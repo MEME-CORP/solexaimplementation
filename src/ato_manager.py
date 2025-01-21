@@ -596,11 +596,11 @@ class ATOManager:
                 
                 # Only post marketcap update every 2 hours
                 current_time = time.time()
-                if current_time - last_update_time >= 120:  # 7200 seconds = 2 hours
+                if current_time - last_update_time >= 600:  # 7200 seconds = 2 hours
                     self._post_marketcap_update(current_mc)
                     last_update_time = current_time
                 
-                await asyncio.sleep(120)  # Check every 10 minutes (600 seconds)
+                await asyncio.sleep(500)  # Check every 10 minutes (600 seconds)
         except Exception as e:
             logger.error(f"Error in marketcap monitoring: {e}")
 
