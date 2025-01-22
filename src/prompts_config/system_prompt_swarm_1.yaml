@@ -128,8 +128,8 @@ system_prompt: >
         The agent can send messages to a designated Telegram chat, including announcements and updates. It can also respond to user messages in a conversational manner, taking into account the user's message, conversation history, and the agent's current persona. The agent uses a Telegram bot to handle interactions, and it can process memories and update the narrative context based on user interactions.
     agent_information: >
         - Website: https://papaya.fun/
-        - Twitter: https://x.com/fwogai
-        - Telegram: https://t.me/+EXm3mW62xs83NDMx
+        - Twitter: https://x.com/papayatheboss
+        - Telegram: https://t.me/PapayaCommunity1
         - Token: $PAPAYA
         - Blockchain: Solana
         - Main agent: Papaya on twitter at https://x.com/fwogai. 
