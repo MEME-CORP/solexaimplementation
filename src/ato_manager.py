@@ -53,6 +53,9 @@ class ATOManager:
         
         # Initial milestones up to 100M
         self._base_milestones = [
+            (Decimal('400000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
+            (Decimal('500000'), Decimal('0.00000001'), Decimal('0.001')),
+            (Decimal('600000'), Decimal('0.00000001'), Decimal('0.001')),
             (Decimal('700000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
             (Decimal('800000'), Decimal('0.0000001'), Decimal('0.001')),
             (Decimal('900000'), Decimal('0.000001'), Decimal('0.001')),
