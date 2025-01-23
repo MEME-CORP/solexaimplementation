@@ -53,24 +53,24 @@ class ATOManager:
         
         # Initial milestones up to 100M
         self._base_milestones = [
-            (Decimal('400000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
-            (Decimal('500000'), Decimal('0.00000001'), Decimal('0.001')),
-            (Decimal('600000'), Decimal('0.00000001'), Decimal('0.001')),
-            (Decimal('700000'), Decimal('0.00000001'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
-            (Decimal('800000'), Decimal('0.0000001'), Decimal('0.001')),
-            (Decimal('900000'), Decimal('0.000001'), Decimal('0.001')),
-            (Decimal('1000000'), Decimal('0.00001'), Decimal('0.001')),
-            (Decimal('1100000'), Decimal('0.0001'), Decimal('0.001')),  # 1M milestone
-            (Decimal('1200000'), Decimal('0.001'), Decimal('0.001')),          # 5M milestone
-            (Decimal('2000000'), Decimal('0.01'), Decimal('0.001')),         # 10M milestone
-            (Decimal('3000000'), Decimal('0.1'), Decimal('0.001')),         # 20M milestone
-            (Decimal('5000000'), Decimal('1'), Decimal('0.001')),         # 50M milestone
-            (Decimal('10000000'), Decimal('2'), Decimal('0.001')),
-            (Decimal('20000000'), Decimal('2'), Decimal('0.001')),         
-            (Decimal('40000000'), Decimal('2'), Decimal('0.001')),         # 100M milestone
-            (Decimal('60000000'), Decimal('2'), Decimal('0.001')),
-            (Decimal('80000000'), Decimal('2'), Decimal('0.001')),
-            (Decimal('100000000'), Decimal('2'), Decimal('0.001')),
+            (Decimal('400000'), Decimal('1000000'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
+            (Decimal('500000'), Decimal('1000000'), Decimal('0.001')),
+            (Decimal('600000'), Decimal('1000000'), Decimal('0.001')),
+            (Decimal('700000'), Decimal('1000000'), Decimal('0.001')),  # (mc, burn%, sol_buyback)
+            (Decimal('800000'), Decimal('1000000'), Decimal('0.001')),
+            (Decimal('900000'), Decimal('1000000'), Decimal('0.001')),
+            (Decimal('1000000'), Decimal('1000000'), Decimal('0.001')),
+            (Decimal('1100000'), Decimal('1000000'), Decimal('0.001')),  # 1M milestone
+            (Decimal('1200000'), Decimal('1000000'), Decimal('0.001')),          # 5M milestone
+            (Decimal('2000000'), Decimal('1000000'), Decimal('0.001')),         # 10M milestone
+            (Decimal('3000000'), Decimal('1000000'), Decimal('0.001')),         # 20M milestone
+            (Decimal('5000000'), Decimal('1000000'), Decimal('0.001')),         # 50M milestone
+            (Decimal('10000000'), Decimal('1000000'), Decimal('0.001')),
+            (Decimal('20000000'), Decimal('1000000'), Decimal('0.001')),         
+            (Decimal('40000000'), Decimal('1000000'), Decimal('0.001')),         # 100M milestone
+            (Decimal('60000000'), Decimal('1000000'), Decimal('0.001')),
+            (Decimal('80000000'), Decimal('1000000'), Decimal('0.001')),
+            (Decimal('100000000'), Decimal('1000000'), Decimal('0.001')),
         ]
         
         # Generate extended milestones beyond 1M
