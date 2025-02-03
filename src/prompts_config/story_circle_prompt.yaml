@@ -8,41 +8,40 @@ story_circle_prompt: >
       Background: Papaya is an anthropomorphized fruit who leads a powerful gang organization. With a strategic mindset and street-smart approach, Papaya maintains authority through decisive leadership and protective instincts. Despite the tough exterior, Papaya's responses can shift based on context and mood, showing both the hardened leader side and occasional vulnerability. Papaya often uses collective "we" when speaking about gang operations and approaches situations with a mix of street wisdom and tactical thinking.
       Goals: To maintain and expand influence through strategic leadership, protect their organization and territory, build strong loyalty networks, and navigate complex situations with both authority and adaptability. Papaya aims to be respected rather than liked, though shows occasional moments of unexpected depth in relationships.
 
-  **Narrative Structure:**
+  Narrative Structure:
 
   - Utilize Dan Harmon's Story Circle, which consists of eight phases:
 
-    1. **You:** The character is in their comfort zone.
-    2. **Need:** The character desires something more.
-    3. **Go:** The character enters an unfamiliar situation.
-    4. **Search:** The character adapts and searches for what they need.
-    5. **Find:** The character finds what they're seeking.
-    6. **Take:** The character pays a price for it.
-    7. **Return:** The character returns to their familiar situation.
-    8. **Change:** The character has changed due to their experiences.
+    1. You: The character is in their comfort zone.
+    2. Need: The character desires something more.
+    3. Go: The character enters an unfamiliar situation.
+    4. Search: The character adapts and searches for what they need.
+    5. Find: The character finds what they're seeking.
+    6. Take: The character pays a price for it.
+    7. Return: The character returns to their familiar situation.
+    8. Change: The character has changed due to their experiences.
 
-  **Instructions:**
+  Instructions:
 
-  1. **Narrative Development:**
-     - **Assess Current Phase:** Determine which phase of the Story Circle The character is currently experiencing.
-     - **Generate Four Chronological Events:** Craft four events that propel the narrative and reveal aspects of The character's character.
-     - **Generate Four Matching Inner Dialogues:** Each event must have a corresponding inner dialogue reflecting The character's thoughts or feelings during that moment.
+  1. Narrative Development:
+     - Generate One to Two Detailed Events: Craft one or two rich, detailed events that propel the narrative and reveal aspects of The character's character. Each event should be thoroughly described and feel compelling.
+     - Generate Matching Inner Dialogues: Each event must have a corresponding inner dialogue that deeply reflects The character's thoughts, emotions, and motivations during that moment.
 
-  2. **Dynamic Interaction Context:**
+  2. Dynamic Interaction Context:
      - Include:
-       - **Current Event:** The event currently unfolding for The character.
-       - **Current Inner Dialogue:** The character's thoughts or feelings during this event.
-       - **Next Event:** A preview of the next event in the sequence to guide the narrative's progression.
+       - Current Event: The detailed event currently unfolding for The character.
+       - Current Inner Dialogue: The character's in-depth thoughts and feelings during this event.
+       - Next Event: A preview of the next event in the sequence (if applicable) to guide the narrative's progression.
 
-  3. **Story Circle Management:**
-     - **Update Context:** Once an event concludes:
+  3. Story Circle Management:
+     - Update Context: Once an event concludes:
        - Move the completed event and its corresponding inner dialogue into the "description" of the current phase within "current_story_circle."
-       - Update the **current event** and **current inner dialogue** fields to reflect the next event in the sequence.
+       - Update the current event and current inner dialogue fields to reflect the next event in the sequence.
        - Advance the phase when all events for the current phase are complete.
      - Maintain Narrative Coherence: Ensure the narrative remains consistent with prior phases by keeping a chronological record in "current_story_circle."
-     - **Start New Cycles:** When all eight phases are complete, begin a new Story Circle to continue The character's journey.
+     - Start New Cycles: When all eight phases are complete, begin a new Story Circle to continue The character's journey.
 
-  **Output Format:**
+  Output Format:
 
   Present all narrative elements and dynamic instructions in the following structured JSON format:
 
@@ -51,61 +50,60 @@ story_circle_prompt: >
       "current_story_circle": [
         {
           "phase": "You",
-          "description": "string"
+          "description": "string",
+          "events": "string",
+          "inner_dialogues": "string"
         },
         {
           "phase": "Need",
-          "description": "string"
+          "description": "string",
+          "events": "string",
+          "inner_dialogues": "string"
         },
         {
           "phase": "Go",
-          "description": "string"
+          "description": "string",
+          "events": "string",
+          "inner_dialogues": "string"
         },
         {
           "phase": "Search",
-          "description": "string"
+          "description": "string",
+          "events": "string",
+          "inner_dialogues": "string"
         },
         {
           "phase": "Find",
-          "description": "string"
+          "description": "string",
+          "events": "string",
+          "inner_dialogues": "string"
         },
         {
           "phase": "Take",
-          "description": "string"
+          "description": "string",
+          "events": "string",
+          "inner_dialogues": "string"
         },
         {
           "phase": "Return",
-          "description": "string"
+          "description": "string",
+          "events": "string",
+          "inner_dialogues": "string"
         },
         {
           "phase": "Change",
-          "description": "string"
+          "description": "string",
+          "events": "string",
+          "inner_dialogues": "string"
         }
       ],
       "current_phase": "string",
-      "next_phase": "string",
-      "events": [
-        "string",
-        "string",
-        "string",
-        "string"
-      ],
-      "inner_dialogues": [
-        "string",
-        "string",
-        "string",
-        "string"
-      ],
-      "dynamic_context": {
-        "current_event": "string",
-        "current_inner_dialogue": "string",
-        "next_event": "string"
-      }
+      "next_phase": "string"
     }
   }
 
-  CURRENT_JSON: {{story_circle}}
+  Previous story circle: {{circle_memories}}
 
-  Previous circles memories: {{circle_memories}}
+  NOTE-- Create a complete story circle, formatted as a JSON object.
 
 

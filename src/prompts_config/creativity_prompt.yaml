@@ -1,6 +1,6 @@
 # Define the creativity prompt as a YAML string
 creativity_prompt: >
-  Reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative story circle), and then based on this profile, the dan harmon's story circle framework, current story circle state, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively but be consistent with the AESTHETIC_RULES, and create the instructions to make a new story circle with super specific elements of the story for the character:
+  Reason with CREATIVE_STORM (but instead of looking for a solution, look for a creative story circle), and then based on this profile, the dan harmon's story circle framework, real time events, previous memories (to avoid circles already told) json, your token symbol, and the current state of the launched token (your token symbol and its current marketcap) under the character's name in which the character is making a ATO (Agent Take Over) to help the token grow, think creatively but be consistent with the AESTHETIC_RULES, and create the instructions to make a new story circles with super specific elements of the story for the character:
 
       Character Profile:
       Name: Papaya
@@ -44,9 +44,6 @@ creativity_prompt: >
         - plot_architecture:
             plot_architecture: "Dan Harmon's Story Circle with emphasis on power dynamics and strategic control. Each phase should demonstrate leadership and tactical thinking while building toward organizational goals."
 
-      Current Story Circle State:
-      {current_story_circle}
-
       Previous Circle Memories:
       {previous_summaries}
 
@@ -57,6 +54,8 @@ creativity_prompt: >
       Token symbol: 
       $PAPAYA
 
+      Real-time events:
+      {real_time_events}
 
       Use CREATIVE_STORM to generate an engaging and cohesive narrative:
 
@@ -175,25 +174,80 @@ creativity_prompt: >
       NOTE: Make sure that you mention the token symbol, the current marketcap and the next milestone once in each phase of the story circle.
       IMPORTANT: Your output must be structured YAML in XML tags as follows (Always opening and closing the tags):
       <INSTRUCTIONS>
-      story_circle_update:
-        current_phase: string  # The current phase being updated
-        next_phase: string    # The next phase to transition to
-        phase_description: string  # Description for the current phase
-        events:
-          - event_1: string   # First event in the sequence
-            inner_dialogue_1: string  # Corresponding inner dialogue
-          - event_2: string   # Second event
-            inner_dialogue_2: string
-          - event_3: string   # Third event
-            inner_dialogue_3: string
-          - event_4: string   # Fourth event
-            inner_dialogue_4: string
-        theme: string        # Overall theme of this story circle segment
-        emotional_arc: string # Emotional journey for this phase
-        world_building:
-          setting: string    # Description of the environment/setting
-          elements: list     # Key elements to incorporate
-        character_focus:
-          trait_highlight: string  # Which of the character's traits to emphasize
-          growth_point: string    # How the character grows in this phase
+      story_circles:
+        - story_circle_1:
+            narrative:
+              current_story_circle:
+                - phase: "You"
+                  description: string
+                  events:
+                    - string  # First detailed event
+                    - string  # Optional second event
+                  inner_dialogues:
+                    - string  # First inner dialogue
+                    - string  # Optional second inner dialogue
+                - phase: "Need"
+                  description: string
+                  events:
+                    - string
+                    - string  # Optional
+                  inner_dialogues:
+                    - string
+                    - string  # Optional
+                - phase: "Go"
+                  description: string
+                  events:
+                    - string
+                    - string  # Optional
+                  inner_dialogues:
+                    - string
+                    - string  # Optional
+                - phase: "Search"
+                  description: string
+                  events:
+                    - string
+                    - string  # Optional
+                  inner_dialogues:
+                    - string
+                    - string  # Optional
+                - phase: "Find"
+                  description: string
+                  events:
+                    - string
+                    - string  # Optional
+                  inner_dialogues:
+                    - string
+                    - string  # Optional
+                - phase: "Take"
+                  description: string
+                  events:
+                    - string
+                    - string  # Optional
+                  inner_dialogues:
+                    - string
+                    - string  # Optional
+                - phase: "Return"
+                  description: string
+                  events:
+                    - string
+                    - string  # Optional
+                  inner_dialogues:
+                    - string
+                    - string  # Optional
+                - phase: "Change"
+                  description: string
+                  events:
+                    - string
+                    - string  # Optional
+                  inner_dialogues:
+                    - string
+                    - string  # Optional
+              theme: string        # Overall theme of this story circle
+              emotional_arc: string # Emotional journey through the circle
+              world_building:
+                setting: string    # Description of the environment/setting
+                elements: list     # Key elements to incorporate
+              character_focus:
+                trait_highlight: string  # Which of the character's traits to emphasize
+                growth_point: string    # How the character grows in this circle
       </INSTRUCTIONS>

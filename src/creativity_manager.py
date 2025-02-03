@@ -1,12 +1,17 @@
 # creativity_manager.py
 
+# Configure logging first
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('creativity_manager')
+
+# Then rest of imports
 import asyncio
-import nest_asyncio  # <-- Make sure you have 'nest_asyncio' installed (pip install nest_asyncio)
+import nest_asyncio
 from openai import OpenAI
 import json
-import logging
-from src.config import Config
 import os
+from src.config import Config
 from src.database.supabase_client import DatabaseService
 from src.wallet_manager import WalletManager
 import random
@@ -15,9 +20,14 @@ import os.path
 from decimal import Decimal
 from typing import Optional, Tuple
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('creativity_manager')
+# Try importing pandas after logger is configured
+try:
+    import pandas as pd
+except ImportError:
+    logger.error("pandas package not found. Please install it using: pip install pandas")
+    pd = None  # Set to None so we can check for it later
+
+from datetime import datetime
 
 
 def load_yaml_prompt(filename):
@@ -75,6 +85,9 @@ class CreativityManager:
         # Optional caching of the last known marketcap
         self._cached_marketcap: Optional[Decimal] = None
         self._cached_next_milestone: Optional[Decimal] = None
+        
+        # Add path for real-time events CSV
+        self.events_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'real_time_events.csv')
 
     def _get_next_milestone(self, current_marketcap: Decimal) -> Decimal:
         """Get the next milestone based on current marketcap."""
@@ -131,9 +144,34 @@ class CreativityManager:
         except Exception as e:
             logger.error(f"Error updating cached market data: {e}")
 
+    def _get_real_time_events(self):
+        """Get active real-time events from CSV file."""
+        try:
+            if pd is None:
+                logger.error("pandas module not available")
+                return "No real-time events available - pandas module missing"
+            
+            if not os.path.exists(self.events_path):
+                logger.error(f"Real-time events file not found at: {self.events_path}")
+                return "No real-time events available"
+            
+            df = pd.read_csv(self.events_path)
+            active_events = df[df['status'] == 'active']
+            
+            if active_events.empty:
+                return "No active real-time events"
+            
+            # Get the most recent events
+            latest_events = active_events.iloc[-1]
+            return latest_events['events']
+            
+        except Exception as e:
+            logger.error(f"Error reading real-time events: {e}")
+            return "Error retrieving real-time events"
+
     def generate_creative_instructions(self, circles_memory):
         """
-        Synchronously generate creative instructions, including the marketcap data.
+        Synchronously generate creative instructions, including the marketcap data and real-time events.
         """
         try:
             # 1) Load current story circle from database
@@ -161,12 +199,16 @@ class CreativityManager:
                 logger.warning("Market data missing; using fallback instructions.")
                 return "Create a compelling and unique story that develops the character's personality in unexpected ways"
             
-            # 4) Format the creativity prompt
+            # Get real-time events
+            real_time_events = self._get_real_time_events()
+            
+            # Format the creativity prompt with real-time events
             formatted_prompt = self.creativity_prompt.format(
                 current_story_circle=json.dumps(formatted_story_circle, indent=2, ensure_ascii=False),
                 previous_summaries=json.dumps(circles_memory, indent=2, ensure_ascii=False),
-                current_marketcap=float(current_marketcap),  # Convert Decimal to float
-                next_milestone=float(next_milestone)
+                current_marketcap=float(current_marketcap),
+                next_milestone=float(next_milestone),
+                real_time_events=real_time_events
             )
             
             # 5) Call the OpenAI Chat Completion endpoint
@@ -177,7 +219,7 @@ class CreativityManager:
                     {
                         "role": "user",
                         "content": (
-                            "Generate creative instructions for the next story circle update, "
+                            "Generate creative instructions for the next story circles, "
                             "first in the <CS> tags and then in the exact YAML format specified in "
                             "the <INSTRUCTIONS> tags. "
                         )
