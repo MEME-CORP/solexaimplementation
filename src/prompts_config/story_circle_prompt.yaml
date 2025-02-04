@@ -43,8 +43,6 @@ story_circle_prompt: >
 
   Output Format:
 
-  Present all narrative elements and dynamic instructions in the following structured JSON format:
-
   {
     "narrative": {
       "current_story_circle": [
@@ -96,13 +94,11 @@ story_circle_prompt: >
           "events": "string",
           "inner_dialogues": "string"
         }
-      ],
-      "current_phase": "string",
-      "next_phase": "string"
+      ]
     }
   }
 
-  Previous story circle: {{circle_memories}}
+  Previous story circle: {{previous_circle}}
 
   NOTE-- Create a complete story circle, formatted as a JSON object.
 
