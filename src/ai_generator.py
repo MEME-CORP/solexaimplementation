@@ -27,20 +27,6 @@ class AIGenerator:
         self.db = DatabaseService()
         self.memories = None
         
-        # Load narrative data first
-        logger.info("Loading narrative data")
-        story_circle = self.db.get_story_circle_sync()
-        if story_circle:
-            logger.info(f"Successfully loaded story circle with {len(story_circle.get('events', []))} events")
-            self.narrative = story_circle
-        else:
-            logger.warning("No story circle found, initializing empty narrative")
-            self.narrative = {
-                'events': [],
-                'dialogues': [],
-                'dynamic_context': {}
-            }
-        
         # Mode-specific settings
         if mode == 'twitter':
             self.max_tokens = 70
@@ -72,7 +58,7 @@ class AIGenerator:
         self.memory_decision = MemoryDecision()
         
         # Load memories using memory_decision instead of direct db access
-        logger.info("Loading memories and narrative")
+        logger.info("Loading memories")
         try:
             self.memories = self.memory_decision.get_memories_sync()
             logger.info(f"Successfully loaded {len(self.memories)} memories")
@@ -80,20 +66,10 @@ class AIGenerator:
             logger.error(f"Error loading memories: {e}")
             self.memories = []
 
-        try:
-            self.narrative = self.db.get_story_circle_sync()
-            if self.narrative:
-                logger.info("Successfully loaded narrative")
-            else:
-                logger.warning("No narrative loaded")
-        except Exception as e:
-            logger.error(f"Error loading narrative: {e}")
-            self.narrative = None
-
         # Load bot prompts
         self.bot_prompts = self._load_bot_prompts()
         
-        logger.info(f"Initialization complete. Memories loaded: {bool(self.memories)}, Narrative loaded: {bool(self.narrative)}")
+        logger.info(f"Initialization complete. Memories loaded: {bool(self.memories)}")
 
     def load_length_formats(self):
         """Load length formats from JSON file"""
@@ -184,12 +160,6 @@ class AIGenerator:
         """Prepare messages for API call - exposed for testing"""
         logger.info("Starting message preparation with mode: %s", self.mode)
         
-        # Refresh narrative data to ensure we have latest events/dialogues
-        story_circle = self.db.get_story_circle_sync()
-        if story_circle:
-            self.narrative = story_circle
-            logger.info(f"Refreshed narrative data with {len(story_circle.get('events', []))} events")
-        
         # Modified memory handling
         memories = kwargs.get('memories', self.memories)
         memory_context = (
@@ -211,26 +181,11 @@ class AIGenerator:
         
         logger.debug("Memory context prepared: %s", memory_context[:100] + "..." if len(str(memory_context)) > 100 else memory_context)
         
-        # Extract events and dialogues directly from narrative
-        events = self.narrative.get('events', [])
-        dialogues = self.narrative.get('dialogues', [])
-        
-        # Enhanced logging for events and dialogues
-        logger.info("Current phase events and dialogues:")
-        for i, (event, dialogue) in enumerate(zip(events, dialogues)):
-            logger.info(f"Event {i+1}: {event}")
-            logger.info(f"Dialogue {i+1}: {dialogue}")
-        
-        # Format events and dialogues for prompt
-        phase_events = "\n".join(f"{i+1}. {event}" for i, event in enumerate(events)) if events else "No events yet"
-        phase_dialogues = "\n".join(f"{i+1}. {dialogue}" for i, dialogue in enumerate(dialogues)) if dialogues else "No dialogues yet"
-        
-        logger.info(f"Formatted {len(events)} events and {len(dialogues)} dialogues")
-        
-        # Get dynamic context
-        dynamic_context = self.narrative.get('dynamic_context', {})
-        current_event = dynamic_context.get('current_event', '')
-        inner_dialogue = dynamic_context.get('current_inner_dialogue', '')
+        # Set empty values for narrative elements
+        phase_events = "No narrative events"
+        phase_dialogues = "No narrative dialogues"
+        current_event = ""
+        inner_dialogue = ""
         
         # Get the appropriate prompt template based on mode
         if self.mode == 'twitter':
@@ -241,11 +196,9 @@ class AIGenerator:
             logger.info("Content generation mode: %s", "Using memories" if use_memories else "Using current instructions")
             
             if use_memories:
-                # When using memories, we should clear or minimize narrative context
-                phase_events = "No events to consider"
-                phase_dialogues = "No dialogues to consider"
-                current_event = ""
-                inner_dialogue = ""
+                # When using memories, we can now just focus on memories
+                # Removed narrative context code
+                
                 # Ensure we're using the memory context
                 if self.memories:
                     memory_context = random.choice(self.memories) if isinstance(self.memories, list) else self.memories
@@ -255,9 +208,9 @@ class AIGenerator:
                     memory_context = "no memories available"
             
             tweet_content = (
-                f"user_message: {kwargs.get('user_message', '')[9:].strip()} - based on one topic from your events and dialogues" if kwargs.get('user_message', '').startswith('reply to:')
+                f"user_message: {kwargs.get('user_message', '')[9:].strip()}" if kwargs.get('user_message', '').startswith('reply to:')
                 else "one of your memories randomly" if use_memories
-                else "one topic from your events and dialogues"
+                else "something interesting"  # Changed from event/dialogue reference
             )
             
             # If using memories, refresh them from database
@@ -283,18 +236,12 @@ class AIGenerator:
                 emotion_format=emotion_format,
                 memory_context=memory_context,
                 conversation_context=kwargs.get('conversation_context', ''),
+                # Still include these placeholders but with empty values
                 phase_events=phase_events,
                 phase_dialogues=phase_dialogues,
                 current_event=current_event,
                 inner_dialogue=inner_dialogue
             )
-            
-            # Enhanced logging for prompt variables
-            logger.info("Formatted prompt variables:")
-            logger.info("Phase Events:\n%s", phase_events)
-            logger.info("Phase Dialogues:\n%s", phase_dialogues)
-            logger.info("Current Event: %s", current_event)
-            logger.info("Inner Dialogue: %s", inner_dialogue)
             
             logger.debug("Generated content prompt: %s", content_prompt[:200] + "..." if len(content_prompt) > 200 else content_prompt)
         else:
@@ -308,6 +255,7 @@ class AIGenerator:
                 user_message=kwargs.get('user_message', ''),
                 emotion_format=emotion_format,
                 memory_context=memory_context,
+                # Include empty placeholders for narrative elements
                 phase_events=phase_events,
                 phase_dialogues=phase_dialogues,
                 current_event=current_event,
@@ -315,15 +263,15 @@ class AIGenerator:
             )
 
         # Format the system prompt with context variables
-        if self.mode == 'twitter':
+        if self.mode == 'twitter' or self.mode == 'telegram':  # Updated condition to match both modes
             formatted_system_prompt = self.system_prompt.format(
                 emotion_format=emotion_format,
-                length_format=length_format,
+                length_format=length_format if self.mode == 'twitter' else "one short sentence",  # Default for Telegram
                 memory_context=memory_context,
                 phase_events=phase_events,
                 phase_dialogues=phase_dialogues
             )
-        else:  # discord and telegram only need memory_context
+        else:  # discord only
             formatted_system_prompt = self.system_prompt.format(
                 memory_context=memory_context
             )
@@ -367,14 +315,6 @@ class AIGenerator:
             except Exception as e:
                 logger.error(f"Error selecting memories: {e}")
                 kwargs['memories'] = "no memories available"
-            
-            # Special handling for Twitter mode without user message
-            if self.mode == 'twitter' and not user_message:
-                narrative_context = kwargs.get('narrative_context', {})
-                current_event = narrative_context.get('current_event', '')
-                if current_event:
-                    logger.info("Using current event context for random tweet: %s", current_event)
-                    kwargs['memories'] = f"Current event context: {current_event}"
             
             messages = self._prepare_messages(**kwargs)
             
@@ -431,15 +371,15 @@ class AIGenerator:
         except Exception as e:
             logger.error(f"Error generating content: {str(e)}")
             logger.error(f"Stack trace: {traceback.format_exc()}")
-            logger.error(f"Context: memories={self.memories}, narrative={self.narrative}")
+            logger.error(f"Context: memories={self.memories}")
             raise
 
     def _load_system_prompt(self):
         """Load system prompt based on mode"""
         try:
-            if self.mode == 'twitter':
+            if self.mode == 'twitter' or self.mode == 'telegram':
                 prompt_file = 'system_prompt.yaml'
-            else:  # discord and telegram
+            else:  # discord only
                 prompt_file = 'system_prompt_swarm_1.yaml'
             
             prompt_path = Path(__file__).parent / 'prompts_config' / prompt_file

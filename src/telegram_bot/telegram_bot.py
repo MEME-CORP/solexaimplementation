@@ -27,10 +27,6 @@ from src.config import Config
 from src.ai_generator import AIGenerator
 from src.memory_processor import MemoryProcessor
 from src.memory_decision import select_relevant_memories
-from src.story_circle_manager import (
-    get_current_context,
-    progress_narrative
-)
 
 # Load environment variables
 load_dotenv()
@@ -110,16 +106,6 @@ class TelegramBot:
                     )
                     logger.info("Debug repeating job scheduled: runs every 60s")
 
-                    # ----------------------------------------------------------------
-                    # 2) NARRATIVE JOB: EVERY 6 HOURS (unchanged)
-                    # ----------------------------------------------------------------
-                    self.application.job_queue.run_repeating(
-                        callback=self.update_narrative_job,
-                        interval=21600,  # 6 hours
-                        first=15         # start 15 seconds after bot starts
-                    )
-                    logger.info("Narrative repeating job scheduled: runs every 6h")
-
                 except Exception as e:
                     logger.error(f"Error setting up job queue tasks: {e}")
             else:
@@ -160,20 +146,6 @@ class TelegramBot:
             logger.exception("[DEBUG-JOB] Full error details:")
         finally:
             logger.info("[DEBUG-JOB] Memory processing job cycle completed (debug)")
-
-    async def update_narrative_job(self, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Job to update the story circle narrative every 6 hours.
-        """
-        try:
-            logger.info("[NARRATIVE-JOB] Progressing story circle narrative...")
-            result = progress_narrative()
-            if result:
-                logger.info("[NARRATIVE-JOB] Story circle progression completed")
-            else:
-                logger.warning("[NARRATIVE-JOB] No story circle progression needed or possible")
-        except Exception as e:
-            logger.error(f"[NARRATIVE-JOB] Error in story circle progression: {e}")
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -278,8 +250,6 @@ class TelegramBot:
                 # Fallback to existing memory selection if needed
                 memories = select_relevant_memories(username, user_message)
             
-            # Get story circle context
-            narrative_context = get_current_context()
             # Random emotion format
             emotion_format = random.choice(self.generator.emotion_formats)['format']
 
@@ -290,7 +260,6 @@ class TelegramBot:
                 username=username,
                 conversation_context=conversation_context,
                 memories=memories,  # Now passing fresh memories
-                narrative_context=narrative_context,
                 emotion_format=emotion_format
             )
 
