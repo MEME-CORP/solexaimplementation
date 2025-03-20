@@ -263,18 +263,13 @@ class AIGenerator:
             )
 
         # Format the system prompt with context variables
-        if self.mode == 'twitter' or self.mode == 'telegram':  # Updated condition to match both modes
-            formatted_system_prompt = self.system_prompt.format(
-                emotion_format=emotion_format,
-                length_format=length_format if self.mode == 'twitter' else "one short sentence",  # Default for Telegram
-                memory_context=memory_context,
-                phase_events=phase_events,
-                phase_dialogues=phase_dialogues
-            )
-        else:  # discord only
-            formatted_system_prompt = self.system_prompt.format(
-                memory_context=memory_context
-            )
+        formatted_system_prompt = self.system_prompt.format(
+            emotion_format=emotion_format,
+            length_format="one short sentence" if self.mode != 'twitter' else length_format,
+            memory_context=memory_context,
+            phase_events=phase_events,
+            phase_dialogues=phase_dialogues
+        )
 
         messages = [
             {
@@ -377,10 +372,8 @@ class AIGenerator:
     def _load_system_prompt(self):
         """Load system prompt based on mode"""
         try:
-            if self.mode == 'twitter' or self.mode == 'telegram':
-                prompt_file = 'system_prompt.yaml'
-            else:  # discord only
-                prompt_file = 'system_prompt_swarm_1.yaml'
+            # Use system_prompt.yaml for all modes (Twitter, Telegram, and Discord)
+            prompt_file = 'system_prompt.yaml'
             
             prompt_path = Path(__file__).parent / 'prompts_config' / prompt_file
             with open(prompt_path, 'r', encoding='utf-8') as f:
