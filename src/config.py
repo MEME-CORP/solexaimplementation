@@ -65,5 +65,5 @@ class Config:
 
     # Telegram Configuration
     TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-    TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '-4644520029')  # Default chat ID with env override capability
+    TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', '231399891')  # Default chat ID with env override capability
     
