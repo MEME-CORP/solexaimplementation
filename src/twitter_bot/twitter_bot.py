@@ -48,7 +48,26 @@ class TwitterBot:
 
             if self.scraper is None:
                 self.scraper = Scraper(proxy=self.proxy)
-                if not self.scraper.initialize():
+                initialization_success = self.scraper.initialize()
+                
+                # Check if verification screen is detected
+                if not initialization_success and self.scraper and self.scraper.driver:
+                    if self.scraper.is_verification_screen():
+                        logger.warning("Verification required during initialization")
+                        verification_success = self.scraper.handle_verification_screen()
+                        
+                        if verification_success:
+                            # After verification, try to complete the login process
+                            # without reinitializing the driver
+                            if self.scraper.auth and self.scraper.auth.complete_login_after_verification():
+                                logger.info("Successfully logged in after verification")
+                                initialization_success = True
+                            else:
+                                logger.error("Failed to complete login after verification")
+                        else:
+                            logger.error("Verification failed or timed out")
+                
+                if not initialization_success:
                     logger.error("Failed to initialize scraper")
                     return False
 
@@ -127,6 +146,19 @@ class TwitterBot:
                         last_notification_check = current_time
                         logger.info(f"Next notification check in {notification_interval/60:.1f} minutes")
 
+                    # Check for verification screens periodically
+                    if self.scraper and self.scraper.is_verification_screen():
+                        logger.warning("Verification screen detected during operation")
+                        verification_success = self.scraper.handle_verification_screen()
+                        
+                        if verification_success:
+                            logger.info("Verification completed, continuing normal operation")
+                        else:
+                            logger.warning("Verification failed or timed out, will retry on next cycle")
+                            
+                        # Skip the rest of this cycle
+                        continue
+
                     # Post tweets
                     if current_time - last_tweet_time >= tweet_interval:
                         logger.info("=== Generating Tweet ===")
@@ -158,6 +190,15 @@ class TwitterBot:
             return
 
         try:
+            # Check for verification before attempting to tweet
+            if self.scraper and self.scraper.is_verification_screen():
+                logger.warning("Verification screen detected before tweeting")
+                verification_success = self.scraper.handle_verification_screen()
+                
+                if not verification_success:
+                    logger.warning("Tweet generation postponed due to verification issues")
+                    return
+            
             # Generate content using AIGenerator - no topic needed
             content = self.generator.generate_content(
                 conversation_context='',

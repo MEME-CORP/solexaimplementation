@@ -85,7 +85,7 @@ class Authenticator:
             return False
 
     def login(self):
-        """Attempt to log in to Twitter"""
+        """Login to Twitter with provided credentials"""
         try:
             # First try to load existing session
             if self.load_session():
@@ -106,18 +106,10 @@ class Authenticator:
             password_field.send_keys(self.password)
             password_field.send_keys(Keys.RETURN)
             time.sleep(5)  # Wait for login to complete
-
-            # Handle potential email verification
-            try:
-                email_field = self.driver.find_element(By.NAME, "text")
-                if email_field:
-                    logger.info("Email verification required")
-                    email_field.send_keys(self.email)
-                    email_field.send_keys(Keys.RETURN)
-                    time.sleep(3)
-            except NoSuchElementException:
-                pass  # No email verification needed
-
+            
+            # Note: We don't check for verification here to avoid circular dependency
+            # Verification is handled at the TwitterBot level
+            
             # Verify login success
             try:
                 self.driver.find_element(By.XPATH, "//div[@aria-label='Post text']")
@@ -130,7 +122,7 @@ class Authenticator:
                 return False
 
         except Exception as e:
-            logger.error(f"Error during Twitter login: {e}")
+            logger.error(f"Login failed: {e}")
             return False
 
     def logout(self):
@@ -147,3 +139,33 @@ class Authenticator:
             logger.info("Logged out successfully")
         except Exception as e:
             logger.error(f"Error during logout: {e}")
+
+    def complete_login_after_verification(self):
+        """Complete the login process after verification without restarting the browser"""
+        try:
+            # Verify we're logged in by looking for the post box
+            time.sleep(3)  # Wait for page to load completely after verification
+            
+            try:
+                self.driver.find_element(By.XPATH, "//div[@aria-label='Post text']")
+                logger.info("Login successful after verification!")
+                # Save session after successful login
+                self.save_session()
+                return True
+            except NoSuchElementException:
+                # We might need to navigate to home
+                self.driver.get("https://twitter.com/home")
+                time.sleep(3)
+                
+                try:
+                    self.driver.find_element(By.XPATH, "//div[@aria-label='Post text']")
+                    logger.info("Login successful after navigating to home!")
+                    self.save_session()
+                    return True
+                except NoSuchElementException:
+                    logger.error("Login failed after verification - could not find post box")
+                    return False
+                
+        except Exception as e:
+            logger.error(f"Error completing login after verification: {e}")
+            return False
