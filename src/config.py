@@ -9,6 +9,8 @@ import logging
 # Load environment variables from .env file
 load_dotenv()
 
+logger = logging.getLogger('config')
+
 class Config:
     # API Keys
     GLHF_API_KEY = os.getenv('GLHF_API_KEY')
@@ -56,12 +58,26 @@ class Config:
     SUPABASE_BUCKET_NAME = os.getenv('SUPABASE_BUCKET_NAME', 'memories')
 
     # Initialize Supabase client with storage config
-    @classmethod
-    def get_supabase_client(cls):
-        return create_client(
-            cls.SUPABASE_URL,
-            cls.SUPABASE_KEY
-        )
+    @staticmethod
+    def get_supabase_client():
+        """
+        Get Supabase client using environment variables
+        """
+        try:
+            # Use the NEXT_PUBLIC_ prefixed variables from .env
+            supabase_url = os.environ.get('NEXT_PUBLIC_SUPABASE_URL')
+            supabase_key = os.environ.get('NEXT_PUBLIC_SUPABASE_ANON_KEY')
+            
+            if not supabase_url or not supabase_key:
+                logger.error("Missing Supabase credentials in environment variables")
+                raise ValueError("Missing Supabase credentials")
+                
+            logger.info(f"Connecting to Supabase at {supabase_url}")
+            return create_client(supabase_url, supabase_key)
+            
+        except Exception as e:
+            logger.error(f"Error creating Supabase client: {e}")
+            raise
 
     # Telegram Configuration
     TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')

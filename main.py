@@ -14,7 +14,6 @@ from dotenv import load_dotenv
 from src.ato_manager import ATOManager
 from functools import partial
 from src.announcement_broadcaster import AnnouncementBroadcaster
-from src.story_circle_manager import progress_narrative
 from datetime import datetime
 
 # Add project root to Python path
@@ -150,31 +149,6 @@ def setup_paths():
         prompts_config_path.mkdir(parents=True, exist_ok=True)
         print(f"Created prompts_config directory at: {prompts_config_path}")
 
-def run_story_circle_progression():
-    """Run the story circle progression loop"""
-    global running
-    
-    print("Starting story circle progression loop...")
-    
-    while running:
-        try:
-            # Progress the narrative
-            updated_circle = progress_narrative()
-            if updated_circle:
-                print(f"[{datetime.now()}] Story circle progressed successfully")
-                print(f"Current phase: {updated_circle.get('current_phase')}")
-                print(f"Current event: {updated_circle.get('dynamic_context', {}).get('current_event')}")
-            else:
-                print(f"[{datetime.now()}] No update to story circle")
-                
-        except Exception as e:
-            print(f"Error in story circle progression: {e}")
-            
-        # Wait 60 seconds before next progression
-        time.sleep(600)
-    
-    print("Story circle progression loop stopped")
-
 def main():
     setup_paths()
     
@@ -192,15 +166,6 @@ def main():
     setup_signal_handlers()
 
     try:
-        # Start story circle progression thread
-        story_circle_thread = threading.Thread(
-            target=run_story_circle_progression,
-            daemon=True,
-            name="StoryCircleThread"
-        )
-        story_circle_thread.start()
-        print("Story circle progression thread started")
-
         # Start ATO manager if specifically requested
         if 'ato' in args.bots and len(args.bots) == 1:
             print("Starting ATO Manager only...")
@@ -237,13 +202,6 @@ def main():
     finally:
         running = False
         print("Initiating shutdown sequence...")
-
-        # Add story circle thread to shutdown sequence
-        if story_circle_thread and story_circle_thread.is_alive():
-            print("Waiting for Story Circle progression to shut down...")
-            story_circle_thread.join(timeout=30)
-            if story_circle_thread.is_alive():
-                print("Story Circle progression shutdown timed out!")
 
         if twitter_thread and twitter_thread.is_alive():
             print("Waiting for Twitter bot to shut down...")
