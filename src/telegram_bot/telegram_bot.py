@@ -27,6 +27,7 @@ from src.config import Config
 from src.ai_generator import AIGenerator
 from src.memory_processor import MemoryProcessor
 from src.memory_decision import select_relevant_memories
+from src.wallet_manager import WalletManager
 
 # Load environment variables
 load_dotenv()
@@ -48,6 +49,8 @@ class TelegramBot:
         self.user_conversations = {}
         self.MAX_MEMORY = Config.MAX_MEMORY
         self.application = None  # Initialize application as None
+        # Initialize wallet manager
+        self.wallet_manager = WalletManager()
 
     async def error_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors caused by updates."""
@@ -186,8 +189,33 @@ class TelegramBot:
         self.add_to_conversation_history(user_id, user_message, is_bot=False)
 
         try:
+            # Check if message is asking about marketcap
+            is_marketcap_inquiry = self.is_marketcap_inquiry(user_message)
+            marketcap_data = None
+            
+            # If it's a marketcap inquiry, fetch the data
+            if is_marketcap_inquiry:
+                try:
+                    logger.info(f"Marketcap inquiry detected: '{user_message}'")
+                    mint_address = Config.TOKEN_MINT_ADDRESS
+                    logger.info(f"Using mint address from config: {mint_address}")
+                    success, marketcap = await self.wallet_manager.get_token_marketcap(mint_address)
+                    logger.info(f"Marketcap request result: success={success}, value={marketcap}")
+                    if success and marketcap:
+                        marketcap_data = {"value": marketcap, "ticker": "$SOLEXA"}
+                        logger.info(f"Market cap data prepared: {marketcap_data}")
+                    else:
+                        logger.warning("Failed to get marketcap data")
+                except Exception as e:
+                    logger.error(f"Error fetching marketcap: {e}", exc_info=True)
+
             # Generate AI response
-            response = await self.generate_response(user_message, user_id, username)
+            response = await self.generate_response(
+                user_message, 
+                user_id, 
+                username,
+                marketcap_data=marketcap_data
+            )
 
             # Trim response if it's too long
             if len(response) > 280:
@@ -236,7 +264,7 @@ class TelegramBot:
             for msg in history
         ])
 
-    async def generate_response(self, user_message, user_id, username):
+    async def generate_response(self, user_message, user_id, username, marketcap_data=None):
         """
         Use your custom AI pipeline to generate a bot response.
         """
@@ -260,7 +288,8 @@ class TelegramBot:
                 username=username,
                 conversation_context=conversation_context,
                 memories=memories,  # Now passing fresh memories
-                emotion_format=emotion_format
+                emotion_format=emotion_format,
+                marketcap_data=marketcap_data  # Pass the marketcap data
             )
 
             logger.info(f"Generated response (first 50 chars): {response[:50]}...")
@@ -269,3 +298,16 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             return "Sorry, I couldn't process your request at the moment."
+
+    def is_marketcap_inquiry(self, message):
+        """
+        Check if the message is asking about marketcap.
+        """
+        message = message.lower()
+        marketcap_phrases = [
+            "marketcap", "market cap", "market value", "token value", 
+            "how much is fwog worth", "what's the marketcap", "mc", 
+            "what's fwog worth", "what is fwog worth"
+        ]
+        
+        return any(phrase in message for phrase in marketcap_phrases)

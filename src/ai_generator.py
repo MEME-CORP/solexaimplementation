@@ -311,7 +311,34 @@ class AIGenerator:
                 logger.error(f"Error selecting memories: {e}")
                 kwargs['memories'] = "no memories available"
             
-            messages = self._prepare_messages(**kwargs)
+            # Check if marketcap data is provided and add it to the prompt
+            marketcap_data = kwargs.get('marketcap_data')
+            if marketcap_data:
+                # Format marketcap for easier reading
+                if marketcap_data['value'] >= 1000000:
+                    formatted_mc = f"${marketcap_data['value']/1000000:.2f}M"
+                else:
+                    formatted_mc = f"${marketcap_data['value']:.2f}"
+                    
+                marketcap_info = f"The current marketcap of {marketcap_data['ticker']} is {formatted_mc}."
+                
+                # Add to user message for context but also create a special instruction
+                if kwargs.get('user_message'):
+                    kwargs['user_message'] = f"{kwargs['user_message']} [FACT: {marketcap_info}]"
+                
+                # Add to system message instruction to ensure it's included in response
+                messages = self._prepare_messages(**kwargs)
+                
+                # Insert a special instruction to ensure market cap is included in the response
+                special_instruction = {
+                    "role": "system",
+                    "content": f"Make sure to include this important factual information in your response: {marketcap_info} This data is current and accurate."
+                }
+                
+                # Insert the special instruction after the system message
+                messages.insert(1, special_instruction)
+            else:
+                messages = self._prepare_messages(**kwargs)
             
             # Add detailed logging of the complete system prompt
             if self.mode == 'twitter':

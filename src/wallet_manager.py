@@ -368,13 +368,17 @@ class WalletManager:
     async def get_token_marketcap(self, mint_address: str) -> Tuple[bool, Optional[Decimal]]:
         """Calculate token marketcap based on price and total supply"""
         try:
+            logger.info(f"Fetching marketcap for token: {mint_address}")
             TOTAL_SUPPLY = Decimal('1000000000')
             DEFAULT_BONDING_CURVE_MC = Decimal('5000')
             success, price_data = await self.get_token_price(mint_address)
+            
             if not success or not price_data:
                 logger.info(f"Token {mint_address} appears to be on bonding curve, using default marketcap: {DEFAULT_BONDING_CURVE_MC}")
                 return True, DEFAULT_BONDING_CURVE_MC
+            
             marketcap = price_data['price'] * TOTAL_SUPPLY
+            logger.info(f"Calculated marketcap: {marketcap} (price: {price_data['price']})")
             return True, marketcap
         except Exception as e:
             logger.error(f"Error calculating marketcap: {e}")
