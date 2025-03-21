@@ -193,7 +193,7 @@ class TelegramBot:
             is_marketcap_inquiry = self.is_marketcap_inquiry(user_message)
             marketcap_data = None
             
-            # If it's a marketcap inquiry, fetch the data
+            # If it's a marketcap inquiry, fetch the dataddd
             if is_marketcap_inquiry:
                 try:
                     logger.info(f"Marketcap inquiry detected: '{user_message}'")
