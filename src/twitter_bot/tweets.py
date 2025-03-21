@@ -169,7 +169,10 @@ class TweetManager:
                 button_selectors = [
                     ("css", "[data-testid='tweetButton']"),
                     ("css", "div[role='button'][data-testid='tweetButtonInline']"),
-                    ("css", "div.css-175oi2r.r-kemksi.r-jumn1c.r-xd6kpl.r-gtdqiz.r-ipm5af.r-184en5c > div:nth-child(2) > div > div > div > button")
+                    ("css", "div.css-175oi2r.r-kemksi.r-jumn1c.r-xd6kpl.r-gtdqiz.r-ipm5af.r-184en5c > div:nth-child(2) > div > div > div > button"),
+                    # Add new selectors to match current Twitter UI
+                    ("css", "button[data-testid='tweetButtonInline']"),
+                    ("css", "[data-testid='tweetButtonInline']")
                 ]
                 
                 # Find post button
